@@ -17,6 +17,10 @@ export default function App(): JSX.Element {
   const setHasGeminiKey = useAppStore((s) => s.setHasGeminiKey)
   const hasGeminiKey = useAppStore((s) => s.hasGeminiKey)
   const addPending = useAppStore((s) => s.addPending)
+  const addDebateUpdate = useAppStore((s) => s.addDebateUpdate)
+  const setDebateStatus = useAppStore((s) => s.setDebateStatus)
+  const debateRunning = useAppStore((s) => s.debateRunning)
+  const debateStatus = useAppStore((s) => s.debateStatus)
   const [showKey, setShowKey] = useState(false)
   const [showDebate, setShowDebate] = useState(false)
   const [showSideChat, setShowSideChat] = useState(false)
@@ -26,7 +30,7 @@ export default function App(): JSX.Element {
   useEffect(() => {
     window.api.fs.projectRoot().then(setProjectRoot)
     window.api.gemini.hasKey().then(setHasGeminiKey)
-    
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === ';') {
         e.preventDefault()
@@ -36,6 +40,17 @@ export default function App(): JSX.Element {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [setProjectRoot, setHasGeminiKey])
+
+  // Always-mounted debate listeners: updates accumulate in the store even when
+  // the DebateView is minimized or closed, so the run is never lost.
+  useEffect(() => {
+    const offUpdate = window.api.debate.onUpdate(addDebateUpdate)
+    const offStatus = window.api.debate.onStatus(setDebateStatus)
+    return () => {
+      offUpdate()
+      offStatus()
+    }
+  }, [addDebateUpdate, setDebateStatus])
 
   // Route incoming command proposals: auto-approve trusted sessions, else queue a toast.
   useEffect(() => {
@@ -118,6 +133,18 @@ export default function App(): JSX.Element {
       {showKey && <GeminiKeyModal onClose={() => setShowKey(false)} />}
       {showDebate && <DebateView onClose={() => setShowDebate(false)} />}
       {showSideChat && <SideChat onClose={() => setShowSideChat(false)} />}
+
+      {/* Floating pill: debate running or has results, but the panel is hidden. */}
+      {!showDebate && debateRunning && (
+        <button
+          onClick={() => setShowDebate(true)}
+          className="fixed bottom-4 left-4 z-40 flex items-center gap-2 rounded-full border border-border bg-panel px-4 py-2 text-xs shadow-xl hover:bg-bg"
+        >
+          <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-accent" />
+          <span className="text-gray-200">{debateStatus || 'Debate running…'}</span>
+          <span className="text-accent">open</span>
+        </button>
+      )}
     </div>
   )
 }

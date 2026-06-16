@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Message, PendingCommand } from '@shared/types'
+import type { Message, PendingCommand, DebateUpdate } from '@shared/types'
 
 export interface ClaudeSession {
   id: string
@@ -34,6 +34,17 @@ interface AppState {
 
   selectedFile: string | null
   setSelectedFile: (path: string | null) => void
+
+  // Debate state lives here (not in the view) so it survives minimize/close
+  // and a single always-mounted listener accumulates updates.
+  debateRunning: boolean
+  debateStatus: string
+  debateUpdates: DebateUpdate[]
+  debatePrompt: string
+  startDebateState: (prompt: string) => void
+  addDebateUpdate: (u: DebateUpdate) => void
+  setDebateStatus: (s: string) => void
+  endDebate: () => void
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -79,5 +90,21 @@ export const useAppStore = create<AppState>((set, get) => ({
   setActiveClaude: (id) => set({ activeClaude: id }),
 
   selectedFile: null,
-  setSelectedFile: (path) => set({ selectedFile: path })
+  setSelectedFile: (path) => set({ selectedFile: path }),
+
+  debateRunning: false,
+  debateStatus: '',
+  debateUpdates: [],
+  debatePrompt: '',
+  startDebateState: (prompt) =>
+    set({ debateRunning: true, debateStatus: 'Starting…', debateUpdates: [], debatePrompt: prompt }),
+  addDebateUpdate: (u) =>
+    set((s) => ({
+      debateUpdates: [...s.debateUpdates, u],
+      // Synthesis or error ends the run.
+      debateRunning: u.type === 'synthesis' || u.type === 'error' ? false : s.debateRunning,
+      debateStatus: u.type === 'synthesis' || u.type === 'error' ? '' : s.debateStatus
+    })),
+  setDebateStatus: (status) => set({ debateStatus: status }),
+  endDebate: () => set({ debateRunning: false, debateStatus: '' })
 }))

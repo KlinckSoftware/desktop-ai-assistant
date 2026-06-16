@@ -45,6 +45,11 @@ const api = {
       const h = (_e: unknown, u: DebateUpdate): void => cb(u)
       ipcRenderer.on(CH.debateUpdate, h)
       return () => ipcRenderer.removeListener(CH.debateUpdate, h)
+    },
+    onStatus: (cb: (s: string) => void): (() => void) => {
+      const h = (_e: unknown, s: string): void => cb(s)
+      ipcRenderer.on(CH.debateStatus, h)
+      return () => ipcRenderer.removeListener(CH.debateStatus, h)
     }
   },
   terminal: {

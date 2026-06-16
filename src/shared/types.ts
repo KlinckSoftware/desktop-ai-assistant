@@ -15,7 +15,7 @@ export interface FileNode {
 }
 
 export interface DebateUpdate {
-  type: 'claude' | 'gemini' | 'synthesis'
+  type: 'claude' | 'gemini' | 'synthesis' | 'error'
   text: string
   round?: number
 }
@@ -57,6 +57,7 @@ export const CH = {
 
   debateStart: 'debate:start',
   debateUpdate: 'debate:update',
+  debateStatus: 'debate:status',
 
   terminalInput: 'terminal:input',
   terminalOutput: 'terminal:output',
