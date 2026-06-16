@@ -2,21 +2,48 @@ import { useEffect, useState, useCallback } from 'react'
 import type { FileNode } from '@shared/types'
 import { useAppStore } from '../store/appStore'
 
+// Map a porcelain code to a one-char badge + color.
+function badge(code: string | undefined): { ch: string; cls: string } | null {
+  if (!code) return null
+  if (code === '??') return { ch: 'U', cls: 'text-green-400' }
+  if (code.includes('M')) return { ch: 'M', cls: 'text-yellow-400' }
+  if (code.includes('A')) return { ch: 'A', cls: 'text-green-400' }
+  if (code.includes('D')) return { ch: 'D', cls: 'text-red-400' }
+  return { ch: code[0], cls: 'text-gray-400' }
+}
+
 function TreeNode({ node, depth }: { node: FileNode; depth: number }): JSX.Element {
   const [open, setOpen] = useState(depth < 1)
-  const pad = { paddingLeft: `${depth * 12 + 8}px` }
+  const pad = { paddingLeft: `${depth * 12 + 4}px` }
 
   const setSelectedFile = useAppStore((s) => s.setSelectedFile)
   const selectedFile = useAppStore((s) => s.selectedFile)
+  const gitStatus = useAppStore((s) => s.gitStatus)
+  const contextFiles = useAppStore((s) => s.contextFiles)
+  const toggleContextFile = useAppStore((s) => s.toggleContextFile)
 
   if (!node.isDir) {
+    const b = badge(gitStatus[node.path])
+    const checked = contextFiles.has(node.path)
     return (
-      <div 
-        className={`cursor-default truncate py-0.5 hover:bg-panel ${selectedFile === node.path ? 'bg-panel text-accent font-semibold' : 'text-gray-300'}`} 
+      <div
+        className={`group flex items-center gap-1 py-0.5 hover:bg-panel ${
+          selectedFile === node.path ? 'bg-panel text-accent font-semibold' : 'text-gray-300'
+        }`}
         style={pad}
-        onClick={() => setSelectedFile(node.path)}
       >
-        {node.name}
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={() => toggleContextFile(node.path)}
+          onClick={(e) => e.stopPropagation()}
+          className="h-3 w-3 shrink-0 accent-gemini"
+          title="Add to prompt context"
+        />
+        <span className="flex-1 cursor-pointer truncate" onClick={() => setSelectedFile(node.path)}>
+          {node.name}
+        </span>
+        {b && <span className={`shrink-0 font-mono text-[10px] ${b.cls}`}>{b.ch}</span>}
       </div>
     )
   }
@@ -38,10 +65,15 @@ export default function FileTreePanel(): JSX.Element {
   const [tree, setTree] = useState<FileNode | null>(null)
   const projectRoot = useAppStore((s) => s.projectRoot)
   const setProjectRoot = useAppStore((s) => s.setProjectRoot)
+  const setGitStatus = useAppStore((s) => s.setGitStatus)
+  const contextFiles = useAppStore((s) => s.contextFiles)
+  const clearContextFiles = useAppStore((s) => s.clearContextFiles)
+  const setPendingGeminiContext = useAppStore((s) => s.setPendingGeminiContext)
 
   const refresh = useCallback(() => {
     window.api.fs.readTree().then(setTree)
-  }, [])
+    window.api.git.status().then(setGitStatus)
+  }, [setGitStatus])
 
   useEffect(() => {
     refresh()
@@ -52,7 +84,27 @@ export default function FileTreePanel(): JSX.Element {
   const pickDir = async (): Promise<void> => {
     const root = await window.api.fs.pickDir()
     setProjectRoot(root)
+    clearContextFiles()
     refresh()
+  }
+
+  const attach = async (): Promise<void> => {
+    const paths = [...contextFiles]
+    if (paths.length === 0) return
+    const parts = await Promise.all(
+      paths.map(async (p) => {
+        try {
+          const content = await window.api.fs.readFile(p)
+          const name = p.split(/[/\\]/).pop()
+          return `### File: ${name} (${p})\n\`\`\`\n${content}\n\`\`\``
+        } catch {
+          return `### File: ${p}\n[unreadable]`
+        }
+      })
+    )
+    setPendingGeminiContext(
+      `The following ${paths.length} file(s) are attached as context:\n\n${parts.join('\n\n')}`
+    )
   }
 
   return (
@@ -69,6 +121,23 @@ export default function FileTreePanel(): JSX.Element {
       <div className="flex-1 overflow-auto py-1">
         {tree?.children?.map((c) => <TreeNode key={c.path} node={c} depth={0} />)}
       </div>
+      {contextFiles.size > 0 && (
+        <div className="flex items-center gap-1 border-t border-border p-2">
+          <button
+            className="flex-1 rounded bg-gemini py-1 text-[11px] font-medium text-white"
+            onClick={attach}
+          >
+            ✦ Attach {contextFiles.size} to Gemini
+          </button>
+          <button
+            className="rounded border border-border px-2 py-1 text-gray-400 hover:bg-panel"
+            onClick={clearContextFiles}
+            title="Clear selection"
+          >
+            ✕
+          </button>
+        </div>
+      )}
     </div>
   )
 }

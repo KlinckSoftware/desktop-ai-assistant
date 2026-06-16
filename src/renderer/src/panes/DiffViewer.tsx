@@ -10,30 +10,35 @@ export default function DiffViewer(): JSX.Element {
   const [modified, setModified] = useState('')
   const [error, setError] = useState('')
 
-  useEffect(() => {
+  const load = async (): Promise<void> => {
     if (!selectedFile) {
       setOriginal('')
       setModified('')
       return
     }
+    try {
+      const working = await window.api.fs.readFile(selectedFile)
+      // If the file is git-tracked, baseline against HEAD so the diff shows the
+      // actual uncommitted changes; otherwise baseline against the working copy.
+      const head = await window.api.git.head(selectedFile)
+      setOriginal(head ?? working)
+      setModified(working)
+      setError('')
+    } catch (err) {
+      setError(`Failed to load file: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
 
-    window.api.fs.readFile(selectedFile)
-      .then((content) => {
-        setOriginal(content)
-        setModified(content)
-        setError('')
-      })
-      .catch((err) => {
-        setError(`Failed to load file: ${err.message}`)
-      })
+  useEffect(() => {
+    load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedFile])
 
-  const handleSave = async () => {
+  const handleSave = async (): Promise<void> => {
     if (!selectedFile) return
     try {
       await window.api.fs.writeFile(selectedFile, modified)
-      setOriginal(modified)
-      // FileTreePanel will refresh automatically due to chokidar watcher
+      await load() // re-baseline (HEAD stays original; working diff persists until commit)
     } catch (err) {
       setError(`Failed to save: ${err instanceof Error ? err.message : String(err)}`)
     }
