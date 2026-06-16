@@ -15,22 +15,19 @@ export default function SideChat({ onClose }: { onClose: () => void }): JSX.Elem
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [onClose])
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault()
     if (!prompt.trim() || isThinking) return
     setIsThinking(true)
     setReply('')
 
-    const off = window.api.gemini.onStream((chunk) => {
-      setReply((prev) => prev + chunk)
-    })
-
     try {
-      await window.api.gemini.send(prompt, [])
+      // Isolated one-shot: does not stream into or mutate the main Gemini chat.
+      const text = await window.api.gemini.sideSend(prompt)
+      setReply(text)
     } catch (err) {
       setReply(`Error: ${err instanceof Error ? err.message : String(err)}`)
     } finally {
-      off()
       setIsThinking(false)
       setPrompt('')
     }
@@ -45,6 +42,9 @@ export default function SideChat({ onClose }: { onClose: () => void }): JSX.Elem
         </button>
       </div>
       
+      {isThinking && !reply && (
+        <div className="p-3 text-sm text-gray-500">…thinking</div>
+      )}
       {reply && (
         <div className="flex-1 overflow-y-auto p-3 text-sm text-gray-300">
           <pre className="whitespace-pre-wrap font-sans">{reply}</pre>
