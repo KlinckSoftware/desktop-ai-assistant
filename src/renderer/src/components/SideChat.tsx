@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
+import { useAppStore } from '../store/appStore'
+import { expandMentions } from '../utils/mentions'
 
 export default function SideChat({ onClose }: { onClose: () => void }): JSX.Element {
   const [prompt, setPrompt] = useState('')
@@ -22,8 +24,10 @@ export default function SideChat({ onClose }: { onClose: () => void }): JSX.Elem
     setReply('')
 
     try {
-      // Isolated one-shot: does not stream into or mutate the main Gemini chat.
-      const text = await window.api.gemini.sideSend(prompt)
+      // Expand @path mentions, then isolated one-shot (no main-chat mutation).
+      const root = useAppStore.getState().projectRoot
+      const expanded = await expandMentions(prompt, root)
+      const text = await window.api.gemini.sideSend(expanded)
       setReply(text)
     } catch (err) {
       setReply(`Error: ${err instanceof Error ? err.message : String(err)}`)

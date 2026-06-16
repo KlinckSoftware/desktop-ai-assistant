@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAppStore } from '../store/appStore'
+import { expandMentions } from '../utils/mentions'
 
 const DONE = '[[gemini:done]]'
 
@@ -36,9 +37,12 @@ export default function GeminiChat(): JSX.Element {
     if (!text || busy) return
     setInput('')
     const history = useAppStore.getState().geminiMessages
-    // Prepend any attached file context (consumed once), keep the chat bubble clean.
+    // Expand @path mentions, then prepend any attached file context (consumed
+    // once). The chat bubble keeps the clean typed text.
+    const root = useAppStore.getState().projectRoot
+    const withMentions = await expandMentions(text, root)
     const ctx = useAppStore.getState().pendingGeminiContext
-    const augmented = ctx ? `${ctx}\n\n---\n\n${text}` : text
+    const augmented = ctx ? `${ctx}\n\n---\n\n${withMentions}` : withMentions
     if (ctx) useAppStore.getState().setPendingGeminiContext('')
     addMessage({ role: 'user', content: text })
     addMessage({ role: 'model', content: '' })
@@ -76,7 +80,7 @@ export default function GeminiChat(): JSX.Element {
         <textarea
           className="flex-1 resize-none rounded border border-border bg-panel px-2 py-1.5 text-sm outline-none focus:border-accent"
           rows={2}
-          placeholder={hasKey ? 'Ask Gemini…' : 'Set an API key first'}
+          placeholder={hasKey ? 'Ask Gemini…  (@path to attach a file)' : 'Set an API key first'}
           value={input}
           disabled={!hasKey}
           onChange={(e) => setInput(e.target.value)}
