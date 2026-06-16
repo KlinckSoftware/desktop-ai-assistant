@@ -18,6 +18,7 @@ export default function App(): JSX.Element {
   const setHasGeminiKey = useAppStore((s) => s.setHasGeminiKey)
   const hasGeminiKey = useAppStore((s) => s.hasGeminiKey)
   const addPending = useAppStore((s) => s.addPending)
+  const hydrate = useAppStore((s) => s.hydrate)
   const addDebateUpdate = useAppStore((s) => s.addDebateUpdate)
   const setDebateStatus = useAppStore((s) => s.setDebateStatus)
   const debateRunning = useAppStore((s) => s.debateRunning)
@@ -27,20 +28,53 @@ export default function App(): JSX.Element {
   const [showSideChat, setShowSideChat] = useState(false)
   const [activeTab, setActiveTab] = useState<'terminal' | 'diff'>('terminal')
 
-  // One-time init.
+  // One-time init: restore persisted state, then sync project root + key.
   useEffect(() => {
-    window.api.fs.projectRoot().then(setProjectRoot)
-    window.api.gemini.hasKey().then(setHasGeminiKey)
+    ;(async () => {
+      const persisted = (await window.api.state.load()) as
+        | Partial<import('./store/appStore').PersistedState>
+        | null
+      if (persisted) {
+        hydrate(persisted)
+        if (persisted.projectRoot) await window.api.state.setRoot(persisted.projectRoot)
+        else setProjectRoot(await window.api.fs.projectRoot())
+      } else {
+        setProjectRoot(await window.api.fs.projectRoot())
+      }
+      setHasGeminiKey(await window.api.gemini.hasKey())
+    })()
 
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const handleKeyDown = (e: KeyboardEvent): void => {
       if ((e.ctrlKey || e.metaKey) && e.key === ';') {
         e.preventDefault()
-        setShowSideChat(prev => !prev)
+        setShowSideChat((prev) => !prev)
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [setProjectRoot, setHasGeminiKey])
+  }, [setProjectRoot, setHasGeminiKey, hydrate])
+
+  // Debounced persistence: save the serializable slice on any state change.
+  useEffect(() => {
+    let t: ReturnType<typeof setTimeout> | null = null
+    const unsub = useAppStore.subscribe(() => {
+      if (t) clearTimeout(t)
+      t = setTimeout(() => {
+        const s = useAppStore.getState()
+        window.api.state.save({
+          projectRoot: s.projectRoot,
+          selectedFile: s.selectedFile,
+          geminiMessages: s.geminiMessages,
+          debateUpdates: s.debateUpdates,
+          debatePrompt: s.debatePrompt
+        })
+      }, 600)
+    })
+    return () => {
+      if (t) clearTimeout(t)
+      unsub()
+    }
+  }, [])
 
   // Always-mounted debate listeners: updates accumulate in the store even when
   // the DebateView is minimized or closed, so the run is never lost.

@@ -6,6 +6,16 @@ export interface ClaudeSession {
   label: string
 }
 
+// The subset of state persisted to disk across launches. Excludes live pty
+// sessions, command-approval trust (security), and transient context.
+export interface PersistedState {
+  projectRoot: string
+  selectedFile: string | null
+  geminiMessages: Message[]
+  debateUpdates: DebateUpdate[]
+  debatePrompt: string
+}
+
 interface AppState {
   projectRoot: string
   setProjectRoot: (p: string) => void
@@ -57,6 +67,8 @@ interface AppState {
   addDebateUpdate: (u: DebateUpdate) => void
   setDebateStatus: (s: string) => void
   endDebate: () => void
+
+  hydrate: (d: Partial<PersistedState>) => void
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -134,5 +146,16 @@ export const useAppStore = create<AppState>((set, get) => ({
       debateStatus: u.type === 'synthesis' || u.type === 'error' ? '' : s.debateStatus
     })),
   setDebateStatus: (status) => set({ debateStatus: status }),
-  endDebate: () => set({ debateRunning: false, debateStatus: '' })
+  endDebate: () => set({ debateRunning: false, debateStatus: '' }),
+
+  hydrate: (d) =>
+    set({
+      projectRoot: d.projectRoot ?? '',
+      selectedFile: d.selectedFile ?? null,
+      geminiMessages: d.geminiMessages ?? [],
+      debateUpdates: d.debateUpdates ?? [],
+      debatePrompt: d.debatePrompt ?? '',
+      debateRunning: false, // never restore a "running" flag — the backend is gone
+      debateStatus: ''
+    })
 }))
