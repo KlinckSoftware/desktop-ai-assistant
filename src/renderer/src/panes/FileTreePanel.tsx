@@ -6,9 +6,16 @@ function TreeNode({ node, depth }: { node: FileNode; depth: number }): JSX.Eleme
   const [open, setOpen] = useState(depth < 1)
   const pad = { paddingLeft: `${depth * 12 + 8}px` }
 
+  const setSelectedFile = useAppStore((s) => s.setSelectedFile)
+  const selectedFile = useAppStore((s) => s.selectedFile)
+
   if (!node.isDir) {
     return (
-      <div className="cursor-default truncate py-0.5 text-gray-300 hover:bg-panel" style={pad}>
+      <div 
+        className={`cursor-default truncate py-0.5 hover:bg-panel ${selectedFile === node.path ? 'bg-panel text-accent font-semibold' : 'text-gray-300'}`} 
+        style={pad}
+        onClick={() => setSelectedFile(node.path)}
+      >
         {node.name}
       </div>
     )
