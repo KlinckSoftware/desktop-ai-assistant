@@ -1,0 +1,76 @@
+// Shared types — used by main, preload, and renderer.
+
+export type AgentId = 'claude' | 'gemini'
+
+export interface Message {
+  role: 'user' | 'model' | 'assistant'
+  content: string
+}
+
+export interface FileNode {
+  name: string
+  path: string
+  isDir: boolean
+  children?: FileNode[]
+}
+
+export interface DebateUpdate {
+  type: 'claude' | 'gemini' | 'synthesis'
+  text: string
+  round?: number
+}
+
+export interface DebateRound {
+  round: number
+  claude: string
+  gemini: string
+}
+
+// A command parsed from a ```bash run``` block, awaiting user approval.
+export interface PendingCommand {
+  id: string
+  command: string
+  origin: AgentId
+  sessionId: string
+}
+
+export interface CommandResult {
+  id: string
+  command: string
+  output: string
+  exitInferred: boolean
+}
+
+// Channel name constants — single source of truth for IPC strings.
+export const CH = {
+  claudeSend: 'claude:send',
+  claudeNewSession: 'claude:new-session',
+  claudeKillSession: 'claude:kill-session',
+  claudeStream: 'claude:stream',
+  claudeResize: 'claude:resize',
+
+  geminiSend: 'gemini:send',
+  geminiStream: 'gemini:stream',
+  geminiHasKey: 'gemini:has-key',
+  geminiSaveKey: 'gemini:save-key',
+
+  debateStart: 'debate:start',
+  debateUpdate: 'debate:update',
+
+  terminalInput: 'terminal:input',
+  terminalOutput: 'terminal:output',
+  terminalResize: 'terminal:resize',
+
+  cmdPending: 'cmd:pending',
+  cmdApprove: 'cmd:approve',
+  cmdReject: 'cmd:reject',
+  cmdResult: 'cmd:result',
+
+  fsReadTree: 'fs:read-tree',
+  fsReadFile: 'fs:read-file',
+  fsWriteFile: 'fs:write-file',
+  fsPickDir: 'fs:pick-dir',
+  fsChanged: 'fs:changed',
+
+  appProjectRoot: 'app:project-root'
+} as const
