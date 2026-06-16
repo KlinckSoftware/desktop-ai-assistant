@@ -7,7 +7,7 @@ import { CommandBroker } from './executor/CommandBroker'
 import { ClaudeProcessManager } from './claude/ClaudeProcessManager'
 import { GeminiClient } from './gemini/GeminiClient'
 import { FileSystemManager } from './fs/FileSystemManager'
-import { gitStatus, gitHead } from './fs/git'
+import { gitStatus, gitHead, gitChanges, gitStage, gitUnstage, gitCommit } from './fs/git'
 import { loadState, saveState } from './persistence'
 import { IPCModerator } from './moderator/IPCModerator'
 
@@ -103,6 +103,11 @@ function registerIpc(): void {
   ipcMain.handle(CH.stateSave, (_e, data: unknown) => saveState(data))
   ipcMain.handle(CH.gitStatus, () => gitStatus(appState.projectRoot))
   ipcMain.handle(CH.gitHead, (_e, path: string) => gitHead(appState.projectRoot, path))
+  ipcMain.handle(CH.gitChanges, () => gitChanges(appState.projectRoot))
+  ipcMain.handle(CH.gitStage, (_e, rel: string) => gitStage(appState.projectRoot, rel))
+  ipcMain.handle(CH.gitUnstage, (_e, rel: string) => gitUnstage(appState.projectRoot, rel))
+  ipcMain.handle(CH.gitCommit, (_e, msg: string) => gitCommit(appState.projectRoot, msg))
+  ipcMain.handle(CH.fsListFiles, () => fsm.listFiles(appState.projectRoot))
   ipcMain.handle(CH.fsPickDir, async () => {
     const res = await dialog.showOpenDialog({ properties: ['openDirectory'] })
     if (res.canceled || !res.filePaths[0]) return appState.projectRoot

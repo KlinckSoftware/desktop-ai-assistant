@@ -58,6 +58,29 @@ export class FileSystemManager {
     return node
   }
 
+  // Flat list of relative file paths under root (for @-mention autocomplete).
+  async listFiles(root: string, max = 5000): Promise<string[]> {
+    const out: string[] = []
+    const walk = async (dir: string): Promise<void> => {
+      if (out.length >= max) return
+      let entries: import('fs').Dirent[]
+      try {
+        entries = await fs.readdir(dir, { withFileTypes: true })
+      } catch {
+        return
+      }
+      for (const e of entries) {
+        if (out.length >= max) return
+        if (IGNORE.has(e.name) || e.name.startsWith('.')) continue
+        const full = join(dir, e.name)
+        if (e.isDirectory()) await walk(full)
+        else out.push(resolve(full).slice(resolve(root).length + 1).split('\\').join('/'))
+      }
+    }
+    await walk(root)
+    return out
+  }
+
   async readFile(path: string): Promise<string> {
     return fs.readFile(assertInRoot(path), 'utf-8')
   }

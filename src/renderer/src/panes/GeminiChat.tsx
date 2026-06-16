@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAppStore } from '../store/appStore'
 import { expandMentions } from '../utils/mentions'
+import MentionInput from '../components/MentionInput'
 
 const DONE = '[[gemini:done]]'
 
@@ -77,19 +78,12 @@ export default function GeminiChat(): JSX.Element {
         </div>
       )}
       <div className="flex gap-2 border-t border-border p-2">
-        <textarea
-          className="flex-1 resize-none rounded border border-border bg-panel px-2 py-1.5 text-sm outline-none focus:border-accent"
-          rows={2}
-          placeholder={hasKey ? 'Ask Gemini…  (@path to attach a file)' : 'Set an API key first'}
+        <MentionInput
           value={input}
+          onChange={setInput}
+          onSubmit={sendMsg}
           disabled={!hasKey}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault()
-              sendMsg()
-            }
-          }}
+          placeholder={hasKey ? 'Ask Gemini…  (@path to attach a file)' : 'Set an API key first'}
         />
         <button
           className="rounded bg-gemini px-3 text-sm font-medium text-white disabled:opacity-40"

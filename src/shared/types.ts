@@ -14,6 +14,17 @@ export interface FileNode {
   children?: FileNode[]
 }
 
+export interface GitChange {
+  path: string // absolute
+  rel: string // relative, forward slashes
+  code: string // 2-char porcelain XY
+}
+export interface GitChanges {
+  staged: GitChange[]
+  unstaged: GitChange[]
+  branch: string
+}
+
 export interface DebateUpdate {
   type: 'claude' | 'gemini' | 'synthesis' | 'error'
   text: string
@@ -73,8 +84,13 @@ export const CH = {
   fsWriteFile: 'fs:write-file',
   fsPickDir: 'fs:pick-dir',
   fsChanged: 'fs:changed',
+  fsListFiles: 'fs:list-files',
   gitStatus: 'git:status',
   gitHead: 'git:head',
+  gitChanges: 'git:changes',
+  gitStage: 'git:stage',
+  gitUnstage: 'git:unstage',
+  gitCommit: 'git:commit',
 
   appProjectRoot: 'app:project-root',
   appSetRoot: 'app:set-root',

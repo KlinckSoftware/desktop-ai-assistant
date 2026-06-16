@@ -1,24 +1,22 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useAppStore } from '../store/appStore'
 import { expandMentions } from '../utils/mentions'
+import MentionInput from './MentionInput'
 
 export default function SideChat({ onClose }: { onClose: () => void }): JSX.Element {
   const [prompt, setPrompt] = useState('')
   const [reply, setReply] = useState('')
   const [isThinking, setIsThinking] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    inputRef.current?.focus()
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const handleKeyDown = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [onClose])
 
-  const handleSubmit = async (e: React.FormEvent): Promise<void> => {
-    e.preventDefault()
+  const handleSubmit = async (): Promise<void> => {
     if (!prompt.trim() || isThinking) return
     setIsThinking(true)
     setReply('')
@@ -55,17 +53,16 @@ export default function SideChat({ onClose }: { onClose: () => void }): JSX.Elem
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="border-t border-border p-2">
-        <input
-          ref={inputRef}
-          type="text"
+      <div className="flex border-t border-border p-2">
+        <MentionInput
           value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          placeholder="Ask a quick question..."
-          className="w-full rounded bg-bg px-3 py-2 text-sm text-gray-200 outline-none focus:ring-1 focus:ring-gemini"
+          onChange={setPrompt}
+          onSubmit={handleSubmit}
           disabled={isThinking}
+          rows={1}
+          placeholder="Ask a quick question…  (@path to attach a file)"
         />
-      </form>
+      </div>
     </div>
   )
 }

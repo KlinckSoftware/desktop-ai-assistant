@@ -48,6 +48,9 @@ interface AppState {
   gitStatus: Record<string, string>
   setGitStatus: (m: Record<string, string>) => void
 
+  fileList: string[]
+  setFileList: (f: string[]) => void
+
   // Files checked in the tree to attach as prompt context.
   contextFiles: Set<string>
   toggleContextFile: (path: string) => void
@@ -118,6 +121,9 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   gitStatus: {},
   setGitStatus: (m) => set({ gitStatus: m }),
+
+  fileList: [],
+  setFileList: (f) => set({ fileList: f }),
 
   contextFiles: new Set(),
   toggleContextFile: (path) =>

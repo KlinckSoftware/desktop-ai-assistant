@@ -5,7 +5,8 @@ import {
   type FileNode,
   type PendingCommand,
   type CommandResult,
-  type DebateUpdate
+  type DebateUpdate,
+  type GitChanges
 } from '../shared/types'
 
 // The only surface the renderer can touch. No nodeIntegration, no raw ipc.
@@ -78,6 +79,7 @@ const api = {
   fs: {
     readTree: (root?: string): Promise<FileNode> => ipcRenderer.invoke(CH.fsReadTree, root),
     readFile: (path: string): Promise<string> => ipcRenderer.invoke(CH.fsReadFile, path),
+    listFiles: (): Promise<string[]> => ipcRenderer.invoke(CH.fsListFiles),
     writeFile: (path: string, content: string): Promise<void> =>
       ipcRenderer.invoke(CH.fsWriteFile, path, content),
     pickDir: (): Promise<string> => ipcRenderer.invoke(CH.fsPickDir),
@@ -90,7 +92,11 @@ const api = {
   },
   git: {
     status: (): Promise<Record<string, string>> => ipcRenderer.invoke(CH.gitStatus),
-    head: (path: string): Promise<string | null> => ipcRenderer.invoke(CH.gitHead, path)
+    head: (path: string): Promise<string | null> => ipcRenderer.invoke(CH.gitHead, path),
+    changes: (): Promise<GitChanges> => ipcRenderer.invoke(CH.gitChanges),
+    stage: (rel: string): Promise<void> => ipcRenderer.invoke(CH.gitStage, rel),
+    unstage: (rel: string): Promise<void> => ipcRenderer.invoke(CH.gitUnstage, rel),
+    commit: (msg: string): Promise<string> => ipcRenderer.invoke(CH.gitCommit, msg)
   },
   state: {
     load: (): Promise<unknown | null> => ipcRenderer.invoke(CH.stateLoad),
