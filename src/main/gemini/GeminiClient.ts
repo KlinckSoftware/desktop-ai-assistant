@@ -89,13 +89,28 @@ export class GeminiClient {
         parts: [{ text: m.content }]
       }))
     contents.push({ role: 'user', parts: [{ text: prompt }] })
-    // streamOnce also pushes chunks to the gemini chat channel; for debate we
-    // accept that minor side effect to reuse the SSE plumbing.
-    return this.streamOnce(apiKey, contents)
+    // emit=false: debate turns must not leak into the main Gemini chat stream.
+    return this.streamOnce(apiKey, contents, false)
   }
 
-  /** One streaming generateContent call. Uses alt=sse for real SSE framing. */
-  private async streamOnce(apiKey: string, contents: GeminiContent[]): Promise<string> {
+  /**
+   * Isolated single-turn call for the SideChat overlay. Does NOT stream to the
+   * main chat channel and does NOT run the command/approval loop — returns the
+   * full reply text via the invoke result only.
+   */
+  async sideSend(prompt: string): Promise<string> {
+    const apiKey = await KeychainManager.getKey()
+    if (!apiKey) return '[Gemini: no API key set]'
+    const contents: GeminiContent[] = [{ role: 'user', parts: [{ text: prompt }] }]
+    return this.streamOnce(apiKey, contents, false)
+  }
+
+  /**
+   * One streaming generateContent call. Uses alt=sse for real SSE framing.
+   * When `emit` is true, chunks are pushed to the main Gemini chat channel.
+   * Side/debate callers pass false so they never touch the main chat stream.
+   */
+  private async streamOnce(apiKey: string, contents: GeminiContent[], emit = true): Promise<string> {
     const url = `${BASE}/${MODEL}:streamGenerateContent?alt=sse&key=${apiKey}`
     const res = await fetch(url, {
       method: 'POST',
@@ -109,8 +124,8 @@ export class GeminiClient {
     if (!res.ok || !res.body) {
       const errText = await res.text().catch(() => res.statusText)
       const msg = `\n[Gemini error ${res.status}: ${errText.slice(0, 500)}]`
-      appState.send(CH.geminiStream, msg)
-      return ''
+      if (emit) appState.send(CH.geminiStream, msg)
+      return msg
     }
 
     const reader = res.body.getReader()
@@ -136,7 +151,7 @@ export class GeminiClient {
           const chunk = json?.candidates?.[0]?.content?.parts?.[0]?.text
           if (chunk) {
             text += chunk
-            appState.send(CH.geminiStream, chunk)
+            if (emit) appState.send(CH.geminiStream, chunk)
           }
         } catch {
           /* partial JSON — alt=sse should prevent this, but be safe */

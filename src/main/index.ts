@@ -68,6 +68,7 @@ function registerIpc(): void {
   ipcMain.handle(CH.geminiSend, (_e, prompt: string, history: Message[]) =>
     gemini.send(prompt, history)
   )
+  ipcMain.handle(CH.geminiSideSend, (_e, prompt: string) => gemini.sideSend(prompt))
   ipcMain.handle(CH.geminiHasKey, () => gemini.hasKey())
   ipcMain.handle(CH.geminiSaveKey, (_e, key: string) => gemini.saveKey(key))
 
