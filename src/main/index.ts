@@ -27,7 +27,11 @@ function createWindow(): void {
       preload: join(__dirname, '../preload/index.mjs'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false // required so preload can use Node built-ins for the bridge
+      // ESM preload (.mjs) only loads with sandbox disabled (Electron constraint).
+      // Isolation is still enforced by contextIsolation + the bounded window.api
+      // bridge; the preload never exposes Node to the renderer. Switching to a
+      // sandboxed CJS preload would require changing the preload build format.
+      sandbox: false
     }
   })
 
