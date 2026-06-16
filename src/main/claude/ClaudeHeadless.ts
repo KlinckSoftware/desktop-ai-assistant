@@ -1,7 +1,7 @@
 import { spawn } from 'child_process'
+import { resolveBin, cleanClaudeEnv } from '../util/resolveBin'
 
-const IS_WIN = process.platform === 'win32'
-const CLAUDE_BIN = IS_WIN ? 'claude.cmd' : 'claude'
+const CLAUDE_BIN = resolveBin('claude')
 
 // One-shot, non-interactive Claude Code call via `claude -p`.
 // Used by the debate moderator to get a clean text response (the interactive
@@ -10,8 +10,9 @@ export function claudeOneShot(prompt: string, cwd: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const proc = spawn(CLAUDE_BIN, ['-p', prompt], {
       cwd,
-      env: process.env,
-      shell: IS_WIN // resolve .cmd shim on Windows
+      env: cleanClaudeEnv(),
+      // CLAUDE_BIN is a fully-resolved path; no shell needed (avoids arg-quoting issues).
+      shell: false
     })
     let out = ''
     let err = ''

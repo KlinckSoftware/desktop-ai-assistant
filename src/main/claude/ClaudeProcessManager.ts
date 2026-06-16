@@ -3,6 +3,7 @@ import type { IPty } from 'node-pty'
 import { appState } from '../state'
 import { CH } from '../../shared/types'
 import { CommandExtractor } from '../executor/parser'
+import { resolveBin, cleanClaudeEnv } from '../util/resolveBin'
 import type { CommandBroker } from '../executor/CommandBroker'
 
 // Spawns `claude` (the Claude Code CLI) as a persistent interactive pty per session.
@@ -16,8 +17,7 @@ interface Session {
   buffer: string
 }
 
-const IS_WIN = process.platform === 'win32'
-const CLAUDE_BIN = IS_WIN ? 'claude.cmd' : 'claude'
+const CLAUDE_BIN = resolveBin('claude')
 
 export class ClaudeProcessManager {
   private sessions = new Map<string, Session>()
@@ -32,7 +32,7 @@ export class ClaudeProcessManager {
       cols: 200,
       rows: 50,
       cwd,
-      env: process.env as Record<string, string>
+      env: cleanClaudeEnv()
     })
 
     const session: Session = { proc, extractor: new CommandExtractor(), buffer: '' }
@@ -49,9 +49,11 @@ export class ClaudeProcessManager {
     })
 
     proc.onExit(({ exitCode }) => {
+      console.log(`[claude] session ${sessionId} exited code=${exitCode}`)
       appState.send(CH.claudeStream, sessionId, `\r\n[claude session exited: ${exitCode}]\r\n`)
       this.sessions.delete(sessionId)
     })
+    console.log(`[claude] spawned ${CLAUDE_BIN} (session ${sessionId})`)
   }
 
   send(sessionId: string, text: string): void {

@@ -24,7 +24,7 @@ function createWindow(): void {
     backgroundColor: '#0d1117',
     title: 'Desktop AI Assistant',
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
+      preload: join(__dirname, '../preload/index.mjs'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false // required so preload can use Node built-ins for the bridge
