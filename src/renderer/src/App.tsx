@@ -7,6 +7,7 @@ import GeminiChat from './panes/GeminiChat'
 import TerminalPane from './panes/TerminalPane'
 import FileTreePanel from './panes/FileTreePanel'
 import DebateView from './panes/DebateView'
+import GitPanel from './panes/GitPanel'
 import CommandToast from './components/CommandToast'
 import GeminiKeyModal from './components/GeminiKeyModal'
 import SessionSidebar from './components/SessionSidebar'
@@ -26,7 +27,8 @@ export default function App(): JSX.Element {
   const [showKey, setShowKey] = useState(false)
   const [showDebate, setShowDebate] = useState(false)
   const [showSideChat, setShowSideChat] = useState(false)
-  const [activeTab, setActiveTab] = useState<'terminal' | 'diff'>('terminal')
+  const [activeTab, setActiveTab] = useState<'terminal' | 'diff' | 'git'>('terminal')
+  const setFileList = useAppStore((s) => s.setFileList)
 
   // One-time init: restore persisted state, then sync project root + key.
   useEffect(() => {
@@ -53,6 +55,15 @@ export default function App(): JSX.Element {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [setProjectRoot, setHasGeminiKey, hydrate])
+
+  // Keep the @-mention file list fresh (load + refresh on fs changes).
+  useEffect(() => {
+    const load = (): void => {
+      window.api.fs.listFiles().then(setFileList)
+    }
+    load()
+    return window.api.fs.onChanged(load)
+  }, [setFileList])
 
   // Debounced persistence: save the serializable slice on any state change.
   useEffect(() => {
@@ -154,10 +165,17 @@ export default function App(): JSX.Element {
                     >
                       Diff Viewer
                     </button>
+                    <button
+                      className={`px-4 py-1.5 ${activeTab === 'git' ? 'border-b-2 border-accent text-accent font-semibold' : 'text-gray-400 hover:text-gray-200'}`}
+                      onClick={() => setActiveTab('git')}
+                    >
+                      Git
+                    </button>
                   </div>
                   <div className="flex-1 min-h-0">
                     {activeTab === 'terminal' && <TerminalPane />}
                     {activeTab === 'diff' && <DiffViewer />}
+                    {activeTab === 'git' && <GitPanel onOpenDiff={() => setActiveTab('diff')} />}
                   </div>
                 </div>
               </Allotment.Pane>
