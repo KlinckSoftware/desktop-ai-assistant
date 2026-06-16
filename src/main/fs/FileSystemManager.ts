@@ -59,10 +59,18 @@ export class FileSystemManager {
     this.watcher = chokidar.watch(root, {
       ignored: (p) => [...IGNORE].some((i) => p.includes(`${i}`)),
       ignoreInitial: true,
-      depth: 6
+      ignorePermissionErrors: true,
+      followSymlinks: false,
+      depth: 4
     })
-    const notify = () => appState.send(CH.fsChanged, root)
-    this.watcher.on('add', notify).on('unlink', notify).on('addDir', notify).on('unlinkDir', notify)
+    const notify = (): void => appState.send(CH.fsChanged, root)
+    this.watcher
+      .on('add', notify)
+      .on('unlink', notify)
+      .on('addDir', notify)
+      .on('unlinkDir', notify)
+      // Swallow EPERM/ENOENT on junctions instead of crashing with an unhandled rejection.
+      .on('error', (err) => console.warn('[fs-watch]', (err as Error)?.message ?? err))
   }
 
   dispose(): void {
