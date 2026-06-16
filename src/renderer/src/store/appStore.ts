@@ -29,7 +29,11 @@ interface AppState {
   claudeSessions: ClaudeSession[]
   activeClaude: string
   addClaudeSession: (s: ClaudeSession) => void
+  removeClaudeSession: (id: string) => void
   setActiveClaude: (id: string) => void
+
+  selectedFile: string | null
+  setSelectedFile: (path: string | null) => void
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -64,5 +68,16 @@ export const useAppStore = create<AppState>((set, get) => ({
   activeClaude: '',
   addClaudeSession: (s) =>
     set((st) => ({ claudeSessions: [...st.claudeSessions, s], activeClaude: s.id })),
-  setActiveClaude: (id) => set({ activeClaude: id })
+  removeClaudeSession: (id) =>
+    set((st) => {
+      const newSessions = st.claudeSessions.filter(s => s.id !== id)
+      return { 
+        claudeSessions: newSessions,
+        activeClaude: st.activeClaude === id ? (newSessions[0]?.id || '') : st.activeClaude 
+      }
+    }),
+  setActiveClaude: (id) => set({ activeClaude: id }),
+
+  selectedFile: null,
+  setSelectedFile: (path) => set({ selectedFile: path })
 }))

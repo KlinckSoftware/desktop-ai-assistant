@@ -29,6 +29,8 @@ const api = {
   gemini: {
     send: (prompt: string, history: Message[]): Promise<string> =>
       ipcRenderer.invoke(CH.geminiSend, prompt, history),
+    sideSend: (prompt: string): Promise<string> =>
+      ipcRenderer.invoke(CH.geminiSideSend, prompt),
     hasKey: (): Promise<boolean> => ipcRenderer.invoke(CH.geminiHasKey),
     saveKey: (key: string): Promise<void> => ipcRenderer.invoke(CH.geminiSaveKey, key),
     onStream: (cb: (chunk: string) => void): (() => void) => {

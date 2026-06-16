@@ -13,12 +13,17 @@ export default function ClaudePane(): JSX.Element {
   const addClaudeSession = useAppStore((s) => s.addClaudeSession)
   const sessions = useAppStore((s) => s.claudeSessions)
 
+  const initRef = useRef(false)
+
   // Ensure at least one session exists.
   useEffect(() => {
-    if (sessions.length === 0) {
+    if (sessions.length === 0 && !initRef.current) {
+      initRef.current = true
       const id = `claude-${Date.now()}`
       window.api.claude.newSession(id).then(() => {
         addClaudeSession({ id, label: 'Session 1' })
+      }).catch(() => {
+        initRef.current = false // reset on failure
       })
     }
   }, [sessions.length, addClaudeSession])
