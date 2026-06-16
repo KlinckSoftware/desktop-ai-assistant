@@ -50,6 +50,7 @@ export const CH = {
   claudeResize: 'claude:resize',
 
   geminiSend: 'gemini:send',
+  geminiSideSend: 'gemini:side-send',
   geminiStream: 'gemini:stream',
   geminiHasKey: 'gemini:has-key',
   geminiSaveKey: 'gemini:save-key',
