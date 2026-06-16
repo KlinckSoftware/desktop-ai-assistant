@@ -73,6 +73,8 @@ export const CH = {
   fsWriteFile: 'fs:write-file',
   fsPickDir: 'fs:pick-dir',
   fsChanged: 'fs:changed',
+  gitStatus: 'git:status',
+  gitHead: 'git:head',
 
   appProjectRoot: 'app:project-root'
 } as const

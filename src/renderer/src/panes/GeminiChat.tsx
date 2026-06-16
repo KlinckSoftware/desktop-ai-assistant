@@ -8,6 +8,8 @@ export default function GeminiChat(): JSX.Element {
   const addMessage = useAppStore((s) => s.addGeminiMessage)
   const append = useAppStore((s) => s.appendToLastGemini)
   const hasKey = useAppStore((s) => s.hasGeminiKey)
+  const hasContext = useAppStore((s) => s.pendingGeminiContext.length > 0)
+  const setPendingContext = useAppStore((s) => s.setPendingGeminiContext)
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -34,10 +36,14 @@ export default function GeminiChat(): JSX.Element {
     if (!text || busy) return
     setInput('')
     const history = useAppStore.getState().geminiMessages
+    // Prepend any attached file context (consumed once), keep the chat bubble clean.
+    const ctx = useAppStore.getState().pendingGeminiContext
+    const augmented = ctx ? `${ctx}\n\n---\n\n${text}` : text
+    if (ctx) useAppStore.getState().setPendingGeminiContext('')
     addMessage({ role: 'user', content: text })
     addMessage({ role: 'model', content: '' })
     setBusy(true)
-    await window.api.gemini.send(text, history)
+    await window.api.gemini.send(augmented, history)
   }
 
   return (
@@ -58,6 +64,14 @@ export default function GeminiChat(): JSX.Element {
           </div>
         ))}
       </div>
+      {hasContext && (
+        <div className="flex items-center justify-between border-t border-border bg-gemini/10 px-3 py-1 text-[11px] text-gemini">
+          <span>✦ file context attached — sent with next message</span>
+          <button className="text-gray-400 hover:text-gray-200" onClick={() => setPendingContext('')}>
+            clear
+          </button>
+        </div>
+      )}
       <div className="flex gap-2 border-t border-border p-2">
         <textarea
           className="flex-1 resize-none rounded border border-border bg-panel px-2 py-1.5 text-sm outline-none focus:border-accent"

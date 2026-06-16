@@ -87,6 +87,10 @@ const api = {
       ipcRenderer.on(CH.fsChanged, h)
       return () => ipcRenderer.removeListener(CH.fsChanged, h)
     }
+  },
+  git: {
+    status: (): Promise<Record<string, string>> => ipcRenderer.invoke(CH.gitStatus),
+    head: (path: string): Promise<string | null> => ipcRenderer.invoke(CH.gitHead, path)
   }
 }
 

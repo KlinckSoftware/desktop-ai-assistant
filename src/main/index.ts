@@ -7,6 +7,7 @@ import { CommandBroker } from './executor/CommandBroker'
 import { ClaudeProcessManager } from './claude/ClaudeProcessManager'
 import { GeminiClient } from './gemini/GeminiClient'
 import { FileSystemManager } from './fs/FileSystemManager'
+import { gitStatus, gitHead } from './fs/git'
 import { IPCModerator } from './moderator/IPCModerator'
 
 let executor: CommandExecutor
@@ -92,6 +93,8 @@ function registerIpc(): void {
   ipcMain.handle(CH.fsReadFile, (_e, path: string) => fsm.readFile(path))
   ipcMain.handle(CH.fsWriteFile, (_e, path: string, content: string) => fsm.writeFile(path, content))
   ipcMain.handle(CH.appProjectRoot, () => appState.projectRoot)
+  ipcMain.handle(CH.gitStatus, () => gitStatus(appState.projectRoot))
+  ipcMain.handle(CH.gitHead, (_e, path: string) => gitHead(appState.projectRoot, path))
   ipcMain.handle(CH.fsPickDir, async () => {
     const res = await dialog.showOpenDialog({ properties: ['openDirectory'] })
     if (res.canceled || !res.filePaths[0]) return appState.projectRoot

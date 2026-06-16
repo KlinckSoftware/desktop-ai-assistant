@@ -35,6 +35,18 @@ interface AppState {
   selectedFile: string | null
   setSelectedFile: (path: string | null) => void
 
+  gitStatus: Record<string, string>
+  setGitStatus: (m: Record<string, string>) => void
+
+  // Files checked in the tree to attach as prompt context.
+  contextFiles: Set<string>
+  toggleContextFile: (path: string) => void
+  clearContextFiles: () => void
+
+  // Assembled file context queued for the next Gemini send (prepended once).
+  pendingGeminiContext: string
+  setPendingGeminiContext: (s: string) => void
+
   // Debate state lives here (not in the view) so it survives minimize/close
   // and a single always-mounted listener accumulates updates.
   debateRunning: boolean
@@ -91,6 +103,22 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   selectedFile: null,
   setSelectedFile: (path) => set({ selectedFile: path }),
+
+  gitStatus: {},
+  setGitStatus: (m) => set({ gitStatus: m }),
+
+  contextFiles: new Set(),
+  toggleContextFile: (path) =>
+    set((s) => {
+      const next = new Set(s.contextFiles)
+      if (next.has(path)) next.delete(path)
+      else next.add(path)
+      return { contextFiles: next }
+    }),
+  clearContextFiles: () => set({ contextFiles: new Set() }),
+
+  pendingGeminiContext: '',
+  setPendingGeminiContext: (str) => set({ pendingGeminiContext: str }),
 
   debateRunning: false,
   debateStatus: '',
