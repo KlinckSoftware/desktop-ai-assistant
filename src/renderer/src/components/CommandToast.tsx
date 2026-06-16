@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { PendingCommand } from '@shared/types'
+import { checkDangerous } from '@shared/dangerousCommand'
 import { useAppStore } from '../store/appStore'
 
 const TIMEOUT_S = 15
@@ -34,14 +35,23 @@ function Card({ cmd }: { cmd: PendingCommand }): JSX.Element {
     approve()
   }
 
+  const danger = checkDangerous(cmd.command)
+
   return (
-    <div className="w-96 rounded-lg border border-border bg-panel p-3 shadow-xl">
+    <div
+      className={`w-96 rounded-lg border bg-panel p-3 shadow-xl ${danger.dangerous ? 'border-red-500' : 'border-border'}`}
+    >
       <div className="mb-1 flex items-center justify-between text-xs">
         <span className={cmd.origin === 'claude' ? 'text-claude' : 'text-gemini'}>
           {cmd.origin} wants to run
         </span>
         <span className="text-gray-500">auto-reject in {left}s</span>
       </div>
+      {danger.dangerous && (
+        <div className="mb-1 rounded bg-red-500/15 px-2 py-1 text-xs text-red-300">
+          ⚠ flagged: {danger.reason} — review carefully
+        </div>
+      )}
       <pre className="mb-2 max-h-32 overflow-auto rounded bg-bg p-2 text-xs text-gray-200">
         {cmd.command}
       </pre>

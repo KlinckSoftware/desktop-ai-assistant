@@ -111,10 +111,12 @@ export class GeminiClient {
    * Side/debate callers pass false so they never touch the main chat stream.
    */
   private async streamOnce(apiKey: string, contents: GeminiContent[], emit = true): Promise<string> {
-    const url = `${BASE}/${MODEL}:streamGenerateContent?alt=sse&key=${apiKey}`
+    // Key goes in a header, not the query string — keeps the secret out of
+    // request lines / proxy logs.
+    const url = `${BASE}/${MODEL}:streamGenerateContent?alt=sse`
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
       body: JSON.stringify({
         contents,
         systemInstruction: { parts: [{ text: SYSTEM }] }

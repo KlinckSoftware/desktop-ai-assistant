@@ -1,10 +1,22 @@
 import { promises as fs } from 'fs'
-import { join, basename } from 'path'
+import { join, basename, resolve, sep } from 'path'
 import chokidar, { type FSWatcher } from 'chokidar'
 import { appState } from '../state'
 import { CH, type FileNode } from '../../shared/types'
 
 const IGNORE = new Set(['node_modules', '.git', 'out', 'dist', 'release', '.next', '.cache'])
+
+// Confine file reads/writes to the current project root. Blocks path-traversal
+// (`..`) and absolute paths outside the project — so a compromised renderer
+// can't read ~/.ssh or overwrite system files.
+function assertInRoot(p: string): string {
+  const root = resolve(appState.projectRoot)
+  const target = resolve(p)
+  if (target !== root && !target.startsWith(root + sep)) {
+    throw new Error(`Path outside project root: ${p}`)
+  }
+  return target
+}
 
 export class FileSystemManager {
   private watcher: FSWatcher | null = null
@@ -47,11 +59,11 @@ export class FileSystemManager {
   }
 
   async readFile(path: string): Promise<string> {
-    return fs.readFile(path, 'utf-8')
+    return fs.readFile(assertInRoot(path), 'utf-8')
   }
 
   async writeFile(path: string, content: string): Promise<void> {
-    await fs.writeFile(path, content, 'utf-8')
+    await fs.writeFile(assertInRoot(path), content, 'utf-8')
   }
 
   watch(root: string): void {

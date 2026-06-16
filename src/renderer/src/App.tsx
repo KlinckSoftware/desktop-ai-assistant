@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Allotment } from 'allotment'
+import { checkDangerous } from '@shared/dangerousCommand'
 import { useAppStore } from './store/appStore'
 import ClaudePane from './panes/ClaudePane'
 import GeminiChat from './panes/GeminiChat'
@@ -55,7 +56,9 @@ export default function App(): JSX.Element {
   // Route incoming command proposals: auto-approve trusted sessions, else queue a toast.
   useEffect(() => {
     const off = window.api.command.onPending((c) => {
-      if (useAppStore.getState().isTrusted(c.sessionId)) {
+      // Trusted sessions auto-approve — EXCEPT dangerous commands, which always
+      // require an explicit confirm regardless of trust.
+      if (useAppStore.getState().isTrusted(c.sessionId) && !checkDangerous(c.command).dangerous) {
         window.api.command.approve(c.id)
       } else {
         addPending(c)
