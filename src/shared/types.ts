@@ -76,5 +76,8 @@ export const CH = {
   gitStatus: 'git:status',
   gitHead: 'git:head',
 
-  appProjectRoot: 'app:project-root'
+  appProjectRoot: 'app:project-root',
+  appSetRoot: 'app:set-root',
+  stateLoad: 'state:load',
+  stateSave: 'state:save'
 } as const

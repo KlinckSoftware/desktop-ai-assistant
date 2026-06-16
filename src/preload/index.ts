@@ -91,6 +91,11 @@ const api = {
   git: {
     status: (): Promise<Record<string, string>> => ipcRenderer.invoke(CH.gitStatus),
     head: (path: string): Promise<string | null> => ipcRenderer.invoke(CH.gitHead, path)
+  },
+  state: {
+    load: (): Promise<unknown | null> => ipcRenderer.invoke(CH.stateLoad),
+    save: (data: unknown): Promise<void> => ipcRenderer.invoke(CH.stateSave, data),
+    setRoot: (root: string): Promise<string> => ipcRenderer.invoke(CH.appSetRoot, root)
   }
 }
 
