@@ -27,20 +27,43 @@ export interface GitChanges {
   branch: string
 }
 
+// Normalize a porcelain path field: take the new name of a rename, strip quotes.
+function cleanPath(field: string): string {
+  let p = field.trim()
+  if (p.includes(' -> ')) p = p.split(' -> ')[1]
+  return p.replace(/^"|"$/g, '')
+}
+
+/** Pure parser: porcelain output -> path->code map (exported for tests). */
+export function parseStatusMap(out: string, root: string): GitStatusMap {
+  const map: GitStatusMap = {}
+  for (const line of out.split('\n')) {
+    if (!line.trim()) continue
+    map[join(root, cleanPath(line.slice(3)))] = line.slice(0, 2).trim()
+  }
+  return map
+}
+
+/** Pure parser: porcelain output -> staged/unstaged split (exported for tests). */
+export function parseChanges(out: string, root: string): Omit<GitChanges, 'branch'> {
+  const staged: GitChange[] = []
+  const unstaged: GitChange[] = []
+  for (const line of out.split('\n')) {
+    if (!line.trim()) continue
+    const x = line[0] // index (staged)
+    const y = line[1] // worktree (unstaged)
+    const rel = cleanPath(line.slice(3))
+    const change: GitChange = { path: join(root, rel), rel, code: line.slice(0, 2) }
+    if (x !== ' ' && x !== '?') staged.push(change)
+    if (y !== ' ') unstaged.push(change)
+  }
+  return { staged, unstaged }
+}
+
 /** Flat path->code map (used for tree badges). */
 export async function gitStatus(root: string): Promise<GitStatusMap> {
   try {
-    const out = await runGit(root, ['status', '--porcelain'])
-    const map: GitStatusMap = {}
-    for (const line of out.split('\n')) {
-      if (!line.trim()) continue
-      const code = line.slice(0, 2).trim()
-      let p = line.slice(3).trim()
-      if (p.includes(' -> ')) p = p.split(' -> ')[1]
-      p = p.replace(/^"|"$/g, '')
-      map[join(root, p)] = code
-    }
-    return map
+    return parseStatusMap(await runGit(root, ['status', '--porcelain']), root)
   } catch {
     return {}
   }
@@ -55,19 +78,9 @@ export async function gitChanges(root: string): Promise<GitChanges> {
     return result // not a repo
   }
   try {
-    const out = await runGit(root, ['status', '--porcelain'])
-    for (const line of out.split('\n')) {
-      if (!line.trim()) continue
-      const x = line[0] // index (staged) status
-      const y = line[1] // worktree (unstaged) status
-      let p = line.slice(3).trim()
-      if (p.includes(' -> ')) p = p.split(' -> ')[1]
-      p = p.replace(/^"|"$/g, '')
-      const rel = p
-      const abs = join(root, p)
-      if (x !== ' ' && x !== '?') result.staged.push({ path: abs, rel, code: line.slice(0, 2) })
-      if (y !== ' ') result.unstaged.push({ path: abs, rel, code: line.slice(0, 2) })
-    }
+    const { staged, unstaged } = parseChanges(await runGit(root, ['status', '--porcelain']), root)
+    result.staged = staged
+    result.unstaged = unstaged
   } catch {
     /* leave empty */
   }
