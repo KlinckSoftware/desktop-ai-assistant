@@ -14,7 +14,8 @@ export class IPCModerator {
     private broker: CommandBroker
   ) {}
 
-  async runDebate(userPrompt: string, rounds = 3): Promise<void> {
+  async runDebate(userPrompt: string, roundsArg?: number): Promise<void> {
+    const rounds = roundsArg ?? appState.settings.debateRounds
     const cwd = appState.projectRoot
     const transcript: DebateRound[] = []
     const status = (s: string): void => appState.send(CH.debateStatus, s)

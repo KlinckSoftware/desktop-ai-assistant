@@ -14,6 +14,8 @@ export interface PersistedState {
   geminiMessages: Message[]
   debateUpdates: DebateUpdate[]
   debatePrompt: string
+  geminiModel: string
+  debateRounds: number
 }
 
 interface AppState {
@@ -27,6 +29,13 @@ interface AppState {
   trustedSessions: Set<string>
   trustSession: (id: string) => void
   isTrusted: (id: string) => boolean
+  clearTrust: () => void
+
+  // User settings (mirrored to main via window.api.settings.set).
+  geminiModel: string
+  debateRounds: number
+  setGeminiModel: (m: string) => void
+  setDebateRounds: (n: number) => void
 
   pending: PendingCommand[]
   addPending: (c: PendingCommand) => void
@@ -98,6 +107,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   trustSession: (id) =>
     set((s) => ({ trustedSessions: new Set(s.trustedSessions).add(id) })),
   isTrusted: (id) => get().trustedSessions.has(id),
+  clearTrust: () => set({ trustedSessions: new Set() }),
+
+  geminiModel: 'gemini-2.5-flash',
+  debateRounds: 3,
+  setGeminiModel: (m) => set({ geminiModel: m }),
+  setDebateRounds: (n) => set({ debateRounds: n }),
 
   pending: [],
   addPending: (c) => set((s) => ({ pending: [...s.pending, c] })),
@@ -186,6 +201,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       geminiMessages: d.geminiMessages ?? [],
       debateUpdates: d.debateUpdates ?? [],
       debatePrompt: d.debatePrompt ?? '',
+      geminiModel: d.geminiModel ?? 'gemini-2.5-flash',
+      debateRounds: d.debateRounds ?? 3,
       debateRunning: false, // never restore a "running" flag — the backend is gone
       debateStatus: ''
     })

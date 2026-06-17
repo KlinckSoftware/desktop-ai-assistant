@@ -5,7 +5,6 @@ import { extractBashBlocks, extractFileEdits } from '../executor/parser'
 import type { CommandBroker } from '../executor/CommandBroker'
 import type { FileEditBroker } from '../editor/FileEditBroker'
 
-const MODEL = 'gemini-2.5-flash'
 const BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
 
 const SYSTEM = `You are an expert coding assistant working inside a desktop IDE.
@@ -138,8 +137,9 @@ export class GeminiClient {
    */
   private async streamOnce(apiKey: string, contents: GeminiContent[], emit = true): Promise<string> {
     // Key goes in a header, not the query string — keeps the secret out of
-    // request lines / proxy logs.
-    const url = `${BASE}/${MODEL}:streamGenerateContent?alt=sse`
+    // request lines / proxy logs. Model is user-configurable via settings.
+    const model = appState.settings.geminiModel
+    const url = `${BASE}/${model}:streamGenerateContent?alt=sse`
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
