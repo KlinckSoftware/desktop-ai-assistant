@@ -13,10 +13,16 @@ function defaultRoot(): string {
   return process.cwd()
 }
 
+export interface Settings {
+  geminiModel: string
+  debateRounds: number
+}
+
 // Mutable app-wide state shared across main-process modules.
 class AppState {
   mainWindow: BrowserWindow | null = null
   projectRoot: string = defaultRoot()
+  settings: Settings = { geminiModel: 'gemini-2.5-flash', debateRounds: 3 }
 
   send(channel: string, ...args: unknown[]): void {
     this.mainWindow?.webContents.send(channel, ...args)

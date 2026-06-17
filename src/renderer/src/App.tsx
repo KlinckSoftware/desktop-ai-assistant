@@ -11,7 +11,7 @@ import GitPanel from './panes/GitPanel'
 import CheckpointsPanel from './panes/CheckpointsPanel'
 import CommandToast from './components/CommandToast'
 import EditReview from './components/EditReview'
-import GeminiKeyModal from './components/GeminiKeyModal'
+import SettingsModal from './components/SettingsModal'
 import SessionSidebar from './components/SessionSidebar'
 import SideChat from './components/SideChat'
 import DiffViewer from './panes/DiffViewer'
@@ -28,7 +28,7 @@ export default function App(): JSX.Element {
   const setDebateStatus = useAppStore((s) => s.setDebateStatus)
   const debateRunning = useAppStore((s) => s.debateRunning)
   const debateStatus = useAppStore((s) => s.debateStatus)
-  const [showKey, setShowKey] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
   const [showDebate, setShowDebate] = useState(false)
   const [showSideChat, setShowSideChat] = useState(false)
   const activeTab = useAppStore((s) => s.bottomTab)
@@ -49,6 +49,9 @@ export default function App(): JSX.Element {
       } else {
         setProjectRoot(await window.api.fs.projectRoot())
       }
+      // Sync restored settings into main.
+      const { geminiModel, debateRounds } = useAppStore.getState()
+      window.api.settings.set({ geminiModel, debateRounds })
       setHasGeminiKey(await window.api.gemini.hasKey())
     })()
 
@@ -83,7 +86,9 @@ export default function App(): JSX.Element {
           selectedFile: s.selectedFile,
           geminiMessages: s.geminiMessages,
           debateUpdates: s.debateUpdates,
-          debatePrompt: s.debatePrompt
+          debatePrompt: s.debatePrompt,
+          geminiModel: s.geminiModel,
+          debateRounds: s.debateRounds
         })
       }, 600)
     })
@@ -141,9 +146,9 @@ export default function App(): JSX.Element {
         </button>
         <button
           className="ml-auto rounded border border-border px-2 py-0.5 text-xs hover:bg-bg"
-          onClick={() => setShowKey(true)}
+          onClick={() => setShowSettings(true)}
         >
-          {hasGeminiKey ? '✦ Gemini key set' : '✦ Set Gemini key'}
+          {hasGeminiKey ? '⚙ Settings' : '⚙ Settings · set key'}
         </button>
       </div>
 
@@ -216,7 +221,7 @@ export default function App(): JSX.Element {
 
       <CommandToast />
       <EditReview />
-      {showKey && <GeminiKeyModal onClose={() => setShowKey(false)} />}
+      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       {showDebate && <DebateView onClose={() => setShowDebate(false)} />}
       {showSideChat && <SideChat onClose={() => setShowSideChat(false)} />}
 

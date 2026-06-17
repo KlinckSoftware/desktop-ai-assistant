@@ -133,6 +133,10 @@ const api = {
     load: (): Promise<unknown | null> => ipcRenderer.invoke(CH.stateLoad),
     save: (data: unknown): Promise<void> => ipcRenderer.invoke(CH.stateSave, data),
     setRoot: (root: string): Promise<string> => ipcRenderer.invoke(CH.appSetRoot, root)
+  },
+  settings: {
+    set: (s: { geminiModel?: string; debateRounds?: number }): Promise<void> =>
+      ipcRenderer.invoke(CH.settingsSet, s)
   }
 }
 

@@ -123,5 +123,6 @@ export const CH = {
   appProjectRoot: 'app:project-root',
   appSetRoot: 'app:set-root',
   stateLoad: 'state:load',
-  stateSave: 'state:save'
+  stateSave: 'state:save',
+  settingsSet: 'settings:set'
 } as const
