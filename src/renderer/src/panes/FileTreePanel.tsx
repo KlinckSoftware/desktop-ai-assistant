@@ -17,6 +17,7 @@ function TreeNode({ node, depth }: { node: FileNode; depth: number }): JSX.Eleme
   const pad = { paddingLeft: `${depth * 12 + 4}px` }
 
   const setSelectedFile = useAppStore((s) => s.setSelectedFile)
+  const openFile = useAppStore((s) => s.openFile)
   const selectedFile = useAppStore((s) => s.selectedFile)
   const gitStatus = useAppStore((s) => s.gitStatus)
   const contextFiles = useAppStore((s) => s.contextFiles)
@@ -40,7 +41,12 @@ function TreeNode({ node, depth }: { node: FileNode; depth: number }): JSX.Eleme
           className="h-3 w-3 shrink-0 accent-gemini"
           title="Add to prompt context"
         />
-        <span className="flex-1 cursor-pointer truncate" onClick={() => setSelectedFile(node.path)}>
+        <span
+          className="flex-1 cursor-pointer truncate"
+          onClick={() => setSelectedFile(node.path)}
+          onDoubleClick={() => openFile(node.path)}
+          title="Click to select · double-click to open in editor"
+        >
           {node.name}
         </span>
         {b && <span className={`shrink-0 font-mono text-[10px] ${b.cls}`}>{b.ch}</span>}

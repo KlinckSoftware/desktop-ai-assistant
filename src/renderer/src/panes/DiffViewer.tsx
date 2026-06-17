@@ -3,6 +3,7 @@ import * as Diff from 'diff'
 import { html } from 'diff2html'
 import 'diff2html/bundles/css/diff2html.min.css'
 import { useAppStore } from '../store/appStore'
+import CodeEditor from '../components/CodeEditor'
 
 export default function DiffViewer(): JSX.Element {
   const selectedFile = useAppStore((s) => s.selectedFile)
@@ -113,20 +114,17 @@ export default function DiffViewer(): JSX.Element {
       </div>
 
       <div className="flex flex-1 min-h-0">
-        <div className="w-1/3 flex flex-col border-r border-border">
+        <div className="flex w-1/2 flex-col border-r border-border">
           <div className="bg-panel px-2 py-1 text-[10px] uppercase text-gray-500 border-b border-border">
             Editor
           </div>
-          <textarea
-            value={modified}
-            onChange={(e) => setModified(e.target.value)}
-            className="flex-1 resize-none bg-bg p-2 text-sm font-mono text-gray-200 outline-none"
-            spellCheck={false}
-          />
+          <div className="min-h-0 flex-1 overflow-auto">
+            <CodeEditor value={modified} onChange={setModified} path={selectedFile} />
+          </div>
         </div>
-        <div className="w-2/3 flex flex-col">
+        <div className="flex w-1/2 flex-col">
           <div className="bg-panel px-2 py-1 text-[10px] uppercase text-gray-500 border-b border-border">
-            Preview
+            Diff Preview
           </div>
           <div className="flex-1 overflow-auto bg-bg p-2 text-sm">
             <div

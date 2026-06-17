@@ -55,6 +55,11 @@ interface AppState {
   diffDirty: boolean
   setDiffDirty: (v: boolean) => void
 
+  // Which bottom pane is active (in store so the tree can switch to it).
+  bottomTab: 'terminal' | 'diff' | 'git'
+  setBottomTab: (t: 'terminal' | 'diff' | 'git') => void
+  openFile: (path: string) => void
+
   // Files checked in the tree to attach as prompt context.
   contextFiles: Set<string>
   toggleContextFile: (path: string) => void
@@ -131,6 +136,10 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   diffDirty: false,
   setDiffDirty: (v) => set({ diffDirty: v }),
+
+  bottomTab: 'terminal',
+  setBottomTab: (t) => set({ bottomTab: t }),
+  openFile: (path) => set({ selectedFile: path, bottomTab: 'diff' }),
 
   contextFiles: new Set(),
   toggleContextFile: (path) =>
