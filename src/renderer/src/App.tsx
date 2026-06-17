@@ -27,7 +27,8 @@ export default function App(): JSX.Element {
   const [showKey, setShowKey] = useState(false)
   const [showDebate, setShowDebate] = useState(false)
   const [showSideChat, setShowSideChat] = useState(false)
-  const [activeTab, setActiveTab] = useState<'terminal' | 'diff' | 'git'>('terminal')
+  const activeTab = useAppStore((s) => s.bottomTab)
+  const setActiveTab = useAppStore((s) => s.setBottomTab)
   const setFileList = useAppStore((s) => s.setFileList)
   const diffDirty = useAppStore((s) => s.diffDirty)
 
