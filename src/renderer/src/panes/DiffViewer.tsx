@@ -6,14 +6,26 @@ import { useAppStore } from '../store/appStore'
 
 export default function DiffViewer(): JSX.Element {
   const selectedFile = useAppStore((s) => s.selectedFile)
+  const setDiffDirty = useAppStore((s) => s.setDiffDirty)
   const [original, setOriginal] = useState('')
   const [modified, setModified] = useState('')
+  // On-disk working copy as last loaded/saved — dirty = modified !== this.
+  const [savedContent, setSavedContent] = useState('')
   const [error, setError] = useState('')
+
+  const dirty = modified !== savedContent
+
+  // Publish dirty state for the tab indicator; clear it when leaving the pane.
+  useEffect(() => {
+    setDiffDirty(dirty)
+    return () => setDiffDirty(false)
+  }, [dirty, setDiffDirty])
 
   const load = async (): Promise<void> => {
     if (!selectedFile) {
       setOriginal('')
       setModified('')
+      setSavedContent('')
       return
     }
     try {
@@ -23,9 +35,13 @@ export default function DiffViewer(): JSX.Element {
       const head = await window.api.git.head(selectedFile)
       setOriginal(head ?? working)
       setModified(working)
+      setSavedContent(working)
       setError('')
     } catch (err) {
-      setError(`Failed to load file: ${err instanceof Error ? err.message : String(err)}`)
+      setError(`${err instanceof Error ? err.message : String(err)}`)
+      setOriginal('')
+      setModified('')
+      setSavedContent('')
     }
   }
 
@@ -66,17 +82,29 @@ export default function DiffViewer(): JSX.Element {
     )
   }
 
+  // Binary / unreadable file: show the reason, never an empty editor.
+  if (error && !savedContent) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-1 bg-bg text-sm text-gray-400">
+        <div className="text-2xl">🚫</div>
+        <div>{error}</div>
+        <div className="text-xs text-gray-600">{selectedFile.split(/[/\\]/).pop()}</div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex h-full flex-col bg-bg">
       <div className="flex items-center justify-between border-b border-border px-3 py-1.5 bg-panel">
         <span className="text-xs font-semibold text-accent truncate">
           Diff: {selectedFile.split(/[/\\]/).pop()}
+          {dirty && <span className="ml-1 text-yellow-400" title="unsaved changes">●</span>}
         </span>
         <div className="flex items-center gap-2">
           {error && <span className="text-xs text-red-400">{error}</span>}
           <button
             onClick={handleSave}
-            disabled={original === modified}
+            disabled={!dirty}
             className="rounded bg-accent px-3 py-0.5 text-xs text-bg disabled:opacity-50"
           >
             Save
