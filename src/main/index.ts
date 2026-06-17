@@ -4,6 +4,7 @@ import { appState } from './state'
 import { CH, type Message } from '../shared/types'
 import { CommandExecutor } from './executor/CommandExecutor'
 import { CommandBroker } from './executor/CommandBroker'
+import { FileEditBroker } from './editor/FileEditBroker'
 import { ClaudeProcessManager } from './claude/ClaudeProcessManager'
 import { GeminiClient } from './gemini/GeminiClient'
 import { FileSystemManager } from './fs/FileSystemManager'
@@ -16,6 +17,7 @@ let broker: CommandBroker
 let claude: ClaudeProcessManager
 let gemini: GeminiClient
 let fsm: FileSystemManager
+let editBroker: FileEditBroker
 let moderator: IPCModerator
 
 function createWindow(): void {
@@ -50,9 +52,10 @@ function createWindow(): void {
 function initServices(): void {
   executor = new CommandExecutor(appState.projectRoot)
   broker = new CommandBroker(executor)
-  claude = new ClaudeProcessManager(broker)
-  gemini = new GeminiClient(broker)
   fsm = new FileSystemManager()
+  editBroker = new FileEditBroker(fsm)
+  claude = new ClaudeProcessManager(broker)
+  gemini = new GeminiClient(broker, editBroker)
   moderator = new IPCModerator(gemini, broker)
   fsm.watch(appState.projectRoot)
 }
@@ -88,6 +91,12 @@ function registerIpc(): void {
   // --- Command approval ---
   ipcMain.handle(CH.cmdApprove, (_e, id: string) => broker.approve(id))
   ipcMain.handle(CH.cmdReject, (_e, id: string) => broker.reject(id))
+
+  // --- File-edit approval + checkpoints ---
+  ipcMain.handle(CH.editApprove, (_e, id: string) => editBroker.approve(id))
+  ipcMain.handle(CH.editReject, (_e, id: string) => editBroker.reject(id))
+  ipcMain.handle(CH.checkpointList, () => editBroker.list())
+  ipcMain.handle(CH.checkpointUndo, (_e, id: string) => editBroker.undo(id))
 
   // --- Filesystem ---
   ipcMain.handle(CH.fsReadTree, (_e, root?: string) => fsm.readTree(root || appState.projectRoot))

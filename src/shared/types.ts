@@ -45,6 +45,25 @@ export interface PendingCommand {
   sessionId: string
 }
 
+// A file write proposed by an agent (```file <path>``` block), awaiting approval.
+export interface PendingEdit {
+  id: string
+  path: string // absolute
+  rel: string // relative to project root
+  oldContent: string
+  newContent: string
+  isNew: boolean
+  origin: AgentId
+}
+
+export interface Checkpoint {
+  id: string
+  rel: string
+  path: string
+  ts: number // epoch ms, stamped in renderer
+  label: string
+}
+
 export interface CommandResult {
   id: string
   command: string
@@ -78,6 +97,15 @@ export const CH = {
   cmdApprove: 'cmd:approve',
   cmdReject: 'cmd:reject',
   cmdResult: 'cmd:result',
+
+  editPending: 'edit:pending',
+  editApprove: 'edit:approve',
+  editReject: 'edit:reject',
+  editResult: 'edit:result',
+
+  checkpointList: 'checkpoint:list',
+  checkpointUndo: 'checkpoint:undo',
+  checkpointChanged: 'checkpoint:changed',
 
   fsReadTree: 'fs:read-tree',
   fsReadFile: 'fs:read-file',

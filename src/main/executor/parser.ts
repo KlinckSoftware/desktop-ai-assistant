@@ -39,3 +39,24 @@ export function extractBashBlocks(text: string): string[] {
   }
   return out
 }
+
+// Proposed file write: ```file <relative-path>\n<full new contents>\n```
+const FILE_FENCE = /```file\s+([^\n`]+)\n([\s\S]*?)```/g
+
+export interface FileEdit {
+  path: string // as written by the agent (relative or absolute)
+  content: string // full new file contents
+}
+
+export function extractFileEdits(text: string): FileEdit[] {
+  const out: FileEdit[] = []
+  let m: RegExpExecArray | null
+  const re = new RegExp(FILE_FENCE.source, 'g')
+  while ((m = re.exec(text)) !== null) {
+    const path = m[1].trim()
+    // Drop a single trailing newline the fence adds; keep interior content as-is.
+    const content = m[2].replace(/\n$/, '')
+    if (path) out.push({ path, content })
+  }
+  return out
+}
