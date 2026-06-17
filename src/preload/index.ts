@@ -6,8 +6,16 @@ import {
   type PendingCommand,
   type CommandResult,
   type DebateUpdate,
-  type GitChanges
+  type GitChanges,
+  type PendingEdit,
+  type Checkpoint
 } from '../shared/types'
+
+interface EditResult {
+  id: string
+  rel: string
+  outcome: string
+}
 
 // The only surface the renderer can touch. No nodeIntegration, no raw ipc.
 const api = {
@@ -88,6 +96,29 @@ const api = {
       const h = (_e: unknown, root: string): void => cb(root)
       ipcRenderer.on(CH.fsChanged, h)
       return () => ipcRenderer.removeListener(CH.fsChanged, h)
+    }
+  },
+  edit: {
+    approve: (id: string): Promise<void> => ipcRenderer.invoke(CH.editApprove, id),
+    reject: (id: string): Promise<void> => ipcRenderer.invoke(CH.editReject, id),
+    onPending: (cb: (e: PendingEdit) => void): (() => void) => {
+      const h = (_e: unknown, e: PendingEdit): void => cb(e)
+      ipcRenderer.on(CH.editPending, h)
+      return () => ipcRenderer.removeListener(CH.editPending, h)
+    },
+    onResult: (cb: (r: EditResult) => void): (() => void) => {
+      const h = (_e: unknown, r: EditResult): void => cb(r)
+      ipcRenderer.on(CH.editResult, h)
+      return () => ipcRenderer.removeListener(CH.editResult, h)
+    }
+  },
+  checkpoint: {
+    list: (): Promise<Checkpoint[]> => ipcRenderer.invoke(CH.checkpointList),
+    undo: (id: string): Promise<void> => ipcRenderer.invoke(CH.checkpointUndo, id),
+    onChanged: (cb: () => void): (() => void) => {
+      const h = (): void => cb()
+      ipcRenderer.on(CH.checkpointChanged, h)
+      return () => ipcRenderer.removeListener(CH.checkpointChanged, h)
     }
   },
   git: {

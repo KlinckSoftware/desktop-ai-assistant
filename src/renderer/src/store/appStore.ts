@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Message, PendingCommand, DebateUpdate } from '@shared/types'
+import type { Message, PendingCommand, DebateUpdate, PendingEdit } from '@shared/types'
 
 export interface ClaudeSession {
   id: string
@@ -32,6 +32,10 @@ interface AppState {
   addPending: (c: PendingCommand) => void
   removePending: (id: string) => void
 
+  pendingEdits: PendingEdit[]
+  addPendingEdit: (e: PendingEdit) => void
+  removePendingEdit: (id: string) => void
+
   geminiMessages: Message[]
   addGeminiMessage: (m: Message) => void
   appendToLastGemini: (chunk: string) => void
@@ -56,8 +60,8 @@ interface AppState {
   setDiffDirty: (v: boolean) => void
 
   // Which bottom pane is active (in store so the tree can switch to it).
-  bottomTab: 'terminal' | 'diff' | 'git'
-  setBottomTab: (t: 'terminal' | 'diff' | 'git') => void
+  bottomTab: 'terminal' | 'diff' | 'git' | 'checkpoints'
+  setBottomTab: (t: 'terminal' | 'diff' | 'git' | 'checkpoints') => void
   openFile: (path: string) => void
 
   // Files checked in the tree to attach as prompt context.
@@ -98,6 +102,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   pending: [],
   addPending: (c) => set((s) => ({ pending: [...s.pending, c] })),
   removePending: (id) => set((s) => ({ pending: s.pending.filter((p) => p.id !== id) })),
+
+  pendingEdits: [],
+  addPendingEdit: (e) => set((s) => ({ pendingEdits: [...s.pendingEdits, e] })),
+  removePendingEdit: (id) =>
+    set((s) => ({ pendingEdits: s.pendingEdits.filter((e) => e.id !== id) })),
 
   geminiMessages: [],
   addGeminiMessage: (m) => set((s) => ({ geminiMessages: [...s.geminiMessages, m] })),

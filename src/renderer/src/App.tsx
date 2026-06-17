@@ -8,7 +8,9 @@ import TerminalPane from './panes/TerminalPane'
 import FileTreePanel from './panes/FileTreePanel'
 import DebateView from './panes/DebateView'
 import GitPanel from './panes/GitPanel'
+import CheckpointsPanel from './panes/CheckpointsPanel'
 import CommandToast from './components/CommandToast'
+import EditReview from './components/EditReview'
 import GeminiKeyModal from './components/GeminiKeyModal'
 import SessionSidebar from './components/SessionSidebar'
 import SideChat from './components/SideChat'
@@ -19,6 +21,8 @@ export default function App(): JSX.Element {
   const setHasGeminiKey = useAppStore((s) => s.setHasGeminiKey)
   const hasGeminiKey = useAppStore((s) => s.hasGeminiKey)
   const addPending = useAppStore((s) => s.addPending)
+  const addPendingEdit = useAppStore((s) => s.addPendingEdit)
+  const removePendingEdit = useAppStore((s) => s.removePendingEdit)
   const hydrate = useAppStore((s) => s.hydrate)
   const addDebateUpdate = useAppStore((s) => s.addDebateUpdate)
   const setDebateStatus = useAppStore((s) => s.setDebateStatus)
@@ -114,6 +118,16 @@ export default function App(): JSX.Element {
     return off
   }, [addPending])
 
+  // File-edit proposals always require explicit review (writes are destructive).
+  useEffect(() => {
+    const offPending = window.api.edit.onPending(addPendingEdit)
+    const offResult = window.api.edit.onResult((r) => removePendingEdit(r.id))
+    return () => {
+      offPending()
+      offResult()
+    }
+  }, [addPendingEdit, removePendingEdit])
+
   return (
     <div className="flex h-full flex-col">
       {/* top bar */}
@@ -174,6 +188,12 @@ export default function App(): JSX.Element {
                     >
                       Git
                     </button>
+                    <button
+                      className={`px-4 py-1.5 ${activeTab === 'checkpoints' ? 'border-b-2 border-accent text-accent font-semibold' : 'text-gray-400 hover:text-gray-200'}`}
+                      onClick={() => setActiveTab('checkpoints')}
+                    >
+                      Checkpoints
+                    </button>
                   </div>
                   <div className="flex-1 min-h-0">
                     {/* Terminal + Diff stay mounted (hidden) so shell scrollback
@@ -185,6 +205,7 @@ export default function App(): JSX.Element {
                       <DiffViewer />
                     </div>
                     {activeTab === 'git' && <GitPanel onOpenDiff={() => setActiveTab('diff')} />}
+                    {activeTab === 'checkpoints' && <CheckpointsPanel />}
                   </div>
                 </div>
               </Allotment.Pane>
@@ -194,6 +215,7 @@ export default function App(): JSX.Element {
       </div>
 
       <CommandToast />
+      <EditReview />
       {showKey && <GeminiKeyModal onClose={() => setShowKey(false)} />}
       {showDebate && <DebateView onClose={() => setShowDebate(false)} />}
       {showSideChat && <SideChat onClose={() => setShowSideChat(false)} />}

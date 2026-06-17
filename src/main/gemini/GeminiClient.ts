@@ -1,19 +1,27 @@
 import { appState } from '../state'
 import { CH, type Message } from '../../shared/types'
 import { KeychainManager } from '../keychain/KeychainManager'
-import { extractBashBlocks } from '../executor/parser'
+import { extractBashBlocks, extractFileEdits } from '../executor/parser'
 import type { CommandBroker } from '../executor/CommandBroker'
+import type { FileEditBroker } from '../editor/FileEditBroker'
 
 const MODEL = 'gemini-2.5-flash'
 const BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
 
 const SYSTEM = `You are an expert coding assistant working inside a desktop IDE.
-When you want to run a terminal command, output it in a fenced block exactly like:
+
+To run a terminal command, output a fenced block exactly like:
 \`\`\`bash run
 your command here
 \`\`\`
-The command runs on the user's machine after they approve it, and you receive the
-output back. Use this to inspect files, run builds, and verify your work.`
+
+To create or modify a file, output the FULL new contents in a fenced block like:
+\`\`\`file relative/path/to/file.ts
+<entire new file contents>
+\`\`\`
+
+Both run on the user's machine only after they approve, and you receive the
+result back. Use bash to inspect/build/verify; use file blocks to write changes.`
 
 interface GeminiPart {
   text?: string
@@ -24,7 +32,10 @@ interface GeminiContent {
 }
 
 export class GeminiClient {
-  constructor(private broker: CommandBroker) {}
+  constructor(
+    private broker: CommandBroker,
+    private editBroker: FileEditBroker
+  ) {}
 
   async hasKey(): Promise<boolean> {
     return KeychainManager.hasKey()
@@ -62,16 +73,31 @@ export class GeminiClient {
       contents.push({ role: 'model', parts: [{ text }] })
 
       const cmds = extractBashBlocks(text)
-      if (cmds.length === 0) break
+      const edits = extractFileEdits(text)
+      if (cmds.length === 0 && edits.length === 0) break
 
-      const results = await Promise.all(
-        cmds.map((cmd) => this.broker.propose(cmd, 'gemini', 'gemini-main'))
-      )
-      const feedback = cmds
-        .map((cmd, i) => `$ ${cmd}\n${results[i]}`)
-        .join('\n\n')
-      appState.send(CH.geminiStream, `\n\n_[ran ${cmds.length} command(s)]_\n\n`)
-      contents.push({ role: 'user', parts: [{ text: `Command output:\n\`\`\`\n${feedback}\n\`\`\`` }] })
+      const feedback: string[] = []
+
+      if (cmds.length) {
+        const results = await Promise.all(
+          cmds.map((cmd) => this.broker.propose(cmd, 'gemini', 'gemini-main'))
+        )
+        feedback.push(...cmds.map((cmd, i) => `$ ${cmd}\n${results[i]}`))
+        appState.send(CH.geminiStream, `\n\n_[ran ${cmds.length} command(s)]_\n\n`)
+      }
+
+      if (edits.length) {
+        const results = await Promise.all(
+          edits.map((e) => this.editBroker.propose(e.path, e.content, 'gemini'))
+        )
+        feedback.push(...results)
+        appState.send(CH.geminiStream, `\n\n_[proposed ${edits.length} file edit(s)]_\n\n`)
+      }
+
+      contents.push({
+        role: 'user',
+        parts: [{ text: `Results:\n\`\`\`\n${feedback.join('\n\n')}\n\`\`\`` }]
+      })
     }
 
     appState.send(CH.geminiStream, '\n[[gemini:done]]')
