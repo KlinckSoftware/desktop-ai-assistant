@@ -51,6 +51,10 @@ interface AppState {
   fileList: string[]
   setFileList: (f: string[]) => void
 
+  // True when the DiffViewer editor has unsaved edits vs the on-disk file.
+  diffDirty: boolean
+  setDiffDirty: (v: boolean) => void
+
   // Files checked in the tree to attach as prompt context.
   contextFiles: Set<string>
   toggleContextFile: (path: string) => void
@@ -124,6 +128,9 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   fileList: [],
   setFileList: (f) => set({ fileList: f }),
+
+  diffDirty: false,
+  setDiffDirty: (v) => set({ diffDirty: v }),
 
   contextFiles: new Set(),
   toggleContextFile: (path) =>

@@ -6,6 +6,20 @@ import { CH, type FileNode } from '../../shared/types'
 
 const IGNORE = new Set(['node_modules', '.git', 'out', 'dist', 'release', '.next', '.cache'])
 
+// Extensions we refuse to load as text (would render garbage and corrupt on save).
+const BINARY_EXT = new Set([
+  'png', 'jpg', 'jpeg', 'gif', 'bmp', 'ico', 'webp', 'tif', 'tiff', 'svg',
+  'pdf', 'zip', 'gz', 'tar', '7z', 'rar', 'jar', 'war',
+  'exe', 'dll', 'so', 'dylib', 'bin', 'o', 'a', 'class', 'wasm',
+  'mp3', 'wav', 'ogg', 'flac', 'mp4', 'mov', 'avi', 'mkv', 'webm',
+  'db', 'sqlite', 'sqlite3', 'lock', 'woff', 'woff2', 'ttf', 'otf', 'eot'
+])
+
+function isBinaryPath(p: string): boolean {
+  const ext = p.split('.').pop()?.toLowerCase() ?? ''
+  return BINARY_EXT.has(ext)
+}
+
 // Confine file reads/writes to the current project root. Blocks path-traversal
 // (`..`) and absolute paths outside the project — so a compromised renderer
 // can't read ~/.ssh or overwrite system files.
@@ -82,11 +96,20 @@ export class FileSystemManager {
   }
 
   async readFile(path: string): Promise<string> {
-    return fs.readFile(assertInRoot(path), 'utf-8')
+    const abs = assertInRoot(path)
+    if (isBinaryPath(abs)) throw new Error(`Cannot display binary file: ${basename(abs)}`)
+    const buf = await fs.readFile(abs)
+    // Sniff the first chunk for NUL bytes — catches binaries with unknown/no ext.
+    if (buf.subarray(0, 8000).includes(0)) {
+      throw new Error(`Cannot display binary file: ${basename(abs)}`)
+    }
+    return buf.toString('utf-8')
   }
 
   async writeFile(path: string, content: string): Promise<void> {
-    await fs.writeFile(assertInRoot(path), content, 'utf-8')
+    const abs = assertInRoot(path)
+    if (isBinaryPath(abs)) throw new Error(`Refusing to write binary file: ${basename(abs)}`)
+    await fs.writeFile(abs, content, 'utf-8')
   }
 
   watch(root: string): void {

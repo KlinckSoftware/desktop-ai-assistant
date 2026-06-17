@@ -29,6 +29,7 @@ export default function App(): JSX.Element {
   const [showSideChat, setShowSideChat] = useState(false)
   const [activeTab, setActiveTab] = useState<'terminal' | 'diff' | 'git'>('terminal')
   const setFileList = useAppStore((s) => s.setFileList)
+  const diffDirty = useAppStore((s) => s.diffDirty)
 
   // One-time init: restore persisted state, then sync project root + key.
   useEffect(() => {
@@ -164,6 +165,7 @@ export default function App(): JSX.Element {
                       onClick={() => setActiveTab('diff')}
                     >
                       Diff Viewer
+                      {diffDirty && <span className="ml-1 text-yellow-400" title="unsaved changes">●</span>}
                     </button>
                     <button
                       className={`px-4 py-1.5 ${activeTab === 'git' ? 'border-b-2 border-accent text-accent font-semibold' : 'text-gray-400 hover:text-gray-200'}`}
@@ -173,8 +175,14 @@ export default function App(): JSX.Element {
                     </button>
                   </div>
                   <div className="flex-1 min-h-0">
-                    {activeTab === 'terminal' && <TerminalPane />}
-                    {activeTab === 'diff' && <DiffViewer />}
+                    {/* Terminal + Diff stay mounted (hidden) so shell scrollback
+                        and unsaved edits survive tab switches. */}
+                    <div className={activeTab === 'terminal' ? 'h-full' : 'hidden'}>
+                      <TerminalPane />
+                    </div>
+                    <div className={activeTab === 'diff' ? 'h-full' : 'hidden'}>
+                      <DiffViewer />
+                    </div>
                     {activeTab === 'git' && <GitPanel onOpenDiff={() => setActiveTab('diff')} />}
                   </div>
                 </div>
