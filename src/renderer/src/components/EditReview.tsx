@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import * as Diff from 'diff'
 import { html } from 'diff2html'
+import { ColorSchemeType } from 'diff2html/lib/types'
 import 'diff2html/bundles/css/diff2html.min.css'
 import type { PendingEdit } from '@shared/types'
 import { useAppStore } from '../store/appStore'
@@ -9,15 +10,12 @@ function EditCard({ edit }: { edit: PendingEdit }): JSX.Element {
   const remove = useAppStore((s) => s.removePendingEdit)
 
   const diffHtml = useMemo(() => {
-    const patch = Diff.createTwoFilesPatch(
-      edit.rel,
-      edit.rel,
-      edit.oldContent,
-      edit.newContent,
-      edit.isNew ? '(new file)' : 'current',
-      'proposed'
-    )
-    return html(patch, { outputFormat: 'line-by-line', drawFileList: false })
+    const patch = Diff.createTwoFilesPatch(edit.rel, edit.rel, edit.oldContent, edit.newContent, '', '')
+    return html(patch, {
+      outputFormat: 'line-by-line',
+      drawFileList: false,
+      colorScheme: ColorSchemeType.DARK
+    })
   }, [edit])
 
   const approve = (): void => {

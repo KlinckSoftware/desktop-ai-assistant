@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import type { FileNode } from '@shared/types'
 import { useAppStore } from '../store/appStore'
+import { focusPanel } from '../dock/dockApi'
 
 // Map a porcelain code to a one-char badge + color.
 function badge(code: string | undefined): { ch: string; cls: string } | null {
@@ -10,6 +11,17 @@ function badge(code: string | undefined): { ch: string; cls: string } | null {
   if (code.includes('A')) return { ch: 'A', cls: 'text-green-400' }
   if (code.includes('D')) return { ch: 'D', cls: 'text-red-400' }
   return { ch: code[0], cls: 'text-gray-400' }
+}
+
+// True if any tracked change lives under this directory (so a collapsed folder
+// can flag that something inside it differs).
+function hasNestedChange(gitStatus: Record<string, string>, dirPath: string): boolean {
+  const a = dirPath + '/'
+  const b = dirPath + '\\'
+  for (const k in gitStatus) {
+    if (k.startsWith(a) || k.startsWith(b)) return true
+  }
+  return false
 }
 
 function TreeNode({ node, depth }: { node: FileNode; depth: number }): JSX.Element {
@@ -44,7 +56,10 @@ function TreeNode({ node, depth }: { node: FileNode; depth: number }): JSX.Eleme
         <span
           className="flex-1 cursor-pointer truncate"
           onClick={() => setSelectedFile(node.path)}
-          onDoubleClick={() => openFile(node.path)}
+          onDoubleClick={() => {
+            openFile(node.path)
+            focusPanel('editor')
+          }}
           title="Click to select · double-click to open in editor"
         >
           {node.name}
@@ -53,14 +68,26 @@ function TreeNode({ node, depth }: { node: FileNode; depth: number }): JSX.Eleme
       </div>
     )
   }
+  const nestedChange = hasNestedChange(gitStatus, node.path)
   return (
     <div>
       <div
-        className="cursor-pointer truncate py-0.5 font-medium text-accent hover:bg-panel"
+        className="flex cursor-pointer items-center truncate py-0.5 font-medium text-accent hover:bg-panel"
         style={pad}
         onClick={() => setOpen((o) => !o)}
       >
-        {open ? '▾' : '▸'} {node.name}
+        <span className="flex-1 truncate">
+          {open ? '▾' : '▸'} {node.name}
+        </span>
+        {/* Flag nested changes; emphasize when collapsed (children hidden). */}
+        {nestedChange && (
+          <span
+            className={`mr-1 shrink-0 ${open ? 'text-yellow-400/40' : 'text-yellow-400'}`}
+            title="contains uncommitted changes"
+          >
+            ●
+          </span>
+        )}
       </div>
       {open && node.children?.map((c) => <TreeNode key={c.path} node={c} depth={depth + 1} />)}
     </div>
