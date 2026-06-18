@@ -2,27 +2,21 @@ import * as pty from 'node-pty'
 import type { IPty } from 'node-pty'
 import { appState } from '../state'
 import { CH } from '../../shared/types'
-import { CommandExtractor } from '../executor/parser'
 import { resolveBin, cleanClaudeEnv } from '../util/resolveBin'
-import type { CommandBroker } from '../executor/CommandBroker'
 
-// Spawns `claude` (the Claude Code CLI) as a persistent interactive pty per session.
-// Raw output streams to xterm.js in the renderer. We also sniff the output for
-// ```bash run``` blocks and route them through the approval broker; results are
-// typed back into the same interactive session.
+// Spawns `claude` (the Claude Code CLI) as a persistent interactive pty per
+// session and streams raw output to xterm.js. Claude runs its own tools, so we
+// do NOT sniff/buffer its output — doing so meant a full-buffer regex on every
+// frame of an animated TUI (constant CPU + GC churn). Output is a pure passthrough.
 
 interface Session {
   proc: IPty
-  extractor: CommandExtractor
-  buffer: string
 }
 
 const CLAUDE_BIN = resolveBin('claude')
 
 export class ClaudeProcessManager {
   private sessions = new Map<string, Session>()
-
-  constructor(private broker: CommandBroker) {}
 
   spawn(sessionId: string, cwd: string): void {
     if (this.sessions.has(sessionId)) return
@@ -35,17 +29,10 @@ export class ClaudeProcessManager {
       env: cleanClaudeEnv()
     })
 
-    const session: Session = { proc, extractor: new CommandExtractor(), buffer: '' }
-    this.sessions.set(sessionId, session)
+    this.sessions.set(sessionId, { proc })
 
     proc.onData((data) => {
       appState.send(CH.claudeStream, sessionId, data)
-      session.buffer += data
-      // Keep the buffer bounded.
-      if (session.buffer.length > 200_000) {
-        session.buffer = session.buffer.slice(-100_000)
-      }
-      this.routeCommands(sessionId, session)
     })
 
     proc.onExit(({ exitCode }) => {
@@ -85,14 +72,5 @@ export class ClaudeProcessManager {
   killAll(): void {
     for (const s of this.sessions.values()) s.proc.kill()
     this.sessions.clear()
-  }
-
-  private routeCommands(sessionId: string, session: Session): void {
-    const cmds = session.extractor.extract(session.buffer)
-    for (const cmd of cmds) {
-      this.broker.propose(cmd, 'claude', sessionId).then((output) => {
-        this.send(sessionId, `Command output:\n\`\`\`\n${output}\n\`\`\``)
-      })
-    }
   }
 }
