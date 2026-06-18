@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useAppStore } from '../store/appStore'
 import CodeEditor from '../components/CodeEditor'
 
@@ -35,15 +35,27 @@ export default function FileEditor(): JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedFile])
 
-  const save = async (): Promise<void> => {
-    if (!selectedFile || !dirty) return
+  const save = useCallback(async (): Promise<void> => {
+    if (!selectedFile || content === saved) return
     try {
       await window.api.fs.writeFile(selectedFile, content)
       setSaved(content)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     }
-  }
+  }, [selectedFile, content, saved])
+
+  // Ctrl/Cmd+S saves (works whether or not the editor has focus).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault()
+        save()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [save])
 
   if (!selectedFile) {
     return (
@@ -74,6 +86,7 @@ export default function FileEditor(): JSX.Element {
           <button
             onClick={save}
             disabled={!dirty}
+            title="Save (Ctrl+S)"
             className="rounded bg-accent px-3 py-0.5 text-xs text-bg disabled:opacity-50"
           >
             Save
