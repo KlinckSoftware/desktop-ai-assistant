@@ -1,9 +1,19 @@
 import { create } from 'zustand'
 import type { Message, PendingCommand, DebateUpdate, PendingEdit } from '@shared/types'
+// Attachment is declared below; no shared import needed.
 
 export interface ClaudeSession {
   id: string
   label: string
+}
+
+export interface Attachment {
+  id: string
+  path: string
+  name: string
+  kind: 'text' | 'image'
+  mime?: string
+  base64?: string
 }
 
 // The subset of state persisted to disk across launches. Excludes live pty
@@ -82,6 +92,12 @@ interface AppState {
   // Assembled file context queued for the next Gemini send (prepended once).
   pendingGeminiContext: string
   setPendingGeminiContext: (s: string) => void
+
+  // Drag-dropped attachments for the next Gemini message.
+  attachments: Attachment[]
+  addAttachment: (a: Attachment) => void
+  removeAttachment: (id: string) => void
+  clearAttachments: () => void
 
   // Debate state lives here (not in the view) so it survives minimize/close
   // and a single always-mounted listener accumulates updates.
@@ -178,6 +194,11 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   pendingGeminiContext: '',
   setPendingGeminiContext: (str) => set({ pendingGeminiContext: str }),
+
+  attachments: [],
+  addAttachment: (a) => set((s) => ({ attachments: [...s.attachments, a] })),
+  removeAttachment: (id) => set((s) => ({ attachments: s.attachments.filter((x) => x.id !== id) })),
+  clearAttachments: () => set({ attachments: [] }),
 
   debateRunning: false,
   debateStatus: '',

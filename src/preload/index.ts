@@ -36,8 +36,11 @@ const api = {
     }
   },
   gemini: {
-    send: (prompt: string, history: Message[]): Promise<string> =>
-      ipcRenderer.invoke(CH.geminiSend, prompt, history),
+    send: (
+      prompt: string,
+      history: Message[],
+      images?: { mime: string; base64: string }[]
+    ): Promise<string> => ipcRenderer.invoke(CH.geminiSend, prompt, history, images),
     sideSend: (prompt: string): Promise<string> =>
       ipcRenderer.invoke(CH.geminiSideSend, prompt),
     hasKey: (): Promise<boolean> => ipcRenderer.invoke(CH.geminiHasKey),
@@ -88,6 +91,11 @@ const api = {
     readTree: (root?: string): Promise<FileNode> => ipcRenderer.invoke(CH.fsReadTree, root),
     readFile: (path: string): Promise<string> => ipcRenderer.invoke(CH.fsReadFile, path),
     listFiles: (): Promise<string[]> => ipcRenderer.invoke(CH.fsListFiles),
+    classify: (p: string): Promise<{ kind: 'dir' | 'image' | 'text'; name: string }> =>
+      ipcRenderer.invoke(CH.fsClassify, p),
+    readDropped: (p: string): Promise<string> => ipcRenderer.invoke(CH.fsReadDropped, p),
+    readImage: (p: string): Promise<{ mime: string; base64: string }> =>
+      ipcRenderer.invoke(CH.fsReadImage, p),
     writeFile: (path: string, content: string): Promise<void> =>
       ipcRenderer.invoke(CH.fsWriteFile, path, content),
     pickDir: (): Promise<string> => ipcRenderer.invoke(CH.fsPickDir),

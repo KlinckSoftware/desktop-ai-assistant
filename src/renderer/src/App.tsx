@@ -24,6 +24,7 @@ export default function App(): JSX.Element {
   const debateRunning = useAppStore((s) => s.debateRunning)
   const debateStatus = useAppStore((s) => s.debateStatus)
   const setFileList = useAppStore((s) => s.setFileList)
+  const addAttachment = useAppStore((s) => s.addAttachment)
   const [showSettings, setShowSettings] = useState(false)
   const [showSideChat, setShowSideChat] = useState(false)
   const [showQuickOpen, setShowQuickOpen] = useState(false)
@@ -73,6 +74,42 @@ export default function App(): JSX.Element {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [setProjectRoot, setHasGeminiKey, hydrate])
+
+  // Global drag-and-drop: folder → switch project; image → multimodal attach;
+  // text file → context attach. Shown as pills in the Gemini composer.
+  useEffect(() => {
+    const onDragOver = (e: DragEvent): void => e.preventDefault()
+    const onDrop = async (e: DragEvent): Promise<void> => {
+      e.preventDefault()
+      const files = Array.from(e.dataTransfer?.files ?? [])
+      for (const f of files) {
+        const path = (f as unknown as { path?: string }).path
+        if (!path) continue
+        const id = `a_${Date.now()}_${Math.random().toString(36).slice(2)}`
+        try {
+          const info = await window.api.fs.classify(path)
+          if (info.kind === 'dir') {
+            if (window.confirm(`Open "${info.name}" as the project?`)) {
+              setProjectRoot(await window.api.state.setRoot(path))
+            }
+          } else if (info.kind === 'image') {
+            const img = await window.api.fs.readImage(path)
+            addAttachment({ id, path, name: info.name, kind: 'image', mime: img.mime, base64: img.base64 })
+          } else {
+            addAttachment({ id, path, name: info.name, kind: 'text' })
+          }
+        } catch {
+          /* ignore unreadable drops */
+        }
+      }
+    }
+    window.addEventListener('dragover', onDragOver)
+    window.addEventListener('drop', onDrop)
+    return () => {
+      window.removeEventListener('dragover', onDragOver)
+      window.removeEventListener('drop', onDrop)
+    }
+  }, [setProjectRoot, addAttachment])
 
   // Keep the @-mention file list fresh.
   useEffect(() => {
