@@ -111,6 +111,7 @@ export const CH = {
   fsReadFile: 'fs:read-file',
   fsWriteFile: 'fs:write-file',
   fsPickDir: 'fs:pick-dir',
+  fsPickFolder: 'fs:pick-folder',
   fsChanged: 'fs:changed',
   fsListFiles: 'fs:list-files',
   gitStatus: 'git:status',
