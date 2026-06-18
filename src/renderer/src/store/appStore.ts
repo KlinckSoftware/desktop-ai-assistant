@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Message, PendingCommand, DebateUpdate, PendingEdit } from '@shared/types'
+import type { Message, PendingCommand, DebateUpdate, PendingEdit, PendingTool } from '@shared/types'
 // Attachment is declared below; no shared import needed.
 
 export interface ClaudeSession {
@@ -58,6 +58,13 @@ interface AppState {
   pendingEdits: PendingEdit[]
   addPendingEdit: (e: PendingEdit) => void
   removePendingEdit: (id: string) => void
+
+  pendingTools: PendingTool[]
+  addPendingTool: (t: PendingTool) => void
+  removePendingTool: (id: string) => void
+  trustedTools: Set<string>
+  trustTool: (name: string) => void
+  isToolTrusted: (name: string) => boolean
 
   geminiMessages: Message[]
   addGeminiMessage: (m: Message) => void
@@ -141,6 +148,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   addPendingEdit: (e) => set((s) => ({ pendingEdits: [...s.pendingEdits, e] })),
   removePendingEdit: (id) =>
     set((s) => ({ pendingEdits: s.pendingEdits.filter((e) => e.id !== id) })),
+
+  pendingTools: [],
+  addPendingTool: (t) => set((s) => ({ pendingTools: [...s.pendingTools, t] })),
+  removePendingTool: (id) => set((s) => ({ pendingTools: s.pendingTools.filter((t) => t.id !== id) })),
+  trustedTools: new Set(),
+  trustTool: (name) => set((s) => ({ trustedTools: new Set(s.trustedTools).add(name) })),
+  isToolTrusted: (name) => get().trustedTools.has(name),
 
   geminiMessages: [],
   addGeminiMessage: (m) => set((s) => ({ geminiMessages: [...s.geminiMessages, m] })),

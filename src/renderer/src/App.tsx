@@ -18,6 +18,7 @@ export default function App(): JSX.Element {
   const addPending = useAppStore((s) => s.addPending)
   const addPendingEdit = useAppStore((s) => s.addPendingEdit)
   const removePendingEdit = useAppStore((s) => s.removePendingEdit)
+  const addPendingTool = useAppStore((s) => s.addPendingTool)
   const hydrate = useAppStore((s) => s.hydrate)
   const addDebateUpdate = useAppStore((s) => s.addDebateUpdate)
   const setDebateStatus = useAppStore((s) => s.setDebateStatus)
@@ -177,6 +178,14 @@ export default function App(): JSX.Element {
       offResult()
     }
   }, [addPendingEdit, removePendingEdit])
+
+  // MCP tool calls: auto-approve trusted tools, else queue an approval card.
+  useEffect(() => {
+    return window.api.tool.onPending((t) => {
+      if (useAppStore.getState().isToolTrusted(t.tool)) window.api.tool.approve(t.id)
+      else addPendingTool(t)
+    })
+  }, [addPendingTool])
 
   return (
     <div className="flex h-full flex-col">
