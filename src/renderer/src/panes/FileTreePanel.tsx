@@ -70,7 +70,6 @@ function TreeNode({ node, depth }: { node: FileNode; depth: number }): JSX.Eleme
 export default function FileTreePanel(): JSX.Element {
   const [tree, setTree] = useState<FileNode | null>(null)
   const projectRoot = useAppStore((s) => s.projectRoot)
-  const setProjectRoot = useAppStore((s) => s.setProjectRoot)
   const setGitStatus = useAppStore((s) => s.setGitStatus)
   const contextFiles = useAppStore((s) => s.contextFiles)
   const clearContextFiles = useAppStore((s) => s.clearContextFiles)
@@ -86,13 +85,6 @@ export default function FileTreePanel(): JSX.Element {
     const off = window.api.fs.onChanged(() => refresh())
     return off
   }, [refresh, projectRoot])
-
-  const pickDir = async (): Promise<void> => {
-    const root = await window.api.fs.pickDir()
-    setProjectRoot(root)
-    clearContextFiles()
-    refresh()
-  }
 
   const attach = async (): Promise<void> => {
     const paths = [...contextFiles]
@@ -117,9 +109,7 @@ export default function FileTreePanel(): JSX.Element {
     <div className="flex h-full flex-col bg-bg text-xs">
       <div className="flex items-center justify-between border-b border-border px-3 py-1.5">
         <span className="font-semibold text-accent">Files</span>
-        <button className="rounded px-1.5 text-gray-400 hover:bg-panel" onClick={pickDir}>
-          open…
-        </button>
+        <span className="text-[10px] text-gray-600">File ▾ to open</span>
       </div>
       <div className="truncate px-3 py-1 text-[10px] text-gray-500" title={projectRoot}>
         {projectRoot}

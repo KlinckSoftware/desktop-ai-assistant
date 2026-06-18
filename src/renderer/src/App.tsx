@@ -12,6 +12,7 @@ import CheckpointsPanel from './panes/CheckpointsPanel'
 import CommandToast from './components/CommandToast'
 import EditReview from './components/EditReview'
 import SettingsModal from './components/SettingsModal'
+import FileMenu from './components/FileMenu'
 import SessionSidebar from './components/SessionSidebar'
 import SideChat from './components/SideChat'
 import DiffViewer from './panes/DiffViewer'
@@ -138,6 +139,7 @@ export default function App(): JSX.Element {
       {/* top bar */}
       <div className="flex items-center gap-3 border-b border-border bg-panel px-3 py-1.5 text-sm">
         <span className="font-semibold">Desktop AI</span>
+        <FileMenu />
         <button
           className="rounded border border-border px-2 py-0.5 text-xs hover:bg-bg"
           onClick={() => setShowDebate(true)}

@@ -62,8 +62,8 @@ function initServices(): void {
 
 function registerIpc(): void {
   // --- Claude ---
-  ipcMain.handle(CH.claudeNewSession, (_e, sessionId: string) => {
-    claude.spawn(sessionId, appState.projectRoot)
+  ipcMain.handle(CH.claudeNewSession, (_e, sessionId: string, cwd?: string) => {
+    claude.spawn(sessionId, cwd || appState.projectRoot)
     return sessionId
   })
   ipcMain.handle(CH.claudeSend, (_e, sessionId: string, text: string) => claude.send(sessionId, text))
@@ -126,6 +126,11 @@ function registerIpc(): void {
     appState.projectRoot = res.filePaths[0]
     fsm.watch(appState.projectRoot)
     return appState.projectRoot
+  })
+  // Side-effect-free folder picker (does NOT change the project root).
+  ipcMain.handle(CH.fsPickFolder, async () => {
+    const res = await dialog.showOpenDialog({ properties: ['openDirectory'] })
+    return res.canceled ? '' : res.filePaths[0] || ''
   })
 }
 

@@ -20,8 +20,8 @@ interface EditResult {
 // The only surface the renderer can touch. No nodeIntegration, no raw ipc.
 const api = {
   claude: {
-    newSession: (sessionId: string): Promise<string> =>
-      ipcRenderer.invoke(CH.claudeNewSession, sessionId),
+    newSession: (sessionId: string, cwd?: string): Promise<string> =>
+      ipcRenderer.invoke(CH.claudeNewSession, sessionId, cwd),
     send: (sessionId: string, text: string): Promise<void> =>
       ipcRenderer.invoke(CH.claudeSend, sessionId, text),
     write: (sessionId: string, data: string): void =>
@@ -91,6 +91,7 @@ const api = {
     writeFile: (path: string, content: string): Promise<void> =>
       ipcRenderer.invoke(CH.fsWriteFile, path, content),
     pickDir: (): Promise<string> => ipcRenderer.invoke(CH.fsPickDir),
+    pickFolder: (): Promise<string> => ipcRenderer.invoke(CH.fsPickFolder),
     projectRoot: (): Promise<string> => ipcRenderer.invoke(CH.appProjectRoot),
     onChanged: (cb: (root: string) => void): (() => void) => {
       const h = (_e: unknown, root: string): void => cb(root)
