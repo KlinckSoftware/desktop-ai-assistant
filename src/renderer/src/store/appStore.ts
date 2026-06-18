@@ -65,10 +65,6 @@ interface AppState {
   fileList: string[]
   setFileList: (f: string[]) => void
 
-  // True when the DiffViewer editor has unsaved edits vs the on-disk file.
-  diffDirty: boolean
-  setDiffDirty: (v: boolean) => void
-
   openFile: (path: string) => void
 
   // Persisted dockview layout (panel arrangement).
@@ -159,9 +155,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   fileList: [],
   setFileList: (f) => set({ fileList: f }),
-
-  diffDirty: false,
-  setDiffDirty: (v) => set({ diffDirty: v }),
 
   openFile: (path) => set({ selectedFile: path }),
 
