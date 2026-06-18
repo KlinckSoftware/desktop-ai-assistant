@@ -149,6 +149,13 @@ const api = {
       debateRounds?: number
       terminalShell?: 'default' | 'powershell' | 'pwsh' | 'cmd' | 'bash' | 'zsh'
     }): Promise<void> => ipcRenderer.invoke(CH.settingsSet, s)
+  },
+  mcp: {
+    status: (): Promise<{ server: string; connected: boolean; toolCount: number; error?: string }[]> =>
+      ipcRenderer.invoke(CH.mcpStatus),
+    reconnect: (): Promise<{ server: string; connected: boolean; toolCount: number; error?: string }[]> =>
+      ipcRenderer.invoke(CH.mcpReconnect),
+    configPath: (): Promise<string> => ipcRenderer.invoke(CH.mcpConfigPath)
   }
 }
 

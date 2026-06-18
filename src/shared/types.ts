@@ -128,5 +128,9 @@ export const CH = {
   appSetRoot: 'app:set-root',
   stateLoad: 'state:load',
   stateSave: 'state:save',
-  settingsSet: 'settings:set'
+  settingsSet: 'settings:set',
+
+  mcpStatus: 'mcp:status',
+  mcpReconnect: 'mcp:reconnect',
+  mcpConfigPath: 'mcp:config-path'
 } as const

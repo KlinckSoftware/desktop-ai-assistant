@@ -1,5 +1,12 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useAppStore } from '../store/appStore'
+
+interface McpStatus {
+  server: string
+  connected: boolean
+  toolCount: number
+  error?: string
+}
 
 const MODELS = [
   'gemini-2.5-flash',
@@ -22,6 +29,20 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
 
   const [key, setKey] = useState('')
   const [savedMsg, setSavedMsg] = useState('')
+  const [mcp, setMcp] = useState<McpStatus[]>([])
+  const [mcpPath, setMcpPath] = useState('')
+  const [mcpBusy, setMcpBusy] = useState(false)
+
+  useEffect(() => {
+    window.api.mcp.status().then(setMcp)
+    window.api.mcp.configPath().then(setMcpPath)
+  }, [])
+
+  const reconnectMcp = async (): Promise<void> => {
+    setMcpBusy(true)
+    setMcp(await window.api.mcp.reconnect())
+    setMcpBusy(false)
+  }
 
   const onModel = (m: string): void => {
     setGeminiModel(m)
@@ -132,6 +153,36 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
           </button>
         </div>
         {savedMsg && <div className="mt-1 text-xs text-green-400">{savedMsg}</div>}
+
+        {/* MCP servers */}
+        <div className="mt-4 flex items-center justify-between">
+          <label className="block text-xs uppercase text-gray-500">MCP servers</label>
+          <button
+            className="rounded border border-border px-2 py-0.5 text-xs text-gray-300 hover:bg-bg disabled:opacity-40"
+            disabled={mcpBusy}
+            onClick={reconnectMcp}
+          >
+            {mcpBusy ? 'Reconnecting…' : 'Reconnect'}
+          </button>
+        </div>
+        <div className="mt-1 rounded border border-border bg-bg p-2 text-xs">
+          {mcp.length === 0 ? (
+            <div className="text-gray-500">None configured.</div>
+          ) : (
+            mcp.map((s) => (
+              <div key={s.server} className="flex items-center gap-2 py-0.5">
+                <span className={s.connected ? 'text-green-400' : 'text-red-400'}>●</span>
+                <span className="text-gray-200">{s.server}</span>
+                <span className="text-gray-500">
+                  {s.connected ? `${s.toolCount} tools` : s.error || 'failed'}
+                </span>
+              </div>
+            ))
+          )}
+          <div className="mt-1 truncate text-[10px] text-gray-600" title={mcpPath}>
+            Edit: {mcpPath}
+          </div>
+        </div>
       </div>
     </div>
   )
