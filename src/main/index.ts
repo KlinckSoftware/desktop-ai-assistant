@@ -10,6 +10,7 @@ import { GeminiClient } from './gemini/GeminiClient'
 import { FileSystemManager } from './fs/FileSystemManager'
 import { gitStatus, gitHead, gitChanges, gitStage, gitUnstage, gitCommit } from './fs/git'
 import { loadState, saveState } from './persistence'
+import { mcpManager } from './mcp/MCPClientManager'
 import { IPCModerator } from './moderator/IPCModerator'
 
 let executor: CommandExecutor
@@ -117,6 +118,11 @@ function registerIpc(): void {
     appState.settings = { ...appState.settings, ...s }
     if (shellChanged) executor.respawn()
   })
+
+  // --- MCP ---
+  ipcMain.handle(CH.mcpStatus, () => mcpManager.statusList())
+  ipcMain.handle(CH.mcpReconnect, () => mcpManager.connectAll())
+  ipcMain.handle(CH.mcpConfigPath, () => mcpManager.configPath())
   ipcMain.handle(CH.gitStatus, () => gitStatus(appState.projectRoot))
   ipcMain.handle(CH.gitHead, (_e, path: string) => gitHead(appState.projectRoot, path))
   ipcMain.handle(CH.gitChanges, () => gitChanges(appState.projectRoot))
@@ -148,6 +154,8 @@ app.whenReady().then(() => {
   initServices()
   registerIpc()
   createWindow()
+  // Connect MCP servers in the background (non-blocking).
+  mcpManager.init().catch((e) => console.warn('[mcp] init failed:', e))
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -157,5 +165,6 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   claude?.killAll()
   fsm?.dispose()
+  mcpManager.disconnectAll()
   if (process.platform !== 'darwin') app.quit()
 })
