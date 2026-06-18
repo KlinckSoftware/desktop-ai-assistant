@@ -95,6 +95,43 @@ export class FileSystemManager {
     return out
   }
 
+  // --- Drag-and-drop helpers (operate on user-dropped paths, NOT confined to
+  // the project root — dropping is an explicit user action). ---
+
+  async classifyDropped(p: string): Promise<{ kind: 'dir' | 'image' | 'text'; name: string }> {
+    const name = basename(p)
+    try {
+      const st = await fs.stat(p)
+      if (st.isDirectory()) return { kind: 'dir', name }
+    } catch {
+      return { kind: 'text', name }
+    }
+    const ext = p.split('.').pop()?.toLowerCase() ?? ''
+    const imageExt = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'])
+    return { kind: imageExt.has(ext) ? 'image' : 'text', name }
+  }
+
+  async readDropped(p: string): Promise<string> {
+    const buf = await fs.readFile(p)
+    if (buf.subarray(0, 8000).includes(0)) throw new Error(`Binary file: ${basename(p)}`)
+    return buf.toString('utf-8')
+  }
+
+  async readImage(p: string): Promise<{ mime: string; base64: string }> {
+    const ext = p.split('.').pop()?.toLowerCase() ?? 'png'
+    const mimeMap: Record<string, string> = {
+      png: 'image/png',
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      gif: 'image/gif',
+      webp: 'image/webp',
+      bmp: 'image/bmp',
+      svg: 'image/svg+xml'
+    }
+    const buf = await fs.readFile(p)
+    return { mime: mimeMap[ext] ?? 'application/octet-stream', base64: buf.toString('base64') }
+  }
+
   async readFile(path: string): Promise<string> {
     const abs = assertInRoot(path)
     if (isBinaryPath(abs)) throw new Error(`Cannot display binary file: ${basename(abs)}`)

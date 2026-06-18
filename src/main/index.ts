@@ -74,8 +74,10 @@ function registerIpc(): void {
   ipcMain.handle(CH.claudeKillSession, (_e, sessionId: string) => claude.kill(sessionId))
 
   // --- Gemini ---
-  ipcMain.handle(CH.geminiSend, (_e, prompt: string, history: Message[]) =>
-    gemini.send(prompt, history)
+  ipcMain.handle(
+    CH.geminiSend,
+    (_e, prompt: string, history: Message[], images?: { mime: string; base64: string }[]) =>
+      gemini.send(prompt, history, images)
   )
   ipcMain.handle(CH.geminiSideSend, (_e, prompt: string) => gemini.sideSend(prompt))
   ipcMain.handle(CH.geminiHasKey, () => gemini.hasKey())
@@ -122,6 +124,9 @@ function registerIpc(): void {
   ipcMain.handle(CH.gitUnstage, (_e, rel: string) => gitUnstage(appState.projectRoot, rel))
   ipcMain.handle(CH.gitCommit, (_e, msg: string) => gitCommit(appState.projectRoot, msg))
   ipcMain.handle(CH.fsListFiles, () => fsm.listFiles(appState.projectRoot))
+  ipcMain.handle(CH.fsClassify, (_e, p: string) => fsm.classifyDropped(p))
+  ipcMain.handle(CH.fsReadDropped, (_e, p: string) => fsm.readDropped(p))
+  ipcMain.handle(CH.fsReadImage, (_e, p: string) => fsm.readImage(p))
   ipcMain.handle(CH.fsPickDir, async () => {
     const res = await dialog.showOpenDialog({ properties: ['openDirectory'] })
     if (res.canceled || !res.filePaths[0]) return appState.projectRoot

@@ -24,10 +24,16 @@ result back. Use bash to inspect/build/verify; use file blocks to write changes.
 
 interface GeminiPart {
   text?: string
+  inlineData?: { mimeType: string; data: string }
 }
 interface GeminiContent {
   role: string
   parts: GeminiPart[]
+}
+
+export interface ImagePart {
+  mime: string
+  base64: string
 }
 
 export class GeminiClient {
@@ -50,7 +56,12 @@ export class GeminiClient {
    * are routed through the approval broker and the outputs fed back for up to
    * `maxTurns` iterations.
    */
-  async send(prompt: string, history: Message[], maxTurns = 5): Promise<string> {
+  async send(
+    prompt: string,
+    history: Message[],
+    images: ImagePart[] = [],
+    maxTurns = 5
+  ): Promise<string> {
     const apiKey = await KeychainManager.getKey()
     if (!apiKey) {
       appState.send(CH.geminiStream, '\n[Gemini: no API key set. Add one in settings.]')
@@ -63,7 +74,12 @@ export class GeminiClient {
         role: m.role === 'assistant' ? 'model' : m.role,
         parts: [{ text: m.content }]
       }))
-    contents.push({ role: 'user', parts: [{ text: prompt }] })
+    // First user turn carries any dropped images as inline data (multimodal).
+    const userParts: GeminiPart[] = [
+      { text: prompt },
+      ...images.map((im) => ({ inlineData: { mimeType: im.mime, data: im.base64 } }))
+    ]
+    contents.push({ role: 'user', parts: userParts })
 
     let full = ''
     for (let turn = 0; turn < maxTurns; turn++) {
