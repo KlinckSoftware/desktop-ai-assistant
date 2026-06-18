@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react'
 import { checkDangerous } from '@shared/dangerousCommand'
 import { useAppStore } from './store/appStore'
 import DockLayout from './dock/DockLayout'
-import { focusPanel } from './dock/dockApi'
+import { focusPanel, closeActivePanel, toggleSidebar } from './dock/dockApi'
 import CommandToast from './components/CommandToast'
 import EditReview from './components/EditReview'
 import SettingsModal from './components/SettingsModal'
 import FileMenu from './components/FileMenu'
 import ViewMenu from './components/ViewMenu'
 import SideChat from './components/SideChat'
+import QuickOpen from './components/QuickOpen'
 
 export default function App(): JSX.Element {
   const setProjectRoot = useAppStore((s) => s.setProjectRoot)
@@ -25,6 +26,7 @@ export default function App(): JSX.Element {
   const setFileList = useAppStore((s) => s.setFileList)
   const [showSettings, setShowSettings] = useState(false)
   const [showSideChat, setShowSideChat] = useState(false)
+  const [showQuickOpen, setShowQuickOpen] = useState(false)
   // Gate the dock layout until persisted state (incl. saved layout) is hydrated,
   // so DockLayout's onReady can restore the saved arrangement.
   const [ready, setReady] = useState(false)
@@ -41,16 +43,31 @@ export default function App(): JSX.Element {
       } else {
         setProjectRoot(await window.api.fs.projectRoot())
       }
-      const { geminiModel, debateRounds } = useAppStore.getState()
-      window.api.settings.set({ geminiModel, debateRounds })
+      const { geminiModel, debateRounds, terminalShell } = useAppStore.getState()
+      window.api.settings.set({ geminiModel, debateRounds, terminalShell })
       setHasGeminiKey(await window.api.gemini.hasKey())
       setReady(true)
     })()
 
     const handleKeyDown = (e: KeyboardEvent): void => {
-      if ((e.ctrlKey || e.metaKey) && e.key === ';') {
+      const mod = e.ctrlKey || e.metaKey
+      if (!mod) return
+      const k = e.key.toLowerCase()
+      if (k === ';') {
         e.preventDefault()
         setShowSideChat((prev) => !prev)
+      } else if (k === 'p') {
+        e.preventDefault() // would otherwise open the print dialog
+        setShowQuickOpen(true)
+      } else if (k === 'w') {
+        e.preventDefault()
+        closeActivePanel()
+      } else if (k === 'b') {
+        e.preventDefault()
+        toggleSidebar()
+      } else if (e.key === '`') {
+        e.preventDefault()
+        focusPanel('terminal')
       }
     }
     window.addEventListener('keydown', handleKeyDown)
@@ -81,6 +98,7 @@ export default function App(): JSX.Element {
           debatePrompt: s.debatePrompt,
           geminiModel: s.geminiModel,
           debateRounds: s.debateRounds,
+          terminalShell: s.terminalShell,
           dockLayout: s.dockLayout
         })
       }, 600)
@@ -153,6 +171,7 @@ export default function App(): JSX.Element {
       <EditReview />
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       {showSideChat && <SideChat onClose={() => setShowSideChat(false)} />}
+      {showQuickOpen && <QuickOpen onClose={() => setShowQuickOpen(false)} />}
 
       {/* Debate-running indicator → focuses the docked Debate panel. */}
       {debateRunning && (

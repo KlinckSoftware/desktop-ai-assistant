@@ -49,6 +49,24 @@ export function togglePanel(id: string): void {
   else focusPanel(id)
 }
 
+/** Close the currently focused panel (Ctrl+W). */
+export function closeActivePanel(): void {
+  api?.activePanel?.api.close()
+}
+
+/** Show/hide the left column (Sessions + Files) together (Ctrl+B). */
+export function toggleSidebar(): void {
+  if (!api) return
+  const filesOpen = !!api.getPanel('files')
+  if (filesOpen) {
+    api.getPanel('files')?.api.close()
+    api.getPanel('sessions')?.api.close()
+  } else {
+    focusPanel('sessions')
+    focusPanel('files')
+  }
+}
+
 // Default arrangement. The bottom row is added relative to the ROOT (no
 // referencePanel) so it spans the full width — giving one top/bottom divider
 // across the whole window and letting the left/right columns be full height.
