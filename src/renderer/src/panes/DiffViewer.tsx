@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
+import { Allotment } from 'allotment'
 import * as Diff from 'diff'
 import { html } from 'diff2html'
+import { ColorSchemeType } from 'diff2html/lib/types'
 import 'diff2html/bundles/css/diff2html.min.css'
 import { useAppStore } from '../store/appStore'
 import CodeEditor from '../components/CodeEditor'
@@ -64,14 +66,11 @@ export default function DiffViewer(): JSX.Element {
   const diffHtml = useMemo(() => {
     if (!selectedFile) return ''
     const filename = selectedFile.split(/[/\\]/).pop() || 'file'
-    const patch = Diff.createTwoFilesPatch(
-      filename, filename,
-      original, modified,
-      'Original', 'Modified'
-    )
+    const patch = Diff.createTwoFilesPatch(filename, filename, original, modified, '', '')
     return html(patch, {
       outputFormat: 'side-by-side',
-      drawFileList: false
+      drawFileList: false,
+      colorScheme: ColorSchemeType.DARK
     })
   }, [selectedFile, original, modified])
 
@@ -113,26 +112,29 @@ export default function DiffViewer(): JSX.Element {
         </div>
       </div>
 
-      <div className="flex flex-1 min-h-0">
-        <div className="flex w-1/2 flex-col border-r border-border">
-          <div className="bg-panel px-2 py-1 text-[10px] uppercase text-gray-500 border-b border-border">
-            Editor
-          </div>
-          <div className="min-h-0 flex-1 overflow-auto">
-            <CodeEditor value={modified} onChange={setModified} path={selectedFile} />
-          </div>
-        </div>
-        <div className="flex w-1/2 flex-col">
-          <div className="bg-panel px-2 py-1 text-[10px] uppercase text-gray-500 border-b border-border">
-            Diff Preview
-          </div>
-          <div className="flex-1 overflow-auto bg-bg p-2 text-sm">
-            <div
-              className="diff2html-wrapper"
-              dangerouslySetInnerHTML={{ __html: diffHtml }}
-            />
-          </div>
-        </div>
+      <div className="min-h-0 flex-1">
+        <Allotment>
+          <Allotment.Pane preferredSize="50%" minSize={150}>
+            <div className="flex h-full flex-col border-r border-border">
+              <div className="border-b border-border bg-panel px-2 py-1 text-[10px] uppercase text-gray-500">
+                Editor
+              </div>
+              <div className="min-h-0 flex-1 overflow-auto">
+                <CodeEditor value={modified} onChange={setModified} path={selectedFile} />
+              </div>
+            </div>
+          </Allotment.Pane>
+          <Allotment.Pane minSize={150}>
+            <div className="flex h-full flex-col">
+              <div className="border-b border-border bg-panel px-2 py-1 text-[10px] uppercase text-gray-500">
+                Diff Preview
+              </div>
+              <div className="flex-1 overflow-auto bg-bg p-2 text-sm">
+                <div className="diff2html-wrapper" dangerouslySetInnerHTML={{ __html: diffHtml }} />
+              </div>
+            </div>
+          </Allotment.Pane>
+        </Allotment>
       </div>
     </div>
   )

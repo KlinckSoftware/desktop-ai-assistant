@@ -1,4 +1,5 @@
 import CodeMirror from '@uiw/react-codemirror'
+import { EditorView } from '@codemirror/view'
 import { oneDark } from '@codemirror/theme-one-dark'
 import { javascript } from '@codemirror/lang-javascript'
 import { json } from '@codemirror/lang-json'
@@ -8,6 +9,18 @@ import { css } from '@codemirror/lang-css'
 import { python } from '@codemirror/lang-python'
 import { rust } from '@codemirror/lang-rust'
 import type { Extension } from '@codemirror/state'
+
+// Match the app/Claude background (#0d1117) instead of one-dark's grey.
+const bgTheme = EditorView.theme(
+  {
+    '&': { backgroundColor: '#0d1117' },
+    '.cm-scroller': { backgroundColor: '#0d1117' },
+    '.cm-gutters': { backgroundColor: '#0d1117', border: 'none' },
+    '.cm-activeLine': { backgroundColor: '#161b22' },
+    '.cm-activeLineGutter': { backgroundColor: '#161b22' }
+  },
+  { dark: true }
+)
 
 function langFor(path: string): Extension[] {
   const ext = path.split('.').pop()?.toLowerCase() ?? ''
@@ -56,8 +69,8 @@ export default function CodeEditor({ value, onChange, path, readOnly }: Props): 
     <CodeMirror
       value={value}
       onChange={(v) => onChange?.(v)}
-      theme={oneDark}
-      extensions={langFor(path)}
+      theme="none"
+      extensions={[oneDark, ...langFor(path), bgTheme]}
       readOnly={readOnly}
       height="100%"
       style={{ height: '100%', fontSize: 13 }}

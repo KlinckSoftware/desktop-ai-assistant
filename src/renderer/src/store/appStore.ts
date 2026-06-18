@@ -16,6 +16,7 @@ export interface PersistedState {
   debatePrompt: string
   geminiModel: string
   debateRounds: number
+  dockLayout: unknown | null
 }
 
 interface AppState {
@@ -68,10 +69,11 @@ interface AppState {
   diffDirty: boolean
   setDiffDirty: (v: boolean) => void
 
-  // Which bottom pane is active (in store so the tree can switch to it).
-  bottomTab: 'terminal' | 'diff' | 'git' | 'checkpoints'
-  setBottomTab: (t: 'terminal' | 'diff' | 'git' | 'checkpoints') => void
   openFile: (path: string) => void
+
+  // Persisted dockview layout (panel arrangement).
+  dockLayout: unknown | null
+  setDockLayout: (l: unknown) => void
 
   // Files checked in the tree to attach as prompt context.
   contextFiles: Set<string>
@@ -161,9 +163,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   diffDirty: false,
   setDiffDirty: (v) => set({ diffDirty: v }),
 
-  bottomTab: 'terminal',
-  setBottomTab: (t) => set({ bottomTab: t }),
-  openFile: (path) => set({ selectedFile: path, bottomTab: 'diff' }),
+  openFile: (path) => set({ selectedFile: path }),
+
+  dockLayout: null,
+  setDockLayout: (l) => set({ dockLayout: l }),
 
   contextFiles: new Set(),
   toggleContextFile: (path) =>
@@ -203,6 +206,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       debatePrompt: d.debatePrompt ?? '',
       geminiModel: d.geminiModel ?? 'gemini-2.5-flash',
       debateRounds: d.debateRounds ?? 3,
+      dockLayout: d.dockLayout ?? null,
       debateRunning: false, // never restore a "running" flag — the backend is gone
       debateStatus: ''
     })

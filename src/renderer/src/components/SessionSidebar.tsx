@@ -28,7 +28,7 @@ export default function SessionSidebar(): JSX.Element {
   }
 
   return (
-    <div className="flex h-1/3 flex-col border-b border-border bg-panel">
+    <div className="flex h-full flex-col bg-panel">
       <div className="flex items-center justify-between border-b border-border px-3 py-1.5 text-xs">
         <span className="font-semibold text-gray-300">Sessions</span>
         <button

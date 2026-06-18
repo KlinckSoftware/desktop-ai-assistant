@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, Menu } from 'electron'
 import { join } from 'path'
 import { appState } from './state'
 import { CH, type Message } from '../shared/types'
@@ -135,6 +135,9 @@ function registerIpc(): void {
 }
 
 app.whenReady().then(() => {
+  // Remove the default native menu bar (File/Edit/View/…) — the app has its own
+  // in-app File menu, so the native one is redundant.
+  Menu.setApplicationMenu(null)
   initServices()
   registerIpc()
   createWindow()
