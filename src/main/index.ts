@@ -11,6 +11,7 @@ import { FileSystemManager } from './fs/FileSystemManager'
 import { gitStatus, gitHead, gitChanges, gitStage, gitUnstage, gitCommit } from './fs/git'
 import { loadState, saveState } from './persistence'
 import { mcpManager } from './mcp/MCPClientManager'
+import { toolBroker } from './mcp/ToolBroker'
 import { IPCModerator } from './moderator/IPCModerator'
 
 let executor: CommandExecutor
@@ -100,6 +101,10 @@ function registerIpc(): void {
   ipcMain.handle(CH.editReject, (_e, id: string) => editBroker.reject(id))
   ipcMain.handle(CH.checkpointList, () => editBroker.list())
   ipcMain.handle(CH.checkpointUndo, (_e, id: string) => editBroker.undo(id))
+
+  // --- MCP tool approval ---
+  ipcMain.handle(CH.toolApprove, (_e, id: string) => toolBroker.approve(id))
+  ipcMain.handle(CH.toolReject, (_e, id: string) => toolBroker.reject(id))
 
   // --- Filesystem ---
   ipcMain.handle(CH.fsReadTree, (_e, root?: string) => fsm.readTree(root || appState.projectRoot))

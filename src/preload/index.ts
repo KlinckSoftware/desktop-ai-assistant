@@ -8,6 +8,7 @@ import {
   type DebateUpdate,
   type GitChanges,
   type PendingEdit,
+  type PendingTool,
   type Checkpoint
 } from '../shared/types'
 
@@ -119,6 +120,15 @@ const api = {
       const h = (_e: unknown, r: EditResult): void => cb(r)
       ipcRenderer.on(CH.editResult, h)
       return () => ipcRenderer.removeListener(CH.editResult, h)
+    }
+  },
+  tool: {
+    approve: (id: string): Promise<void> => ipcRenderer.invoke(CH.toolApprove, id),
+    reject: (id: string): Promise<void> => ipcRenderer.invoke(CH.toolReject, id),
+    onPending: (cb: (t: PendingTool) => void): (() => void) => {
+      const h = (_e: unknown, t: PendingTool): void => cb(t)
+      ipcRenderer.on(CH.toolPending, h)
+      return () => ipcRenderer.removeListener(CH.toolPending, h)
     }
   },
   checkpoint: {

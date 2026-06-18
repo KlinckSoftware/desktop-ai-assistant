@@ -56,6 +56,13 @@ export interface PendingEdit {
   origin: AgentId
 }
 
+// An MCP tool call proposed by the model, awaiting approval.
+export interface PendingTool {
+  id: string
+  tool: string // qualified server__tool
+  argsPreview: string // pretty JSON of arguments
+}
+
 export interface Checkpoint {
   id: string
   rel: string
@@ -102,6 +109,11 @@ export const CH = {
   editApprove: 'edit:approve',
   editReject: 'edit:reject',
   editResult: 'edit:result',
+
+  toolPending: 'tool:pending',
+  toolApprove: 'tool:approve',
+  toolReject: 'tool:reject',
+  toolResult: 'tool:result',
 
   checkpointList: 'checkpoint:list',
   checkpointUndo: 'checkpoint:undo',
