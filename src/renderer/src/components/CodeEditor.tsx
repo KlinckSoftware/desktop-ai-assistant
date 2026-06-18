@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import CodeMirror from '@uiw/react-codemirror'
 import { EditorView } from '@codemirror/view'
 import { oneDark } from '@codemirror/theme-one-dark'
@@ -65,12 +66,15 @@ interface Props {
 // CodeMirror 6 editor with extension-based language detection + dark theme.
 // Bundled locally (no CDN/eval) so it satisfies the renderer CSP.
 export default function CodeEditor({ value, onChange, path, readOnly }: Props): JSX.Element {
+  // Stable extension identity — rebuilding this array each render makes
+  // react-codemirror reconfigure the whole editor (heavy thrash / lag).
+  const extensions = useMemo(() => [oneDark, ...langFor(path), bgTheme], [path])
   return (
     <CodeMirror
       value={value}
       onChange={(v) => onChange?.(v)}
       theme="none"
-      extensions={[oneDark, ...langFor(path), bgTheme]}
+      extensions={extensions}
       readOnly={readOnly}
       height="100%"
       style={{ height: '100%', fontSize: 13 }}
