@@ -111,7 +111,9 @@ function registerIpc(): void {
   ipcMain.handle(CH.stateLoad, () => loadState())
   ipcMain.handle(CH.stateSave, (_e, data: unknown) => saveState(data))
   ipcMain.handle(CH.settingsSet, (_e, s: Partial<typeof appState.settings>) => {
+    const shellChanged = s.terminalShell != null && s.terminalShell !== appState.settings.terminalShell
     appState.settings = { ...appState.settings, ...s }
+    if (shellChanged) executor.respawn()
   })
   ipcMain.handle(CH.gitStatus, () => gitStatus(appState.projectRoot))
   ipcMain.handle(CH.gitHead, (_e, path: string) => gitHead(appState.projectRoot, path))

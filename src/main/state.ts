@@ -16,13 +16,14 @@ function defaultRoot(): string {
 export interface Settings {
   geminiModel: string
   debateRounds: number
+  terminalShell: 'default' | 'powershell' | 'pwsh' | 'cmd' | 'bash' | 'zsh'
 }
 
 // Mutable app-wide state shared across main-process modules.
 class AppState {
   mainWindow: BrowserWindow | null = null
   projectRoot: string = defaultRoot()
-  settings: Settings = { geminiModel: 'gemini-2.5-flash', debateRounds: 3 }
+  settings: Settings = { geminiModel: 'gemini-2.5-flash', debateRounds: 3, terminalShell: 'default' }
 
   send(channel: string, ...args: unknown[]): void {
     this.mainWindow?.webContents.send(channel, ...args)

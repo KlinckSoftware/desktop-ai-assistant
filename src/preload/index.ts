@@ -136,8 +136,11 @@ const api = {
     setRoot: (root: string): Promise<string> => ipcRenderer.invoke(CH.appSetRoot, root)
   },
   settings: {
-    set: (s: { geminiModel?: string; debateRounds?: number }): Promise<void> =>
-      ipcRenderer.invoke(CH.settingsSet, s)
+    set: (s: {
+      geminiModel?: string
+      debateRounds?: number
+      terminalShell?: 'default' | 'powershell' | 'pwsh' | 'cmd' | 'bash' | 'zsh'
+    }): Promise<void> => ipcRenderer.invoke(CH.settingsSet, s)
   }
 }
 

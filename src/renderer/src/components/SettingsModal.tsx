@@ -11,8 +11,10 @@ const MODELS = [
 export default function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element {
   const geminiModel = useAppStore((s) => s.geminiModel)
   const debateRounds = useAppStore((s) => s.debateRounds)
+  const terminalShell = useAppStore((s) => s.terminalShell)
   const setGeminiModel = useAppStore((s) => s.setGeminiModel)
   const setDebateRounds = useAppStore((s) => s.setDebateRounds)
+  const setTerminalShell = useAppStore((s) => s.setTerminalShell)
   const trustedCount = useAppStore((s) => s.trustedSessions.size)
   const clearTrust = useAppStore((s) => s.clearTrust)
   const hasKey = useAppStore((s) => s.hasGeminiKey)
@@ -30,6 +32,11 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
     setDebateRounds(v)
     window.api.settings.set({ debateRounds: v })
   }
+  const onShell = (s: typeof terminalShell): void => {
+    setTerminalShell(s)
+    window.api.settings.set({ terminalShell: s }) // main respawns the terminal shell
+  }
+  const SHELLS: typeof terminalShell[] = ['default', 'powershell', 'pwsh', 'cmd', 'bash', 'zsh']
   const saveKey = async (): Promise<void> => {
     if (!key.trim()) return
     await window.api.gemini.saveKey(key.trim())
@@ -75,6 +82,20 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
           onChange={(e) => onRounds(Number(e.target.value))}
           className="mb-4 w-full accent-accent"
         />
+
+        {/* Terminal shell */}
+        <label className="mb-1 block text-xs uppercase text-gray-500">Terminal shell</label>
+        <select
+          className="mb-4 w-full rounded border border-border bg-bg px-2 py-1.5 outline-none focus:border-accent"
+          value={terminalShell}
+          onChange={(e) => onShell(e.target.value as typeof terminalShell)}
+        >
+          {SHELLS.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
 
         {/* Command trust */}
         <label className="mb-1 block text-xs uppercase text-gray-500">Command trust</label>

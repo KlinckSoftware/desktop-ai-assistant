@@ -16,6 +16,7 @@ export interface PersistedState {
   debatePrompt: string
   geminiModel: string
   debateRounds: number
+  terminalShell: AppState['terminalShell']
   dockLayout: unknown | null
 }
 
@@ -35,8 +36,10 @@ interface AppState {
   // User settings (mirrored to main via window.api.settings.set).
   geminiModel: string
   debateRounds: number
+  terminalShell: 'default' | 'powershell' | 'pwsh' | 'cmd' | 'bash' | 'zsh'
   setGeminiModel: (m: string) => void
   setDebateRounds: (n: number) => void
+  setTerminalShell: (s: AppState['terminalShell']) => void
 
   pending: PendingCommand[]
   addPending: (c: PendingCommand) => void
@@ -109,8 +112,10 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   geminiModel: 'gemini-2.5-flash',
   debateRounds: 3,
+  terminalShell: 'default',
   setGeminiModel: (m) => set({ geminiModel: m }),
   setDebateRounds: (n) => set({ debateRounds: n }),
+  setTerminalShell: (s) => set({ terminalShell: s }),
 
   pending: [],
   addPending: (c) => set((s) => ({ pending: [...s.pending, c] })),
@@ -199,6 +204,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       debatePrompt: d.debatePrompt ?? '',
       geminiModel: d.geminiModel ?? 'gemini-2.5-flash',
       debateRounds: d.debateRounds ?? 3,
+      terminalShell: d.terminalShell ?? 'default',
       dockLayout: d.dockLayout ?? null,
       debateRunning: false, // never restore a "running" flag — the backend is gone
       debateStatus: ''
