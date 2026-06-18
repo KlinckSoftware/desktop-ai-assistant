@@ -54,7 +54,7 @@ function initServices(): void {
   broker = new CommandBroker(executor)
   fsm = new FileSystemManager()
   editBroker = new FileEditBroker(fsm)
-  claude = new ClaudeProcessManager(broker)
+  claude = new ClaudeProcessManager()
   gemini = new GeminiClient(broker, editBroker)
   moderator = new IPCModerator(gemini, broker)
   fsm.watch(appState.projectRoot)
