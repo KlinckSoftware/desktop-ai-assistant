@@ -97,6 +97,18 @@ export async function gitHead(root: string, absPath: string): Promise<string | n
   }
 }
 
+/** Working-tree diff (optionally for one path), capped. Empty on error/no-repo. */
+export async function gitDiff(root: string, rel?: string): Promise<string> {
+  try {
+    const args = ['diff', '--no-color']
+    if (rel) args.push('--', rel)
+    const out = await runGit(root, args)
+    return out.length > 60000 ? out.slice(0, 60000) + '\n[…diff truncated]' : out
+  } catch {
+    return ''
+  }
+}
+
 export async function gitStage(root: string, rel: string): Promise<void> {
   await runGit(root, ['add', '--', rel])
 }
