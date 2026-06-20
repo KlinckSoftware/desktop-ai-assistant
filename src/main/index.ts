@@ -79,8 +79,8 @@ function initServices(): void {
   fsm = new FileSystemManager()
   editBroker = new FileEditBroker(fsm)
   agents = new AgentProcessManager()
-  gemini = new GeminiClient(broker, editBroker)
-  setBrokers(broker, editBroker) // shared tool exec for the API chats
+  gemini = new GeminiClient()
+  setBrokers(broker, editBroker, fsm) // shared tool exec for the API chats
   moderator = new IPCModerator(gemini, broker)
   fsm.watch(appState.projectRoot)
 }

@@ -1,20 +1,19 @@
 import { appState } from '../state'
 import { CH, type Message } from '../../shared/types'
 import { KeychainManager } from '../keychain/KeychainManager'
-import { mcpManager } from '../mcp/MCPClientManager'
-import { toolBroker } from '../mcp/ToolBroker'
-import type { CommandBroker } from '../executor/CommandBroker'
-import type { FileEditBroker } from '../editor/FileEditBroker'
+import { toolSpecs, execTool } from '../tools/toolExec'
 
 const BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
 
 const SYSTEM = `You are an expert coding assistant working inside a desktop IDE.
 You have function tools available:
-- run_command: run a shell command on the user's machine (they approve first).
-- write_file: create or overwrite a file with full new contents (they approve first).
+- read_file / list_dir / search_code / git_diff: inspect the project freely (no approval needed).
+- apply_edit: make a small surgical find/replace edit (user approves first).
+- write_file: create or overwrite a whole file (user approves first).
+- run_command: run a shell command on the user's machine (user approves first).
 - plus any configured MCP tools.
-Prefer these tools over describing actions in prose. Inspect/build/verify with
-run_command; make changes with write_file. Tool results are returned to you.`
+Prefer reading with read_file/search_code before editing. Prefer apply_edit over
+write_file for small changes. Tool results are returned to you.`
 
 interface GeminiPart {
   text?: string
@@ -41,42 +40,7 @@ export interface ImagePart {
   base64: string
 }
 
-// Gemini's function schema is a strict OpenAPI subset — strip JSON-schema keys
-// it rejects ($schema, additionalProperties, $ref, etc.), keep the basics.
-const ALLOWED = new Set([
-  'type',
-  'description',
-  'properties',
-  'required',
-  'items',
-  'enum',
-  'nullable'
-])
-function sanitizeSchema(schema: unknown): Record<string, unknown> {
-  if (!schema || typeof schema !== 'object') return { type: 'object', properties: {} }
-  const out: Record<string, unknown> = {}
-  for (const [k, v] of Object.entries(schema as Record<string, unknown>)) {
-    if (!ALLOWED.has(k)) continue
-    if (k === 'properties' && v && typeof v === 'object') {
-      const props: Record<string, unknown> = {}
-      for (const [pk, pv] of Object.entries(v as Record<string, unknown>)) props[pk] = sanitizeSchema(pv)
-      out.properties = props
-    } else if (k === 'items') {
-      out.items = sanitizeSchema(v)
-    } else {
-      out[k] = v
-    }
-  }
-  if (!out.type) out.type = 'object'
-  return out
-}
-
 export class GeminiClient {
-  constructor(
-    private broker: CommandBroker,
-    private editBroker: FileEditBroker
-  ) {}
-
   async hasKey(): Promise<boolean> {
     return KeychainManager.hasKey()
   }
@@ -84,49 +48,14 @@ export class GeminiClient {
     await KeychainManager.setKey(key.trim())
   }
 
-  // Built-in + MCP tools as Gemini function declarations.
+  // Built-in (read-only + gated) + MCP tools as Gemini function declarations —
+  // shared with the API chats via toolSpecs() so both agents expose the same set.
   private buildTools(): { functionDeclarations: FunctionDeclaration[] } {
-    const decls: FunctionDeclaration[] = [
-      {
-        name: 'run_command',
-        description: 'Run a shell command on the user machine (requires approval). Returns its output.',
-        parameters: {
-          type: 'object',
-          properties: { command: { type: 'string', description: 'The shell command to run.' } },
-          required: ['command']
-        }
-      },
-      {
-        name: 'write_file',
-        description: 'Create or overwrite a file with full new contents (requires approval).',
-        parameters: {
-          type: 'object',
-          properties: {
-            path: { type: 'string', description: 'Path relative to the project root.' },
-            content: { type: 'string', description: 'The entire new file contents.' }
-          },
-          required: ['path', 'content']
-        }
-      }
-    ]
-    for (const t of mcpManager.tools()) {
-      decls.push({
-        name: t.qualified,
-        description: t.description || `MCP tool ${t.name} on ${t.server}`,
-        parameters: sanitizeSchema(t.inputSchema)
-      })
-    }
-    return { functionDeclarations: decls }
+    return { functionDeclarations: toolSpecs() }
   }
 
   private async execCall(call: ToolCall): Promise<string> {
-    if (call.name === 'run_command') {
-      return this.broker.propose(String(call.args.command ?? ''), 'gemini', 'gemini-main')
-    }
-    if (call.name === 'write_file') {
-      return this.editBroker.propose(String(call.args.path ?? ''), String(call.args.content ?? ''), 'gemini')
-    }
-    return toolBroker.propose(call.name, call.args) // MCP tool
+    return execTool(call.name, call.args, 'gemini', 'gemini-main')
   }
 
   async send(prompt: string, history: Message[], images: ImagePart[] = [], maxTurns = 8): Promise<string> {

@@ -95,6 +95,29 @@ export class FileSystemManager {
     return out
   }
 
+  // Plain substring search across project files (for the search_code tool).
+  // Returns matching `rel:line: text` lines, capped. Binaries are skipped.
+  async search(root: string, query: string, max = 80): Promise<string[]> {
+    const q = query.toLowerCase()
+    const files = await this.listFiles(root, 4000)
+    const hits: string[] = []
+    for (const rel of files) {
+      if (hits.length >= max) break
+      let buf: Buffer
+      try {
+        buf = await fs.readFile(join(root, rel))
+      } catch {
+        continue
+      }
+      if (buf.subarray(0, 4000).includes(0)) continue // binary
+      const lines = buf.toString('utf-8').split('\n')
+      for (let i = 0; i < lines.length && hits.length < max; i++) {
+        if (lines[i].toLowerCase().includes(q)) hits.push(`${rel}:${i + 1}: ${lines[i].trim().slice(0, 200)}`)
+      }
+    }
+    return hits
+  }
+
   // --- Drag-and-drop helpers (operate on user-dropped paths, NOT confined to
   // the project root — dropping is an explicit user action). ---
 

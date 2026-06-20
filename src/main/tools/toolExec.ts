@@ -1,18 +1,26 @@
 import { toolBroker } from '../mcp/ToolBroker'
 import { mcpManager } from '../mcp/MCPClientManager'
+import { appState } from '../state'
+import { resolve } from 'path'
+import { gitDiff } from '../fs/git'
 import type { CommandBroker } from '../executor/CommandBroker'
 import type { FileEditBroker } from '../editor/FileEditBroker'
+import type { FileSystemManager } from '../fs/FileSystemManager'
 
-// Shared tool surface for the agentic API chats: built-in run_command +
-// write_file (routed through their approval gates) plus all discovered MCP
-// tools (routed through the tool approval gate). Provider clients format these
-// into their own tool-declaration shape.
+// Shared tool surface for the agentic API chats. Three tiers:
+//  - read-only (read_file, list_dir, search_code, git_diff): auto-execute, no
+//    approval prompt — they can't mutate anything and are confined to the root.
+//  - apply_edit: surgical find/replace, routed through edit-review approval.
+//  - run_command / write_file / MCP tools: gated through their approval brokers.
+// Provider clients format these specs into their own tool-declaration shape.
 
 let broker: CommandBroker | null = null
 let editBroker: FileEditBroker | null = null
-export function setBrokers(b: CommandBroker, e: FileEditBroker): void {
+let fsm: FileSystemManager | null = null
+export function setBrokers(b: CommandBroker, e: FileEditBroker, f: FileSystemManager): void {
   broker = b
   editBroker = e
+  fsm = f
 }
 
 // Gemini/OpenAI both accept an OpenAPI-subset JSON schema; strip keys they reject.
@@ -39,14 +47,61 @@ export interface ToolSpec {
   parameters: Record<string, unknown>
 }
 
+const str = (d: string): Record<string, unknown> => ({ type: 'string', description: d })
+
 export function toolSpecs(): ToolSpec[] {
   const specs: ToolSpec[] = [
+    {
+      name: 'read_file',
+      description: 'Read a text file in the project. Returns its full contents. No approval needed.',
+      parameters: {
+        type: 'object',
+        properties: { path: str('Path relative to the project root.') },
+        required: ['path']
+      }
+    },
+    {
+      name: 'list_dir',
+      description: 'List all file paths in the project (relative, forward-slash). No approval needed.',
+      parameters: { type: 'object', properties: {} }
+    },
+    {
+      name: 'search_code',
+      description: 'Plain-text search across project files. Returns matching `path:line: text`. No approval needed.',
+      parameters: {
+        type: 'object',
+        properties: { query: str('Substring to search for (case-insensitive).') },
+        required: ['query']
+      }
+    },
+    {
+      name: 'git_diff',
+      description: 'Show uncommitted working-tree changes (optionally for one file). No approval needed.',
+      parameters: {
+        type: 'object',
+        properties: { path: str('Optional path (relative to root) to diff a single file.') }
+      }
+    },
+    {
+      name: 'apply_edit',
+      description:
+        'Make a surgical edit by replacing the first exact occurrence of `find` with `replace` in a file (requires approval). Prefer this over write_file for small changes.',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: str('Path relative to the project root.'),
+          find: str('Exact text to find (must appear verbatim).'),
+          replace: str('Replacement text.')
+        },
+        required: ['path', 'find', 'replace']
+      }
+    },
     {
       name: 'run_command',
       description: 'Run a shell command on the user machine (requires approval). Returns its output.',
       parameters: {
         type: 'object',
-        properties: { command: { type: 'string', description: 'The shell command to run.' } },
+        properties: { command: str('The shell command to run.') },
         required: ['command']
       }
     },
@@ -56,8 +111,8 @@ export function toolSpecs(): ToolSpec[] {
       parameters: {
         type: 'object',
         properties: {
-          path: { type: 'string', description: 'Path relative to the project root.' },
-          content: { type: 'string', description: 'Entire new file contents.' }
+          path: str('Path relative to the project root.'),
+          content: str('Entire new file contents.')
         },
         required: ['path', 'content']
       }
@@ -73,12 +128,60 @@ export function toolSpecs(): ToolSpec[] {
   return specs
 }
 
-export async function execTool(name: string, args: Record<string, unknown>): Promise<string> {
-  if (name === 'run_command') {
-    return broker ? broker.propose(String(args.command ?? ''), 'api', 'api') : '[no executor]'
+// Resolve an agent-supplied path against the project root (kept relative-safe;
+// FileSystemManager.readFile/writeFile re-assert confinement defensively).
+function abs(p: string): string {
+  return resolve(appState.projectRoot, p)
+}
+
+export async function execTool(
+  name: string,
+  args: Record<string, unknown>,
+  origin: 'api' | 'gemini' = 'api',
+  sessionId: string = origin
+): Promise<string> {
+  const root = appState.projectRoot
+  try {
+    switch (name) {
+      // --- read-only, auto-execute ---
+      case 'read_file': {
+        if (!fsm) return '[no fs]'
+        const content = await fsm.readFile(abs(String(args.path ?? '')))
+        return content.length > 60000 ? content.slice(0, 60000) + '\n[…truncated]' : content
+      }
+      case 'list_dir': {
+        if (!fsm) return '[no fs]'
+        return (await fsm.listFiles(root)).join('\n') || '[empty]'
+      }
+      case 'search_code': {
+        if (!fsm) return '[no fs]'
+        const hits = await fsm.search(root, String(args.query ?? ''))
+        return hits.length ? hits.join('\n') : '[no matches]'
+      }
+      case 'git_diff': {
+        const d = await gitDiff(root, args.path ? String(args.path) : undefined)
+        return d || '[no changes]'
+      }
+      // --- gated ---
+      case 'apply_edit': {
+        if (!fsm || !editBroker) return '[no editor]'
+        const path = String(args.path ?? '')
+        const find = String(args.find ?? '')
+        const replace = String(args.replace ?? '')
+        const current = await fsm.readFile(abs(path))
+        const i = current.indexOf(find)
+        if (i < 0) return `[apply_edit: text not found in ${path}]`
+        const next = current.slice(0, i) + replace + current.slice(i + find.length)
+        return editBroker.propose(path, next, origin)
+      }
+      case 'run_command':
+        return broker ? broker.propose(String(args.command ?? ''), origin, sessionId) : '[no executor]'
+      case 'write_file':
+        return editBroker ? editBroker.propose(String(args.path ?? ''), String(args.content ?? ''), origin) : '[no editor]'
+      default:
+        return toolBroker.propose(name, args)
+    }
+  } catch (err) {
+    return `[tool ${name} failed: ${err instanceof Error ? err.message : String(err)}]`
   }
-  if (name === 'write_file') {
-    return editBroker ? editBroker.propose(String(args.path ?? ''), String(args.content ?? ''), 'api') : '[no editor]'
-  }
-  return toolBroker.propose(name, args)
 }
