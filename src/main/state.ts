@@ -26,7 +26,11 @@ class AppState {
   settings: Settings = { geminiModel: 'gemini-2.5-flash', debateRounds: 3, terminalShell: 'default' }
 
   send(channel: string, ...args: unknown[]): void {
-    this.mainWindow?.webContents.send(channel, ...args)
+    const win = this.mainWindow
+    // pty processes can emit data after the window is torn down; sending to a
+    // destroyed webContents throws "Object has been destroyed".
+    if (!win || win.isDestroyed() || win.webContents.isDestroyed()) return
+    win.webContents.send(channel, ...args)
   }
 }
 
