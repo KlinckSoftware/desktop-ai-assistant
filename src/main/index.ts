@@ -17,6 +17,7 @@ import type { AgentDef } from '../shared/types'
 import { GeminiClient } from './gemini/GeminiClient'
 import { FileSystemManager } from './fs/FileSystemManager'
 import { gitStatus, gitHead, gitChanges, gitStage, gitUnstage, gitCommit } from './fs/git'
+import { buildRepoMap } from './fs/repoMap'
 import { loadState, saveState } from './persistence'
 import { mcpManager } from './mcp/MCPClientManager'
 import { toolBroker } from './mcp/ToolBroker'
@@ -180,6 +181,7 @@ function registerIpc(): void {
   ipcMain.handle(CH.gitUnstage, (_e, rel: string) => gitUnstage(appState.projectRoot, rel))
   ipcMain.handle(CH.gitCommit, (_e, msg: string) => gitCommit(appState.projectRoot, msg))
   ipcMain.handle(CH.fsListFiles, () => fsm.listFiles(appState.projectRoot))
+  ipcMain.handle(CH.fsRepoMap, () => buildRepoMap(fsm, appState.projectRoot))
   ipcMain.handle(CH.fsClassify, (_e, p: string) => fsm.classifyDropped(p))
   ipcMain.handle(CH.fsReadDropped, (_e, p: string) => fsm.readDropped(p))
   ipcMain.handle(CH.fsReadImage, (_e, p: string) => fsm.readImage(p))

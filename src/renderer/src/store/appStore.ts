@@ -106,6 +106,11 @@ interface AppState {
   removeContextFile: (path: string) => void
   clearContextFiles: () => void
 
+  // When on, a generated repo map (symbol outline of the project) is prepended
+  // to every prompt-controlled agent alongside the pooled files.
+  repoMapInContext: boolean
+  toggleRepoMap: () => void
+
   // Drag-dropped attachments for the next Gemini message.
   attachments: Attachment[]
   addAttachment: (a: Attachment) => void
@@ -215,6 +220,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       return { contextFiles: next }
     }),
   clearContextFiles: () => set({ contextFiles: new Set() }),
+
+  repoMapInContext: false,
+  toggleRepoMap: () => set((s) => ({ repoMapInContext: !s.repoMapInContext })),
 
   attachments: [],
   addAttachment: (a) => set((s) => ({ attachments: [...s.attachments, a] })),

@@ -3,6 +3,7 @@ import { mcpManager } from '../mcp/MCPClientManager'
 import { appState } from '../state'
 import { resolve } from 'path'
 import { gitDiff } from '../fs/git'
+import { buildRepoMap } from '../fs/repoMap'
 import type { CommandBroker } from '../executor/CommandBroker'
 import type { FileEditBroker } from '../editor/FileEditBroker'
 import type { FileSystemManager } from '../fs/FileSystemManager'
@@ -63,6 +64,12 @@ export function toolSpecs(): ToolSpec[] {
     {
       name: 'list_dir',
       description: 'List all file paths in the project (relative, forward-slash). No approval needed.',
+      parameters: { type: 'object', properties: {} }
+    },
+    {
+      name: 'repo_map',
+      description:
+        'Get a compact outline of the whole project: each source file with its top-level declarations (functions, classes, types). Call this first to orient before reading files. No approval needed.',
       parameters: { type: 'object', properties: {} }
     },
     {
@@ -152,6 +159,10 @@ export async function execTool(
       case 'list_dir': {
         if (!fsm) return '[no fs]'
         return (await fsm.listFiles(root)).join('\n') || '[empty]'
+      }
+      case 'repo_map': {
+        if (!fsm) return '[no fs]'
+        return buildRepoMap(fsm, root)
       }
       case 'search_code': {
         if (!fsm) return '[no fs]'
