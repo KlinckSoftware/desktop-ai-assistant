@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
+import { WebLinksAddon } from 'xterm-addon-web-links'
 import { useAppStore } from '../store/appStore'
 
 // Interactive Claude Code CLI session, rendered with xterm.js.
@@ -40,6 +41,8 @@ export default function ClaudePane(): JSX.Element {
     })
     const fit = new FitAddon()
     term.loadAddon(fit)
+    // Make URLs (e.g. the /login OAuth link) clickable → open in the browser.
+    term.loadAddon(new WebLinksAddon((_e, uri) => window.api.openExternal(uri)))
     term.open(ref.current)
     fit.fit()
     termRef.current = term

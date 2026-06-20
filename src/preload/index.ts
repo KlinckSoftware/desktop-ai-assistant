@@ -160,6 +160,9 @@ const api = {
       terminalShell?: 'default' | 'powershell' | 'pwsh' | 'cmd' | 'bash' | 'zsh'
     }): Promise<void> => ipcRenderer.invoke(CH.settingsSet, s)
   },
+  openExternal: (url: string): void => {
+    ipcRenderer.invoke(CH.appOpenExternal, url)
+  },
   mcp: {
     status: (): Promise<{ server: string; connected: boolean; toolCount: number; error?: string }[]> =>
       ipcRenderer.invoke(CH.mcpStatus),
