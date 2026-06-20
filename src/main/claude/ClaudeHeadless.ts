@@ -11,6 +11,9 @@ export function claudeOneShot(prompt: string, cwd: string): Promise<string> {
     const proc = spawn(CLAUDE_BIN, ['-p', prompt], {
       cwd,
       env: cleanClaudeEnv(),
+      // stdin = 'ignore' gives Claude immediate EOF; otherwise it waits ~3s for
+      // piped stdin and exits 1. The prompt is passed via the -p arg.
+      stdio: ['ignore', 'pipe', 'pipe'],
       // CLAUDE_BIN is a fully-resolved path; no shell needed (avoids arg-quoting issues).
       shell: false
     })
