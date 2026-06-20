@@ -54,6 +54,8 @@ const api = {
   },
   debate: {
     start: (prompt: string): Promise<void> => ipcRenderer.invoke(CH.debateStart, prompt),
+    synthesize: (): Promise<void> => ipcRenderer.invoke(CH.debateSynthesize),
+    decline: (): Promise<void> => ipcRenderer.invoke(CH.debateDecline),
     onUpdate: (cb: (u: DebateUpdate) => void): (() => void) => {
       const h = (_e: unknown, u: DebateUpdate): void => cb(u)
       ipcRenderer.on(CH.debateUpdate, h)

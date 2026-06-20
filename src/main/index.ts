@@ -90,6 +90,8 @@ function registerIpc(): void {
 
   // --- Debate ---
   ipcMain.handle(CH.debateStart, (_e, prompt: string) => moderator.runDebate(prompt))
+  ipcMain.handle(CH.debateSynthesize, () => moderator.synthesize())
+  ipcMain.handle(CH.debateDecline, () => moderator.decline())
 
   // --- Terminal (direct user input) ---
   ipcMain.on(CH.terminalInput, (_e, data: string) => executor.writeRaw(data))

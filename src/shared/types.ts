@@ -26,7 +26,7 @@ export interface GitChanges {
 }
 
 export interface DebateUpdate {
-  type: 'claude' | 'gemini' | 'synthesis' | 'error'
+  type: 'claude' | 'gemini' | 'synthesis' | 'error' | 'await'
   text: string
   round?: number
 }
@@ -95,6 +95,8 @@ export const CH = {
   debateStart: 'debate:start',
   debateUpdate: 'debate:update',
   debateStatus: 'debate:status',
+  debateSynthesize: 'debate:synthesize',
+  debateDecline: 'debate:decline',
 
   terminalInput: 'terminal:input',
   terminalOutput: 'terminal:output',
