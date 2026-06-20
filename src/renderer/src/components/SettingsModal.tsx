@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAppStore } from '../store/appStore'
+import { Z } from '../zIndex'
 
 interface McpStatus {
   server: string
@@ -68,11 +69,18 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+    <div
+      style={{ zIndex: Z.dropdown }}
+      className="fixed inset-0 flex items-center justify-center bg-black/60"
+    >
       <div className="w-[30rem] rounded-lg border border-border bg-panel p-5 text-sm">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-accent">Settings</h2>
-          <button className="text-gray-400 hover:text-gray-200" onClick={onClose}>
+          <button
+            aria-label="Close settings"
+            className="text-gray-400 hover:text-gray-200"
+            onClick={onClose}
+          >
             ✕
           </button>
         </div>

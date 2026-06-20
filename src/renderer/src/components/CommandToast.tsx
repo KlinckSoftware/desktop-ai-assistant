@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { PendingCommand } from '@shared/types'
 import { checkDangerous } from '@shared/dangerousCommand'
 import { useAppStore } from '../store/appStore'
+import { Z } from '../zIndex'
 
 const TIMEOUT_S = 15
 
@@ -134,7 +135,10 @@ export default function CommandToast(): JSX.Element | null {
   const pendingTools = useAppStore((s) => s.pendingTools)
   if (pending.length === 0 && pendingTools.length === 0) return null
   return (
-    <div className="pointer-events-none fixed bottom-4 right-4 z-50 flex flex-col gap-2">
+    <div
+      style={{ zIndex: Z.dropdown }}
+      className="pointer-events-none fixed bottom-4 right-4 flex flex-col gap-2"
+    >
       {pending.map((c) => (
         <div key={c.id} className="pointer-events-auto">
           <Card cmd={c} />

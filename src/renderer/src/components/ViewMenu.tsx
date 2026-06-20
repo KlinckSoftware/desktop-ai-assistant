@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { PANELS, getDockApi, togglePanel, resetLayout } from '../dock/dockApi'
+import { Z } from '../zIndex'
 
 // Toggle panels open/closed (closed ones reopen at a default spot). Lets the
 // user reopen anything they collapsed and confirm what's currently shown.
@@ -27,7 +28,10 @@ export default function ViewMenu(): JSX.Element {
         View ▾
       </button>
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-1 w-48 rounded border border-border bg-panel py-1 text-xs shadow-xl">
+        <div
+          style={{ zIndex: Z.dropdown }}
+          className="absolute left-0 top-full mt-1 w-48 rounded border border-border bg-panel py-1 text-xs shadow-xl"
+        >
           {PANELS.map((p) => (
             <button
               key={p.id}

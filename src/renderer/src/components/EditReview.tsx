@@ -5,6 +5,7 @@ import { ColorSchemeType } from 'diff2html/lib/types'
 import 'diff2html/bundles/css/diff2html.min.css'
 import type { PendingEdit } from '@shared/types'
 import { useAppStore } from '../store/appStore'
+import { Z } from '../zIndex'
 
 function EditCard({ edit }: { edit: PendingEdit }): JSX.Element {
   const remove = useAppStore((s) => s.removePendingEdit)
@@ -59,7 +60,10 @@ export default function EditReview(): JSX.Element | null {
   const edits = useAppStore((s) => s.pendingEdits)
   if (edits.length === 0) return null
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4">
+    <div
+      style={{ zIndex: Z.modal }}
+      className="fixed inset-0 flex items-center justify-center bg-black/60 p-4"
+    >
       <EditCard edit={edits[0]} />
       {edits.length > 1 && (
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-panel px-3 py-1 text-xs text-gray-400">
