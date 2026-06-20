@@ -156,6 +156,7 @@ export default function FileTreePanel(): JSX.Element {
             className="rounded border border-border px-2 py-1 text-gray-400 hover:bg-panel"
             onClick={clearContextFiles}
             title="Clear selection"
+            aria-label="Clear selected context files"
           >
             ✕
           </button>

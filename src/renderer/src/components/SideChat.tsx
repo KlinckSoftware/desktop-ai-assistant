@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAppStore } from '../store/appStore'
 import { expandMentions } from '../utils/mentions'
 import MentionInput from './MentionInput'
+import { Z } from '../zIndex'
 
 export default function SideChat({ onClose }: { onClose: () => void }): JSX.Element {
   const [prompt, setPrompt] = useState('')
@@ -36,10 +37,13 @@ export default function SideChat({ onClose }: { onClose: () => void }): JSX.Elem
   }
 
   return (
-    <div className="absolute right-4 top-16 z-50 flex max-h-[60vh] w-96 flex-col overflow-hidden rounded-lg border border-border bg-panel shadow-2xl">
+    <div
+      style={{ zIndex: Z.dropdown }}
+      className="absolute right-4 top-16 flex max-h-[60vh] w-96 flex-col overflow-hidden rounded-lg border border-border bg-panel shadow-2xl"
+    >
       <div className="flex items-center justify-between border-b border-border px-3 py-2 text-xs font-semibold text-gemini">
         <span>✦ Quick Chat (Gemini)</span>
-        <button onClick={onClose} className="text-gray-500 hover:text-gray-300">
+        <button aria-label="Close quick chat" onClick={onClose} className="text-gray-500 hover:text-gray-300">
           ✕
         </button>
       </div>

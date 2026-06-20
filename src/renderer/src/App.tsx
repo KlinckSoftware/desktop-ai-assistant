@@ -10,6 +10,7 @@ import FileMenu from './components/FileMenu'
 import ViewMenu from './components/ViewMenu'
 import SideChat from './components/SideChat'
 import QuickOpen from './components/QuickOpen'
+import { Z } from './zIndex'
 
 export default function App(): JSX.Element {
   const setProjectRoot = useAppStore((s) => s.setProjectRoot)
@@ -223,7 +224,8 @@ export default function App(): JSX.Element {
       {debateRunning && (
         <button
           onClick={() => focusPanel('debate')}
-          className="fixed bottom-4 left-4 z-40 flex items-center gap-2 rounded-full border border-border bg-panel px-4 py-2 text-xs shadow-xl hover:bg-bg"
+          style={{ zIndex: Z.floating }}
+          className="fixed bottom-4 left-4 flex items-center gap-2 rounded-full border border-border bg-panel px-4 py-2 text-xs shadow-xl hover:bg-bg"
         >
           <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-accent" />
           <span className="text-gray-200">{debateStatus || 'Debate running…'}</span>

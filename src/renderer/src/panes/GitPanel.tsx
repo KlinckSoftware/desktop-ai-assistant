@@ -59,6 +59,7 @@ export default function GitPanel({ onOpenDiff }: { onOpenDiff?: () => void }): J
         className="shrink-0 text-gray-500 opacity-0 hover:text-accent group-hover:opacity-100"
         onClick={() => (staged ? unstage(c.rel) : stage(c.rel))}
         title={staged ? 'Unstage' : 'Stage'}
+        aria-label={staged ? `Unstage ${c.rel}` : `Stage ${c.rel}`}
       >
         {staged ? '−' : '+'}
       </button>
@@ -77,7 +78,12 @@ export default function GitPanel({ onOpenDiff }: { onOpenDiff?: () => void }): J
     <div className="flex h-full flex-col bg-bg text-xs">
       <div className="flex items-center justify-between border-b border-border px-3 py-1.5">
         <span className="font-semibold text-accent">Git · {changes.branch}</span>
-        <button className="rounded px-1.5 text-gray-400 hover:bg-panel" onClick={refresh}>
+        <button
+          className="rounded px-1.5 text-gray-400 hover:bg-panel"
+          onClick={refresh}
+          aria-label="Refresh git status"
+          title="Refresh"
+        >
           ↻
         </button>
       </div>

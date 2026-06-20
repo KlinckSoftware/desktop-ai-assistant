@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAppStore } from '../store/appStore'
+import { Z } from '../zIndex'
 
 const basename = (p: string): string => p.split(/[\\/]/).filter(Boolean).pop() || p
 
@@ -47,7 +48,10 @@ export default function FileMenu(): JSX.Element {
         File ▾
       </button>
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-1 w-56 rounded border border-border bg-panel py-1 text-xs shadow-xl">
+        <div
+          style={{ zIndex: Z.dropdown }}
+          className="absolute left-0 top-full mt-1 w-56 rounded border border-border bg-panel py-1 text-xs shadow-xl"
+        >
           <button className="block w-full px-3 py-1.5 text-left hover:bg-bg" onClick={openProject}>
             Open Project…
           </button>

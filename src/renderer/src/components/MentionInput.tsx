@@ -1,5 +1,6 @@
 import { useRef, useState, type KeyboardEvent } from 'react'
 import { useAppStore } from '../store/appStore'
+import { Z } from '../zIndex'
 
 interface Props {
   value: string
@@ -97,7 +98,10 @@ export default function MentionInput({
   return (
     <div className="relative flex-1">
       {open && (
-        <ul className="absolute bottom-full z-50 mb-1 max-h-56 w-full overflow-auto rounded border border-border bg-panel text-xs shadow-xl">
+        <ul
+          style={{ zIndex: Z.dropdown }}
+          className="absolute bottom-full mb-1 max-h-56 w-full overflow-auto rounded border border-border bg-panel text-xs shadow-xl"
+        >
           {matches.map((f, i) => (
             <li
               key={f}
