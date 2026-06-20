@@ -27,6 +27,22 @@ export default function TerminalPane(): JSX.Element {
     const offOutput = window.api.terminal.onOutput((data) => term.write(data))
     const dataDisp = term.onData((data) => window.api.terminal.input(data))
 
+    // Ctrl/Cmd+V paste; Ctrl+Shift+C copy selection.
+    term.attachCustomKeyEventHandler((e): boolean => {
+      if (e.type !== 'keydown') return true
+      const mod = e.ctrlKey || e.metaKey
+      if (mod && (e.key === 'v' || e.key === 'V')) {
+        window.api.clipboard.read().then((t) => t && window.api.terminal.input(t))
+        return false
+      }
+      if (mod && e.shiftKey && (e.key === 'c' || e.key === 'C')) {
+        const sel = term.getSelection()
+        if (sel) window.api.clipboard.write(sel)
+        return false
+      }
+      return true
+    })
+
     const onResize = (): void => {
       fit.fit()
       window.api.terminal.resize(term.cols, term.rows)
