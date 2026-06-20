@@ -1,11 +1,13 @@
 import { create } from 'zustand'
-import type { Message, PendingCommand, DebateUpdate, PendingEdit, PendingTool } from '@shared/types'
-// Attachment is declared below; no shared import needed.
-
-export interface ClaudeSession {
-  id: string
-  label: string
-}
+import type {
+  Message,
+  PendingCommand,
+  DebateUpdate,
+  PendingEdit,
+  PendingTool,
+  AgentDef,
+  AgentSession
+} from '@shared/types'
 
 export interface Attachment {
   id: string
@@ -76,11 +78,14 @@ interface AppState {
   addGeminiMessage: (m: Message) => void
   appendToLastGemini: (chunk: string) => void
 
-  claudeSessions: ClaudeSession[]
-  activeClaude: string
-  addClaudeSession: (s: ClaudeSession) => void
-  removeClaudeSession: (id: string) => void
-  setActiveClaude: (id: string) => void
+  // Registered CLI agents (from main) + live sessions across all agents.
+  agents: AgentDef[]
+  setAgents: (a: AgentDef[]) => void
+  sessions: AgentSession[]
+  activeSession: string
+  addSession: (s: AgentSession) => void
+  removeSession: (id: string) => void
+  setActiveSession: (id: string) => void
 
   selectedFile: string | null
   setSelectedFile: (path: string | null) => void
@@ -181,19 +186,20 @@ export const useAppStore = create<AppState>((set, get) => ({
       return { geminiMessages: msgs }
     }),
 
-  claudeSessions: [],
-  activeClaude: '',
-  addClaudeSession: (s) =>
-    set((st) => ({ claudeSessions: [...st.claudeSessions, s], activeClaude: s.id })),
-  removeClaudeSession: (id) =>
+  agents: [],
+  setAgents: (a) => set({ agents: a }),
+  sessions: [],
+  activeSession: '',
+  addSession: (s) => set((st) => ({ sessions: [...st.sessions, s], activeSession: s.id })),
+  removeSession: (id) =>
     set((st) => {
-      const newSessions = st.claudeSessions.filter(s => s.id !== id)
-      return { 
-        claudeSessions: newSessions,
-        activeClaude: st.activeClaude === id ? (newSessions[0]?.id || '') : st.activeClaude 
+      const next = st.sessions.filter((s) => s.id !== id)
+      return {
+        sessions: next,
+        activeSession: st.activeSession === id ? next[0]?.id || '' : st.activeSession
       }
     }),
-  setActiveClaude: (id) => set({ activeClaude: id }),
+  setActiveSession: (id) => set({ activeSession: id }),
 
   selectedFile: null,
   setSelectedFile: (path) => set({ selectedFile: path }),

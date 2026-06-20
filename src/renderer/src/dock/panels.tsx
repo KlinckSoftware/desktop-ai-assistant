@@ -1,6 +1,6 @@
 import type { IDockviewPanelProps } from 'dockview'
 import FileTreePanel from '../panes/FileTreePanel'
-import ClaudePane from '../panes/ClaudePane'
+import AgentPane from '../panes/AgentPane'
 import GeminiChat from '../panes/GeminiChat'
 import TerminalPane from '../panes/TerminalPane'
 import DiffViewer from '../panes/DiffViewer'
@@ -17,7 +17,7 @@ const wrap = (el: JSX.Element) => () => <div className="h-full w-full overflow-h
 export const components: Record<string, React.FunctionComponent<IDockviewPanelProps>> = {
   sessions: wrap(<SessionSidebar />),
   files: wrap(<FileTreePanel />),
-  claude: wrap(<ClaudePane />),
+  agent: wrap(<AgentPane />),
   gemini: wrap(<GeminiChat />),
   terminal: wrap(<TerminalPane />),
   editor: wrap(<FileEditor />),

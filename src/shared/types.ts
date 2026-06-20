@@ -1,6 +1,25 @@
 // Shared types — used by main, preload, and renderer.
 
+// Origin of a proposed command/edit (the API-Gemini agentic loop + Claude pty).
 export type AgentId = 'claude' | 'gemini'
+
+// A pluggable CLI agent definition (Claude Code, Gemini CLI, Aider, Codex, …).
+// Built-in defaults are merged with a user-editable agents.json.
+export interface AgentDef {
+  id: string
+  name: string
+  command: string
+  args: string[]
+  env?: Record<string, string>
+}
+
+// A running (or requested) CLI agent session.
+export interface AgentSession {
+  id: string
+  agentId: string
+  label: string
+  cwd: string
+}
 
 export interface Message {
   role: 'user' | 'model' | 'assistant'
@@ -80,11 +99,14 @@ export interface CommandResult {
 
 // Channel name constants — single source of truth for IPC strings.
 export const CH = {
-  claudeSend: 'claude:send',
-  claudeNewSession: 'claude:new-session',
-  claudeKillSession: 'claude:kill-session',
-  claudeStream: 'claude:stream',
-  claudeResize: 'claude:resize',
+  // Generic CLI-agent sessions (Claude, Gemini CLI, Aider, Codex, …).
+  agentList: 'agent:list',
+  agentNewSession: 'agent:new-session',
+  agentSend: 'agent:send',
+  agentInput: 'agent:input',
+  agentKillSession: 'agent:kill-session',
+  agentStream: 'agent:stream',
+  agentResize: 'agent:resize',
 
   geminiSend: 'gemini:send',
   geminiSideSend: 'gemini:side-send',

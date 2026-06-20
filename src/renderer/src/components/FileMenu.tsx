@@ -12,7 +12,7 @@ export default function FileMenu(): JSX.Element {
   const ref = useRef<HTMLDivElement>(null)
   const setProjectRoot = useAppStore((s) => s.setProjectRoot)
   const clearContextFiles = useAppStore((s) => s.clearContextFiles)
-  const addClaudeSession = useAppStore((s) => s.addClaudeSession)
+  const addSession = useAppStore((s) => s.addSession)
 
   useEffect(() => {
     if (!open) return
@@ -35,8 +35,8 @@ export default function FileMenu(): JSX.Element {
     const folder = await window.api.fs.pickFolder() // no root change
     if (!folder) return
     const id = `claude-${Date.now()}`
-    await window.api.claude.newSession(id, folder)
-    addClaudeSession({ id, label: basename(folder) })
+    await window.api.agent.newSession(id, 'claude', folder)
+    addSession({ id, agentId: 'claude', label: basename(folder), cwd: folder })
   }
 
   return (

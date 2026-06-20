@@ -1,6 +1,6 @@
 {
   "name": "desktop-ai-assistant",
-  "version": "0.5.8",
+  "version": "0.6.0",
   "description": "Desktop AI coding assistant — Claude Code CLI + Gemini API, Electron shell",
   "main": "./out/main/index.js",
   "author": "Klinck Software LLC",
