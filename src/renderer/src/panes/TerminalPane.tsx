@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
+import { WebLinksAddon } from 'xterm-addon-web-links'
 
 // Mirror of the shared command-executor shell. Shows output from approved
 // agent commands and accepts direct user input.
@@ -18,6 +19,7 @@ export default function TerminalPane(): JSX.Element {
     })
     const fit = new FitAddon()
     term.loadAddon(fit)
+    term.loadAddon(new WebLinksAddon((_e, uri) => window.api.openExternal(uri)))
     term.open(ref.current)
     fit.fit()
 
