@@ -5,8 +5,7 @@ import type {
   DebateUpdate,
   PendingEdit,
   PendingTool,
-  AgentDef,
-  AgentSession
+  AgentDef
 } from '@shared/types'
 
 export interface Attachment {
@@ -78,14 +77,9 @@ interface AppState {
   addGeminiMessage: (m: Message) => void
   appendToLastGemini: (chunk: string) => void
 
-  // Registered CLI agents (from main) + live sessions across all agents.
+  // Registered CLI agents (from main). Agent instances live as dock panels.
   agents: AgentDef[]
   setAgents: (a: AgentDef[]) => void
-  sessions: AgentSession[]
-  activeSession: string
-  addSession: (s: AgentSession) => void
-  removeSession: (id: string) => void
-  setActiveSession: (id: string) => void
 
   selectedFile: string | null
   setSelectedFile: (path: string | null) => void
@@ -188,18 +182,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   agents: [],
   setAgents: (a) => set({ agents: a }),
-  sessions: [],
-  activeSession: '',
-  addSession: (s) => set((st) => ({ sessions: [...st.sessions, s], activeSession: s.id })),
-  removeSession: (id) =>
-    set((st) => {
-      const next = st.sessions.filter((s) => s.id !== id)
-      return {
-        sessions: next,
-        activeSession: st.activeSession === id ? next[0]?.id || '' : st.activeSession
-      }
-    }),
-  setActiveSession: (id) => set({ activeSession: id }),
 
   selectedFile: null,
   setSelectedFile: (path) => set({ selectedFile: path }),

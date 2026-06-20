@@ -1,38 +1,18 @@
 import { useEffect, useRef } from 'react'
+import type { IDockviewPanelProps } from 'dockview'
 import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
 import { WebLinksAddon } from 'xterm-addon-web-links'
-import { useAppStore } from '../store/appStore'
 
-// Interactive terminal for the active CLI-agent session (Claude, Gemini CLI,
-// Aider, …). Keystrokes go to the real pty; output streams back.
-export default function AgentPane(): JSX.Element {
+// One terminal per agent instance. The pty session is created BEFORE the panel
+// is added (see dock/agents.ts), so here we just bind xterm to params.sessionId
+// and kill the session when the panel closes (unmount).
+export default function AgentPane(props: IDockviewPanelProps): JSX.Element {
   const ref = useRef<HTMLDivElement>(null)
-  const activeSession = useAppStore((s) => s.activeSession)
-  const sessions = useAppStore((s) => s.sessions)
-  const agents = useAppStore((s) => s.agents)
-  const addSession = useAppStore((s) => s.addSession)
-  const initRef = useRef(false)
-
-  const session = sessions.find((s) => s.id === activeSession)
-  const agentName = agents.find((a) => a.id === session?.agentId)?.name ?? session?.agentId
-
-  // Ensure at least one session exists (default to Claude).
-  useEffect(() => {
-    if (sessions.length === 0 && !initRef.current) {
-      initRef.current = true
-      const id = `claude-${Date.now()}`
-      window.api.agent
-        .newSession(id, 'claude')
-        .then(() => addSession({ id, agentId: 'claude', label: 'Claude 1', cwd: '' }))
-        .catch(() => {
-          initRef.current = false
-        })
-    }
-  }, [sessions.length, addSession])
+  const sessionId = (props.params as { sessionId: string }).sessionId
 
   useEffect(() => {
-    if (!ref.current || !activeSession) return
+    if (!ref.current) return
     const term = new Terminal({
       fontSize: 13,
       fontFamily: 'JetBrains Mono, Consolas, monospace',
@@ -45,8 +25,6 @@ export default function AgentPane(): JSX.Element {
     term.loadAddon(new WebLinksAddon((_e, uri) => window.api.openExternal(uri)))
     term.open(ref.current)
     fit.fit()
-
-    const sessionId = activeSession
     window.api.agent.resize(sessionId, term.cols, term.rows)
 
     term.attachCustomKeyEventHandler((e): boolean => {
@@ -68,7 +46,6 @@ export default function AgentPane(): JSX.Element {
       if (sid === sessionId) term.write(data)
     })
     const dataDisp = term.onData((data) => window.api.agent.write(sessionId, data))
-
     const onResize = (): void => {
       fit.fit()
       window.api.agent.resize(sessionId, term.cols, term.rows)
@@ -83,16 +60,9 @@ export default function AgentPane(): JSX.Element {
       window.removeEventListener('resize', onResize)
       ro.disconnect()
       term.dispose()
+      window.api.agent.kill(sessionId) // closing the panel ends the session
     }
-  }, [activeSession])
+  }, [sessionId])
 
-  return (
-    <div className="flex h-full flex-col bg-bg">
-      <div className="flex items-center gap-2 border-b border-border px-3 py-1.5 text-xs">
-        <span className="font-semibold text-claude">● {agentName || 'Agent'}</span>
-        <span className="text-gray-500">{session?.label || 'starting…'}</span>
-      </div>
-      <div ref={ref} className="flex-1 overflow-hidden p-1" />
-    </div>
-  )
+  return <div ref={ref} className="h-full w-full overflow-hidden bg-bg p-1" />
 }

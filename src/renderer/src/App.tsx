@@ -7,6 +7,7 @@ import CommandToast from './components/CommandToast'
 import EditReview from './components/EditReview'
 import SettingsModal from './components/SettingsModal'
 import FileMenu from './components/FileMenu'
+import AgentMenu from './components/AgentMenu'
 import ViewMenu from './components/ViewMenu'
 import SideChat from './components/SideChat'
 import QuickOpen from './components/QuickOpen'
@@ -199,6 +200,7 @@ export default function App(): JSX.Element {
       <div className="flex items-center gap-2 border-b border-border bg-panel px-3 py-1.5 text-sm">
         <span className="mr-1 font-semibold">Desktop AI</span>
         <FileMenu />
+        <AgentMenu />
         <ViewMenu />
         <button
           className="rounded border border-border px-2 py-0.5 text-xs hover:bg-bg"
