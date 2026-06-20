@@ -5,7 +5,8 @@ import type {
   DebateUpdate,
   PendingEdit,
   PendingTool,
-  AgentDef
+  AgentDef,
+  ApiProvider
 } from '@shared/types'
 
 export interface Attachment {
@@ -80,6 +81,8 @@ interface AppState {
   // Registered CLI agents (from main). Agent instances live as dock panels.
   agents: AgentDef[]
   setAgents: (a: AgentDef[]) => void
+  apiProviders: ApiProvider[]
+  setApiProviders: (p: ApiProvider[]) => void
 
   selectedFile: string | null
   setSelectedFile: (path: string | null) => void
@@ -182,6 +185,8 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   agents: [],
   setAgents: (a) => set({ agents: a }),
+  apiProviders: [],
+  setApiProviders: (p) => set({ apiProviders: p }),
 
   selectedFile: null,
   setSelectedFile: (path) => set({ selectedFile: path }),

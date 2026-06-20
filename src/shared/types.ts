@@ -25,6 +25,18 @@ export interface AgentSession {
   cwd: string
 }
 
+// An OpenAI-compatible API provider (OpenAI, Groq, Mistral, OpenRouter, Ollama…).
+export interface ApiProvider {
+  id: string
+  name: string
+  baseUrl: string // up to /v1; we POST {baseUrl}/chat/completions
+  defaultModel: string
+  docsUrl?: string
+  noKey?: boolean // local providers (e.g. Ollama) need no API key
+  builtin?: boolean
+  hasKey?: boolean // computed
+}
+
 export interface Message {
   role: 'user' | 'model' | 'assistant'
   content: string
@@ -113,6 +125,15 @@ export const CH = {
   agentKillSession: 'agent:kill-session',
   agentStream: 'agent:stream',
   agentResize: 'agent:resize',
+
+  // Generic OpenAI-compatible API chat agents.
+  apiProvidersList: 'api:providers-list',
+  apiProviderSave: 'api:provider-save',
+  apiProviderRemove: 'api:provider-remove',
+  apiHasKey: 'api:has-key',
+  apiSaveKey: 'api:save-key',
+  apiSend: 'api:send',
+  apiStream: 'api:stream',
 
   geminiSend: 'gemini:send',
   geminiSideSend: 'gemini:side-send',

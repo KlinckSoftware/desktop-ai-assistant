@@ -24,22 +24,32 @@ async function load(): Promise<Keytar | null> {
 }
 
 export const KeychainManager = {
-  async getKey(): Promise<string | null> {
+  // Generic per-account key storage (account namespaces: gemini, api:openai, …).
+  async get(account: string): Promise<string | null> {
     const k = await load()
     if (!k) return null
-    return k.getPassword(SERVICE, ACCOUNT)
+    return k.getPassword(SERVICE, account)
   },
-
-  async setKey(key: string): Promise<void> {
+  async set(account: string, key: string): Promise<void> {
     const k = await load()
     if (!k) {
       console.warn('[keychain] cannot persist key — keytar unavailable')
       return
     }
-    await k.setPassword(SERVICE, ACCOUNT, key)
+    await k.setPassword(SERVICE, account, key)
+  },
+  async has(account: string): Promise<boolean> {
+    return (await this.get(account)) != null
   },
 
-  async hasKey(): Promise<boolean> {
-    return (await this.getKey()) != null
+  // Back-compat Gemini helpers.
+  getKey(): Promise<string | null> {
+    return this.get(ACCOUNT)
+  },
+  setKey(key: string): Promise<void> {
+    return this.set(ACCOUNT, key)
+  },
+  hasKey(): Promise<boolean> {
+    return this.has(ACCOUNT)
   }
 }

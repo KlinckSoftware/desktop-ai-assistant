@@ -20,6 +20,16 @@ import { gitStatus, gitHead, gitChanges, gitStage, gitUnstage, gitCommit } from 
 import { loadState, saveState } from './persistence'
 import { mcpManager } from './mcp/MCPClientManager'
 import { toolBroker } from './mcp/ToolBroker'
+import {
+  listProviders,
+  saveProvider,
+  removeProvider,
+  saveKey as saveApiKey,
+  getKey as getApiKey,
+  ensureConfig as ensureApiConfig
+} from './api/providers'
+import { apiSend } from './api/OpenAIClient'
+import type { ApiProvider } from '../shared/types'
 import { IPCModerator } from './moderator/IPCModerator'
 
 let executor: CommandExecutor
@@ -98,6 +108,16 @@ function registerIpc(): void {
       gemini.send(prompt, history, images)
   )
   ipcMain.handle(CH.geminiSideSend, (_e, prompt: string) => gemini.sideSend(prompt))
+  // --- Generic API chat agents ---
+  ipcMain.handle(CH.apiProvidersList, () => listProviders())
+  ipcMain.handle(CH.apiProviderSave, (_e, p: ApiProvider) => saveProvider(p))
+  ipcMain.handle(CH.apiProviderRemove, (_e, id: string) => removeProvider(id))
+  ipcMain.handle(CH.apiHasKey, async (_e, id: string) => (await getApiKey(id)) != null)
+  ipcMain.handle(CH.apiSaveKey, (_e, id: string, key: string) => saveApiKey(id, key))
+  ipcMain.handle(CH.apiSend, (_e, instanceId: string, providerId: string, model: string, history) =>
+    apiSend(instanceId, providerId, model, history)
+  )
+
   ipcMain.handle(CH.geminiHasKey, () => gemini.hasKey())
   ipcMain.handle(CH.geminiSaveKey, (_e, key: string) => gemini.saveKey(key))
 
@@ -183,6 +203,7 @@ app.whenReady().then(() => {
   registerIpc()
   createWindow()
   ensureAgentConfig().catch(() => {})
+  ensureApiConfig().catch(() => {})
   // Connect MCP servers in the background (non-blocking).
   mcpManager.init().catch((e) => console.warn('[mcp] init failed:', e))
 

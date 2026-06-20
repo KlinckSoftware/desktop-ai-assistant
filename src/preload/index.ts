@@ -10,7 +10,8 @@ import {
   type PendingEdit,
   type PendingTool,
   type Checkpoint,
-  type AgentDef
+  type AgentDef,
+  type ApiProvider
 } from '../shared/types'
 
 interface EditResult {
@@ -170,6 +171,20 @@ const api = {
   },
   openExternal: (url: string): void => {
     ipcRenderer.invoke(CH.appOpenExternal, url)
+  },
+  api: {
+    providers: (): Promise<ApiProvider[]> => ipcRenderer.invoke(CH.apiProvidersList),
+    saveProvider: (p: ApiProvider): Promise<ApiProvider[]> => ipcRenderer.invoke(CH.apiProviderSave, p),
+    removeProvider: (id: string): Promise<ApiProvider[]> => ipcRenderer.invoke(CH.apiProviderRemove, id),
+    hasKey: (id: string): Promise<boolean> => ipcRenderer.invoke(CH.apiHasKey, id),
+    saveKey: (id: string, key: string): Promise<void> => ipcRenderer.invoke(CH.apiSaveKey, id, key),
+    send: (instanceId: string, providerId: string, model: string, history: Message[]): Promise<void> =>
+      ipcRenderer.invoke(CH.apiSend, instanceId, providerId, model, history),
+    onStream: (cb: (instanceId: string, chunk: string) => void): (() => void) => {
+      const h = (_e: unknown, instanceId: string, chunk: string): void => cb(instanceId, chunk)
+      ipcRenderer.on(CH.apiStream, h)
+      return () => ipcRenderer.removeListener(CH.apiStream, h)
+    }
   },
   clipboard: {
     read: (): Promise<string> => ipcRenderer.invoke(CH.clipboardRead),

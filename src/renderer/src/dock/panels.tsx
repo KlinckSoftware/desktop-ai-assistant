@@ -8,6 +8,7 @@ import GitPanel from '../panes/GitPanel'
 import CheckpointsPanel from '../panes/CheckpointsPanel'
 import DebatePanel from '../panes/DebatePanel'
 import FileEditor from '../panes/FileEditor'
+import ApiChatPanel from '../panes/ApiChatPanel'
 import { focusPanel } from './dockApi'
 
 // Each dockview panel fills its tab; panes read shared state from the store.
@@ -16,6 +17,7 @@ const wrap = (el: JSX.Element) => () => <div className="h-full w-full overflow-h
 export const components: Record<string, React.FunctionComponent<IDockviewPanelProps>> = {
   files: wrap(<FileTreePanel />),
   agent: AgentPane, // per-instance; reads props.params.sessionId
+  apichat: ApiChatPanel, // per-instance; reads props.params.instanceId/providerId
   gemini: wrap(<GeminiChat />),
   terminal: wrap(<TerminalPane />),
   editor: wrap(<FileEditor />),
