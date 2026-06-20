@@ -177,6 +177,7 @@ export const CH = {
   fsPickFolder: 'fs:pick-folder',
   fsChanged: 'fs:changed',
   fsListFiles: 'fs:list-files',
+  fsRepoMap: 'fs:repo-map',
   fsClassify: 'fs:classify',
   fsReadDropped: 'fs:read-dropped',
   fsReadImage: 'fs:read-image',

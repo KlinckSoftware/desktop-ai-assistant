@@ -20,6 +20,7 @@ export default function ApiChatPanel(props: IDockviewPanelProps): JSX.Element {
   const [needKey, setNeedKey] = useState(false)
   const [keyInput, setKeyInput] = useState('')
   const poolSize = useAppStore((s) => s.contextFiles.size)
+  const repoMap = useAppStore((s) => s.repoMapInContext)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -66,7 +67,8 @@ export default function ApiChatPanel(props: IDockviewPanelProps): JSX.Element {
     setInput('')
     const root = useAppStore.getState().projectRoot
     const expanded = await expandMentions(text, root)
-    const ctx = await buildContextBlock([...useAppStore.getState().contextFiles])
+    const st = useAppStore.getState()
+    const ctx = await buildContextBlock([...st.contextFiles], st.repoMapInContext)
     const turn = ctx ? `${ctx}\n\n---\n\n${expanded}` : expanded
     const history: Message[] = [...messages, { role: 'user', content: turn }]
     setMessages([...messages, { role: 'user', content: text }, { role: 'assistant', content: '' }])
@@ -130,9 +132,13 @@ export default function ApiChatPanel(props: IDockviewPanelProps): JSX.Element {
               </div>
             ))}
           </div>
-          {poolSize > 0 && (
+          {(poolSize > 0 || repoMap) && (
             <div className="flex items-center justify-between border-t border-border bg-gemini/10 px-3 py-1 text-[11px] text-gemini">
-              <span>◆ {poolSize} file(s) in shared context — sent with every message</span>
+              <span>
+                ◆ shared context: {poolSize > 0 && `${poolSize} file(s)`}
+                {poolSize > 0 && repoMap && ' + '}
+                {repoMap && 'repo map'}
+              </span>
               <button
                 className="text-gray-400 hover:text-gray-200"
                 onClick={() => useAppStore.getState().clearContextFiles()}

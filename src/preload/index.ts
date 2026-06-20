@@ -99,6 +99,7 @@ const api = {
     readTree: (root?: string): Promise<FileNode> => ipcRenderer.invoke(CH.fsReadTree, root),
     readFile: (path: string): Promise<string> => ipcRenderer.invoke(CH.fsReadFile, path),
     listFiles: (): Promise<string[]> => ipcRenderer.invoke(CH.fsListFiles),
+    repoMap: (): Promise<string> => ipcRenderer.invoke(CH.fsRepoMap),
     classify: (p: string): Promise<{ kind: 'dir' | 'image' | 'text'; name: string }> =>
       ipcRenderer.invoke(CH.fsClassify, p),
     readDropped: (p: string): Promise<string> => ipcRenderer.invoke(CH.fsReadDropped, p),

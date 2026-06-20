@@ -5,10 +5,20 @@
 
 const MAX_CHARS = 100_000 // hard cap so a fat pool can't blow the model's window
 
-// Read the pooled files and format them as a single context block. Returns ''
-// when the pool is empty. Unreadable/binary files are noted, not fatal.
-export async function buildContextBlock(paths: string[]): Promise<string> {
-  if (paths.length === 0) return ''
+// Read the pooled files (and optionally the repo map) and format them as a
+// single context block. Returns '' when nothing is pooled. Unreadable/binary
+// files are noted, not fatal.
+export async function buildContextBlock(paths: string[], includeRepoMap = false): Promise<string> {
+  const blocks: string[] = []
+  if (includeRepoMap) {
+    try {
+      const map = await window.api.fs.repoMap()
+      if (map) blocks.push(map)
+    } catch {
+      /* repo map is best-effort */
+    }
+  }
+  if (paths.length === 0) return blocks.join('\n\n---\n\n')
   const parts: string[] = []
   let total = 0
   for (const p of paths) {
@@ -29,5 +39,8 @@ export async function buildContextBlock(paths: string[]): Promise<string> {
     total += body.length
     parts.push(`### File: ${name} (${p})\n\`\`\`\n${body}\n\`\`\``)
   }
-  return `The following ${paths.length} file(s) are shared context for this request:\n\n${parts.join('\n\n')}`
+  blocks.push(
+    `The following ${paths.length} file(s) are shared context for this request:\n\n${parts.join('\n\n')}`
+  )
+  return blocks.join('\n\n---\n\n')
 }

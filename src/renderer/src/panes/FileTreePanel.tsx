@@ -101,6 +101,8 @@ export default function FileTreePanel(): JSX.Element {
   const contextFiles = useAppStore((s) => s.contextFiles)
   const removeContextFile = useAppStore((s) => s.removeContextFile)
   const clearContextFiles = useAppStore((s) => s.clearContextFiles)
+  const repoMapInContext = useAppStore((s) => s.repoMapInContext)
+  const toggleRepoMap = useAppStore((s) => s.toggleRepoMap)
 
   const refresh = useCallback(() => {
     window.api.fs.readTree().then(setTree)
@@ -122,6 +124,17 @@ export default function FileTreePanel(): JSX.Element {
       <div className="truncate px-3 py-1 text-[10px] text-gray-500" title={projectRoot}>
         {projectRoot}
       </div>
+      <button
+        className={`mx-3 mb-1 rounded border px-2 py-0.5 text-left text-[10px] ${
+          repoMapInContext
+            ? 'border-gemini bg-gemini/15 text-gemini'
+            : 'border-border text-gray-500 hover:text-gray-300'
+        }`}
+        onClick={toggleRepoMap}
+        title="Include a generated symbol outline of the whole project in shared context"
+      >
+        {repoMapInContext ? '◆ Repo map: on' : '◇ Repo map: off'}
+      </button>
       <div className="flex-1 overflow-auto py-1">
         {tree?.children?.map((c) => <TreeNode key={c.path} node={c} depth={0} />)}
       </div>

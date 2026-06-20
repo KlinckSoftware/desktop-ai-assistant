@@ -12,6 +12,7 @@ export default function GeminiChat(): JSX.Element {
   const append = useAppStore((s) => s.appendToLastGemini)
   const hasKey = useAppStore((s) => s.hasGeminiKey)
   const poolSize = useAppStore((s) => s.contextFiles.size)
+  const repoMap = useAppStore((s) => s.repoMapInContext)
   const attachments = useAppStore((s) => s.attachments)
   const removeAttachment = useAppStore((s) => s.removeAttachment)
   const clearAttachments = useAppStore((s) => s.clearAttachments)
@@ -64,7 +65,8 @@ export default function GeminiChat(): JSX.Element {
       .map((a) => ({ mime: a.mime as string, base64: a.base64 as string }))
 
     const withMentions = await expandMentions(text, root)
-    const ctx = await buildContextBlock([...useAppStore.getState().contextFiles])
+    const st = useAppStore.getState()
+    const ctx = await buildContextBlock([...st.contextFiles], st.repoMapInContext)
     const augmented = [ctx, attachedText, withMentions].filter(Boolean).join('\n\n---\n\n')
     clearAttachments()
 
@@ -94,9 +96,13 @@ export default function GeminiChat(): JSX.Element {
           </div>
         ))}
       </div>
-      {poolSize > 0 && (
+      {(poolSize > 0 || repoMap) && (
         <div className="flex items-center justify-between border-t border-border bg-gemini/10 px-3 py-1 text-[11px] text-gemini">
-          <span>◆ {poolSize} file(s) in shared context — sent with every message</span>
+          <span>
+            ◆ shared context: {poolSize > 0 && `${poolSize} file(s)`}
+            {poolSize > 0 && repoMap && ' + '}
+            {repoMap && 'repo map'}
+          </span>
           <button
             className="text-gray-400 hover:text-gray-200"
             onClick={() => useAppStore.getState().clearContextFiles()}
