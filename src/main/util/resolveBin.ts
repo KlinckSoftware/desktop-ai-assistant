@@ -24,10 +24,21 @@ export function resolveBin(name: string): string {
 // launch inside another Claude Code session (CLAUDECODE / CLAUDE_CODE_* set);
 // stripping these lets our app spawn it cleanly even when launched from one.
 export function cleanClaudeEnv(): Record<string, string> {
+  // Also drop ANTHROPIC_* (base URL / API key / auth token): if the app was
+  // launched from a shell with these set (e.g. an auth proxy or a stray API
+  // key), the spawned `claude` would use them instead of its own stored login
+  // and fail to authenticate. Stripping them forces Claude's own credentials.
+  const STRIP_EXACT = new Set([
+    'CLAUDECODE',
+    'ANTHROPIC_BASE_URL',
+    'ANTHROPIC_API_KEY',
+    'ANTHROPIC_AUTH_TOKEN',
+    'ANTHROPIC_MODEL'
+  ])
   const env: Record<string, string> = {}
   for (const [k, v] of Object.entries(process.env)) {
     if (v == null) continue
-    if (k === 'CLAUDECODE' || k.startsWith('CLAUDE_CODE')) continue
+    if (STRIP_EXACT.has(k) || k.startsWith('CLAUDE_CODE')) continue
     env[k] = v
   }
   return env
