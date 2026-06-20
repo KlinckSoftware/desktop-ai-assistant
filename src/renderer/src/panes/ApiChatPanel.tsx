@@ -5,6 +5,7 @@ import { useAppStore } from '../store/appStore'
 import { expandMentions } from '../utils/mentions'
 import { buildContextBlock } from '../utils/context'
 import MentionInput from '../components/MentionInput'
+import HandoffChip from '../components/HandoffChip'
 
 const DONE = '[[api:done]]'
 
@@ -33,14 +34,38 @@ export default function ApiChatPanel(props: IDockviewPanelProps): JSX.Element {
       if (sid !== instanceId) return
       if (chunk.includes(DONE)) {
         setBusy(false)
+        useAppStore.getState().updateFleet(instanceId, { status: 'idle' })
         const clean = chunk.replace(DONE, '')
-        if (clean) appendLast(clean)
+        if (clean) {
+          appendLast(clean)
+          useAppStore.getState().bumpFleet(instanceId, clean.length)
+        }
         return
       }
       appendLast(chunk)
+      useAppStore.getState().bumpFleet(instanceId, chunk.length)
     })
     return off
   }, [instanceId])
+
+  // Register with the cockpit fleet while mounted.
+  useEffect(() => {
+    if (!provider) return
+    useAppStore.getState().registerFleet({
+      id: instanceId,
+      name: provider.name,
+      kind: 'api',
+      model: model || provider.defaultModel,
+      status: 'idle',
+      chars: 0,
+      lastTs: Date.now()
+    })
+    return () => useAppStore.getState().removeFleet(instanceId)
+  }, [instanceId, provider])
+
+  useEffect(() => {
+    useAppStore.getState().updateFleet(instanceId, { model: model || provider?.defaultModel })
+  }, [model, instanceId, provider])
 
   useEffect(() => {
     scrollRef.current?.scrollTo(0, scrollRef.current.scrollHeight)
@@ -73,6 +98,7 @@ export default function ApiChatPanel(props: IDockviewPanelProps): JSX.Element {
     const history: Message[] = [...messages, { role: 'user', content: turn }]
     setMessages([...messages, { role: 'user', content: text }, { role: 'assistant', content: '' }])
     setBusy(true)
+    useAppStore.getState().updateFleet(instanceId, { status: 'busy' })
     await window.api.api.send(instanceId, provider.id, model || provider.defaultModel, history)
   }
 
@@ -129,6 +155,17 @@ export default function ApiChatPanel(props: IDockviewPanelProps): JSX.Element {
                 >
                   {m.content || (busy && i === messages.length - 1 ? '…' : '')}
                 </div>
+                {m.role === 'assistant' && m.content && !busy && (
+                  <div className="mt-0.5">
+                    <button
+                      className="text-[10px] text-gray-500 hover:text-accent"
+                      onClick={() => useAppStore.getState().setHandoff(m.content, provider.name)}
+                      title="Park this reply for another agent to pick up"
+                    >
+                      → handoff
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -147,6 +184,7 @@ export default function ApiChatPanel(props: IDockviewPanelProps): JSX.Element {
               </button>
             </div>
           )}
+          <HandoffChip self={provider.name} onInsert={(t) => setInput((v) => (v ? `${v}\n\n${t}` : t))} />
           <div className="flex gap-2 border-t border-border p-2">
             <MentionInput
               value={input}

@@ -3,6 +3,7 @@ import { useAppStore } from '../store/appStore'
 import { expandMentions } from '../utils/mentions'
 import { buildContextBlock } from '../utils/context'
 import MentionInput from '../components/MentionInput'
+import HandoffChip from '../components/HandoffChip'
 
 const DONE = '[[gemini:done]]'
 
@@ -13,6 +14,7 @@ export default function GeminiChat(): JSX.Element {
   const hasKey = useAppStore((s) => s.hasGeminiKey)
   const poolSize = useAppStore((s) => s.contextFiles.size)
   const repoMap = useAppStore((s) => s.repoMapInContext)
+  const geminiModel = useAppStore((s) => s.geminiModel)
   const attachments = useAppStore((s) => s.attachments)
   const removeAttachment = useAppStore((s) => s.removeAttachment)
   const clearAttachments = useAppStore((s) => s.clearAttachments)
@@ -24,14 +26,37 @@ export default function GeminiChat(): JSX.Element {
     const off = window.api.gemini.onStream((chunk) => {
       if (chunk.includes(DONE)) {
         setBusy(false)
+        useAppStore.getState().updateFleet('gemini', { status: 'idle' })
         const clean = chunk.replace(DONE, '')
-        if (clean) append(clean)
+        if (clean) {
+          append(clean)
+          useAppStore.getState().bumpFleet('gemini', clean.length)
+        }
         return
       }
       append(chunk)
+      useAppStore.getState().bumpFleet('gemini', chunk.length)
     })
     return off
   }, [append])
+
+  // Register with the cockpit fleet while this panel is mounted.
+  useEffect(() => {
+    useAppStore.getState().registerFleet({
+      id: 'gemini',
+      name: 'Gemini',
+      kind: 'gemini',
+      model: geminiModel,
+      status: 'idle',
+      chars: 0,
+      lastTs: Date.now()
+    })
+    return () => useAppStore.getState().removeFleet('gemini')
+  }, [])
+
+  useEffect(() => {
+    useAppStore.getState().updateFleet('gemini', { model: geminiModel })
+  }, [geminiModel])
 
   useEffect(() => {
     scrollRef.current?.scrollTo(0, scrollRef.current.scrollHeight)
@@ -75,6 +100,7 @@ export default function GeminiChat(): JSX.Element {
     addMessage({ role: 'user', content: label })
     addMessage({ role: 'model', content: '' })
     setBusy(true)
+    useAppStore.getState().updateFleet('gemini', { status: 'busy' })
     await window.api.gemini.send(augmented, history, images)
   }
 
@@ -93,6 +119,17 @@ export default function GeminiChat(): JSX.Element {
             >
               {m.content || (busy && i === messages.length - 1 ? '…' : '')}
             </div>
+            {m.role === 'model' && m.content && !busy && (
+              <div className="mt-0.5">
+                <button
+                  className="text-[10px] text-gray-500 hover:text-accent"
+                  onClick={() => useAppStore.getState().setHandoff(m.content, 'Gemini')}
+                  title="Park this reply for another agent to pick up"
+                >
+                  → handoff
+                </button>
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -131,6 +168,7 @@ export default function GeminiChat(): JSX.Element {
           </button>
         </div>
       )}
+      <HandoffChip self="Gemini" onInsert={(t) => setInput((v) => (v ? `${v}\n\n${t}` : t))} />
       <div className="flex gap-2 border-t border-border p-2">
         <MentionInput
           value={input}

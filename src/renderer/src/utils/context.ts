@@ -44,3 +44,32 @@ export async function buildContextBlock(paths: string[], includeRepoMap = false)
   )
   return blocks.join('\n\n---\n\n')
 }
+
+// Paste-friendly context for an interactive CLI agent (Claude Code, Aider, …).
+// Unlike buildContextBlock we DON'T inline file contents — the CLI reads files
+// itself; we just hand it the relative paths. The repo map text IS inlined
+// (the CLI can't generate it). Returns '' when nothing is pooled.
+export async function buildCliContext(
+  paths: string[],
+  includeRepoMap: boolean,
+  root: string
+): Promise<string> {
+  const blocks: string[] = []
+  if (includeRepoMap) {
+    try {
+      const map = await window.api.fs.repoMap()
+      if (map) blocks.push(map)
+    } catch {
+      /* best-effort */
+    }
+  }
+  if (paths.length > 0) {
+    const norm = root.replace(/[/\\]+$/, '')
+    const rels = paths.map((p) => {
+      const r = p.startsWith(norm) ? p.slice(norm.length).replace(/^[/\\]+/, '') : p
+      return r.split('\\').join('/')
+    })
+    blocks.push(`Please use these project files as context:\n${rels.map((r) => `- ${r}`).join('\n')}`)
+  }
+  return blocks.join('\n\n')
+}
