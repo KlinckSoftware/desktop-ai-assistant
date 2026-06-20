@@ -1,7 +1,7 @@
 // Shared types — used by main, preload, and renderer.
 
-// Origin of a proposed command/edit (the API-Gemini agentic loop + Claude pty).
-export type AgentId = 'claude' | 'gemini'
+// Origin of a proposed command/edit/tool call (agentic loops + Claude pty).
+export type AgentId = 'claude' | 'gemini' | 'api'
 
 // A pluggable CLI agent definition (Claude Code, Gemini CLI, Aider, Codex, …).
 // Built-in defaults are merged with a user-editable agents.json.

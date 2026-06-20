@@ -29,6 +29,7 @@ import {
   ensureConfig as ensureApiConfig
 } from './api/providers'
 import { apiSend } from './api/OpenAIClient'
+import { setBrokers } from './tools/toolExec'
 import type { ApiProvider } from '../shared/types'
 import { IPCModerator } from './moderator/IPCModerator'
 
@@ -79,6 +80,7 @@ function initServices(): void {
   editBroker = new FileEditBroker(fsm)
   agents = new AgentProcessManager()
   gemini = new GeminiClient(broker, editBroker)
+  setBrokers(broker, editBroker) // shared tool exec for the API chats
   moderator = new IPCModerator(gemini, broker)
   fsm.watch(appState.projectRoot)
 }
