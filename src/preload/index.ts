@@ -163,6 +163,10 @@ const api = {
   openExternal: (url: string): void => {
     ipcRenderer.invoke(CH.appOpenExternal, url)
   },
+  clipboard: {
+    read: (): Promise<string> => ipcRenderer.invoke(CH.clipboardRead),
+    write: (text: string): Promise<void> => ipcRenderer.invoke(CH.clipboardWrite, text)
+  },
   mcp: {
     status: (): Promise<{ server: string; connected: boolean; toolCount: number; error?: string }[]> =>
       ipcRenderer.invoke(CH.mcpStatus),

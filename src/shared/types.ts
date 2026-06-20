@@ -139,6 +139,8 @@ export const CH = {
   appProjectRoot: 'app:project-root',
   appSetRoot: 'app:set-root',
   appOpenExternal: 'app:open-external',
+  clipboardRead: 'app:clipboard-read',
+  clipboardWrite: 'app:clipboard-write',
   stateLoad: 'state:load',
   stateSave: 'state:save',
   settingsSet: 'settings:set',

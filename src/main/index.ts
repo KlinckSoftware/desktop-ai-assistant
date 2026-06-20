@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, Menu, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, Menu, shell, clipboard } from 'electron'
 import { join } from 'path'
 import { appState } from './state'
 import { CH, type Message } from '../shared/types'
@@ -117,6 +117,8 @@ function registerIpc(): void {
   ipcMain.handle(CH.appOpenExternal, (_e, url: string) => {
     if (/^https?:\/\//i.test(url)) shell.openExternal(url) // http/https only
   })
+  ipcMain.handle(CH.clipboardRead, () => clipboard.readText())
+  ipcMain.handle(CH.clipboardWrite, (_e, text: string) => clipboard.writeText(text))
   ipcMain.handle(CH.appSetRoot, (_e, root: string) => {
     appState.projectRoot = root
     fsm.watch(root)
