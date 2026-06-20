@@ -24,7 +24,9 @@ export function claudeOneShot(prompt: string, cwd: string): Promise<string> {
     proc.on('error', reject)
     proc.on('close', (code) => {
       if (code === 0) resolve(out.trim())
-      else reject(new Error(`claude -p exited ${code}: ${err.slice(0, 500)}`))
+      // Claude writes some failures (e.g. auth 401) to stdout, not stderr —
+      // include both so the reason isn't blank.
+      else reject(new Error(`claude -p exited ${code}: ${(err || out).slice(0, 500).trim()}`))
     })
   })
 }
