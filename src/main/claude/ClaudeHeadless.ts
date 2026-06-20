@@ -6,9 +6,11 @@ const CLAUDE_BIN = resolveBin('claude')
 // One-shot, non-interactive Claude Code call via `claude -p`.
 // Used by the debate moderator to get a clean text response (the interactive
 // pty is a TUI and not suitable for capturing discrete replies).
-export function claudeOneShot(prompt: string, cwd: string): Promise<string> {
+export function claudeOneShot(prompt: string, cwd: string, model?: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    const proc = spawn(CLAUDE_BIN, ['-p', prompt], {
+    const args = ['-p', prompt]
+    if (model) args.push('--model', model)
+    const proc = spawn(CLAUDE_BIN, args, {
       cwd,
       env: cleanClaudeEnv(),
       // stdin = 'ignore' gives Claude immediate EOF; otherwise it waits ~3s for

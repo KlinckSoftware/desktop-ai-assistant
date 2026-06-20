@@ -36,7 +36,7 @@ export class IPCModerator {
             : `Original task: ${userPrompt}\n\nGemini responded: "${transcript[i - 1].gemini}"\n\nRevise or defend your approach.`) +
           NO_EDIT
 
-        const claudeText = await claudeOneShot(claudePrompt, cwd)
+        const claudeText = await claudeOneShot(claudePrompt, cwd, appState.settings.claudeModel)
         transcript.push({ round: i, claude: claudeText, gemini: '' })
         appState.send(CH.debateUpdate, { type: 'claude', text: claudeText, round: i })
 
@@ -87,7 +87,8 @@ export class IPCModerator {
       status('Implementing the agreed changes…')
       const synthesis = await claudeOneShot(
         `Original task: ${this.pendingPrompt}\n\nDebate transcript:\n${JSON.stringify(transcript, null, 2)}\n\nImplement the final agreed changes now.`,
-        appState.projectRoot
+        appState.projectRoot,
+        appState.settings.claudeModel
       )
       appState.send(CH.debateUpdate, { type: 'synthesis', text: synthesis })
       status('')

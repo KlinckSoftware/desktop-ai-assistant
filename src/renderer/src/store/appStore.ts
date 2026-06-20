@@ -25,6 +25,7 @@ export interface PersistedState {
   debateUpdates: DebateUpdate[]
   debatePrompt: string
   geminiModel: string
+  claudeModel: string
   debateRounds: number
   terminalShell: AppState['terminalShell']
   dockLayout: unknown | null
@@ -45,9 +46,11 @@ interface AppState {
 
   // User settings (mirrored to main via window.api.settings.set).
   geminiModel: string
+  claudeModel: string
   debateRounds: number
   terminalShell: 'default' | 'powershell' | 'pwsh' | 'cmd' | 'bash' | 'zsh'
   setGeminiModel: (m: string) => void
+  setClaudeModel: (m: string) => void
   setDebateRounds: (n: number) => void
   setTerminalShell: (s: AppState['terminalShell']) => void
 
@@ -136,9 +139,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   clearTrust: () => set({ trustedSessions: new Set() }),
 
   geminiModel: 'gemini-2.5-flash',
+  claudeModel: '',
   debateRounds: 3,
   terminalShell: 'default',
   setGeminiModel: (m) => set({ geminiModel: m }),
+  setClaudeModel: (m) => set({ claudeModel: m }),
   setDebateRounds: (n) => set({ debateRounds: n }),
   setTerminalShell: (s) => set({ terminalShell: s }),
 
@@ -253,6 +258,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       debateUpdates: d.debateUpdates ?? [],
       debatePrompt: d.debatePrompt ?? '',
       geminiModel: d.geminiModel ?? 'gemini-2.5-flash',
+      claudeModel: d.claudeModel ?? '',
       debateRounds: d.debateRounds ?? 3,
       terminalShell: d.terminalShell ?? 'default',
       dockLayout: d.dockLayout ?? null,

@@ -16,11 +16,21 @@ const MODELS = [
   'gemini-2.0-flash'
 ]
 
+// '' = use the claude CLI's own default; aliases map to latest of each tier.
+const CLAUDE_MODELS = [
+  { value: '', label: 'CLI default' },
+  { value: 'sonnet', label: 'Sonnet' },
+  { value: 'opus', label: 'Opus' },
+  { value: 'haiku', label: 'Haiku' }
+]
+
 export default function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element {
   const geminiModel = useAppStore((s) => s.geminiModel)
+  const claudeModel = useAppStore((s) => s.claudeModel)
   const debateRounds = useAppStore((s) => s.debateRounds)
   const terminalShell = useAppStore((s) => s.terminalShell)
   const setGeminiModel = useAppStore((s) => s.setGeminiModel)
+  const setClaudeModel = useAppStore((s) => s.setClaudeModel)
   const setDebateRounds = useAppStore((s) => s.setDebateRounds)
   const setTerminalShell = useAppStore((s) => s.setTerminalShell)
   const trustedCount = useAppStore((s) => s.trustedSessions.size)
@@ -48,6 +58,10 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
   const onModel = (m: string): void => {
     setGeminiModel(m)
     window.api.settings.set({ geminiModel: m })
+  }
+  const onClaudeModel = (m: string): void => {
+    setClaudeModel(m)
+    window.api.settings.set({ claudeModel: m })
   }
   const onRounds = (n: number): void => {
     const v = Math.min(5, Math.max(1, n))
@@ -95,6 +109,22 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
           {MODELS.map((m) => (
             <option key={m} value={m}>
               {m}
+            </option>
+          ))}
+        </select>
+
+        {/* Claude model (debate turns + synthesis) */}
+        <label className="mb-1 block text-xs uppercase text-gray-500">
+          Claude model (debate)
+        </label>
+        <select
+          className="mb-4 w-full rounded border border-border bg-bg px-2 py-1.5 outline-none focus:border-accent"
+          value={claudeModel}
+          onChange={(e) => onClaudeModel(e.target.value)}
+        >
+          {CLAUDE_MODELS.map((m) => (
+            <option key={m.value} value={m.value}>
+              {m.label}
             </option>
           ))}
         </select>
