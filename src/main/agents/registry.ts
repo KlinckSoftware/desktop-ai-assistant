@@ -25,6 +25,15 @@ const BUILTIN: Record<string, AgentDef> = {
     docsUrl: 'https://github.com/google-gemini/gemini-cli',
     installHint: 'npm i -g @google/gemini-cli, then run `gemini` to authenticate.'
   },
+  codex: {
+    id: 'codex',
+    name: 'OpenAI Codex',
+    command: 'codex',
+    args: [],
+    builtin: true,
+    docsUrl: 'https://github.com/openai/codex',
+    installHint: 'npm i -g @openai/codex, then run `codex` to sign in (ChatGPT login or API key).'
+  },
   aider: {
     id: 'aider',
     name: 'Aider',
@@ -34,14 +43,68 @@ const BUILTIN: Record<string, AgentDef> = {
     docsUrl: 'https://aider.chat',
     installHint: 'python -m pip install aider-install && aider-install (or pipx install aider-chat).'
   },
-  codex: {
-    id: 'codex',
-    name: 'Codex',
-    command: 'codex',
+  opencode: {
+    id: 'opencode',
+    name: 'OpenCode',
+    command: 'opencode',
     args: [],
     builtin: true,
-    docsUrl: 'https://github.com/openai/codex',
-    installHint: 'npm i -g @openai/codex, then run `codex` to sign in.'
+    docsUrl: 'https://opencode.ai',
+    installHint: 'npm i -g opencode-ai (or curl -fsSL https://opencode.ai/install | bash). Multi-provider.'
+  },
+  qwen: {
+    id: 'qwen',
+    name: 'Qwen Code',
+    command: 'qwen',
+    args: [],
+    builtin: true,
+    docsUrl: 'https://github.com/QwenLM/qwen-code',
+    installHint: 'npm i -g @qwen-code/qwen-code, then run `qwen` to log in — free tier (~2k req/day).'
+  },
+  crush: {
+    id: 'crush',
+    name: 'Crush',
+    command: 'crush',
+    args: [],
+    builtin: true,
+    docsUrl: 'https://github.com/charmbracelet/crush',
+    installHint: 'npm i -g @charmland/crush (or scoop/winget). Bring a provider API key.'
+  },
+  goose: {
+    id: 'goose',
+    name: 'Goose',
+    command: 'goose',
+    args: [],
+    builtin: true,
+    docsUrl: 'https://block.github.io/goose',
+    installHint: 'Install from block.github.io/goose, then `goose configure`. Multi-provider.'
+  },
+  'cursor-agent': {
+    id: 'cursor-agent',
+    name: 'Cursor Agent',
+    command: 'cursor-agent',
+    args: [],
+    builtin: true,
+    docsUrl: 'https://docs.cursor.com/en/cli/overview',
+    installHint: 'curl https://cursor.com/install -fsS | bash, then `cursor-agent login`.'
+  },
+  continue: {
+    id: 'continue',
+    name: 'Continue',
+    command: 'cn',
+    args: [],
+    builtin: true,
+    docsUrl: 'https://docs.continue.dev',
+    installHint: 'npm i -g @continuedev/cli, then run `cn`. Multi-provider, free.'
+  },
+  copilot: {
+    id: 'copilot',
+    name: 'GitHub Copilot CLI',
+    command: 'copilot',
+    args: [],
+    builtin: true,
+    docsUrl: 'https://docs.github.com/copilot/concepts/agents/about-copilot-cli',
+    installHint: 'npm i -g @github/copilot, then `copilot` (needs a GitHub Copilot subscription).'
   }
 }
 
