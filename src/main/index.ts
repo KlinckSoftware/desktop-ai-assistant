@@ -6,7 +6,14 @@ import { CommandExecutor } from './executor/CommandExecutor'
 import { CommandBroker } from './executor/CommandBroker'
 import { FileEditBroker } from './editor/FileEditBroker'
 import { AgentProcessManager } from './agents/AgentProcessManager'
-import { listAgents, getAgent, ensureConfig as ensureAgentConfig } from './agents/registry'
+import {
+  listAgents,
+  getAgent,
+  saveAgent,
+  removeAgent,
+  ensureConfig as ensureAgentConfig
+} from './agents/registry'
+import type { AgentDef } from '../shared/types'
 import { GeminiClient } from './gemini/GeminiClient'
 import { FileSystemManager } from './fs/FileSystemManager'
 import { gitStatus, gitHead, gitChanges, gitStage, gitUnstage, gitCommit } from './fs/git'
@@ -69,6 +76,8 @@ function initServices(): void {
 function registerIpc(): void {
   // --- CLI agents (Claude, Gemini CLI, Aider, Codex, …) ---
   ipcMain.handle(CH.agentList, () => listAgents())
+  ipcMain.handle(CH.agentSave, (_e, def: AgentDef) => saveAgent(def))
+  ipcMain.handle(CH.agentRemove, (_e, id: string) => removeAgent(id))
   ipcMain.handle(CH.agentNewSession, async (_e, sessionId: string, agentId: string, cwd?: string) => {
     const def = await getAgent(agentId)
     if (!def) throw new Error(`Unknown agent: ${agentId}`)

@@ -8,7 +8,13 @@ const WIN_EXTS = ['.exe', '.cmd', '.bat', '.com', '']
 // Resolve a command name to a full executable path by scanning PATH.
 // node-pty on Windows needs an exact file (it won't apply PATHEXT), so we
 // probe each extension. Falls back to the bare name if nothing is found.
-export function resolveBin(name: string): string {
+export function findBin(name: string): string | null {
+  // Absolute/explicit path → check directly.
+  if (name.includes('/') || name.includes('\\')) {
+    if (existsSync(name)) return name
+    for (const ext of IS_WIN ? WIN_EXTS : ['']) if (existsSync(name + ext)) return name + ext
+    return null
+  }
   const paths = (process.env.PATH || '').split(delimiter).filter(Boolean)
   const exts = IS_WIN ? WIN_EXTS : ['']
   for (const dir of paths) {
@@ -17,7 +23,13 @@ export function resolveBin(name: string): string {
       if (existsSync(full)) return full
     }
   }
-  return IS_WIN ? `${name}.exe` : name
+  return null
+}
+
+// Resolve a command to a full path; falls back to the bare name if not found
+// (so spawn surfaces a clear ENOENT rather than silently doing nothing).
+export function resolveBin(name: string): string {
+  return findBin(name) ?? (IS_WIN ? `${name}.exe` : name)
 }
 
 // Env for spawning `claude`, with nesting markers removed. The CLI refuses to

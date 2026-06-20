@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
+import type { AgentDef } from '@shared/types'
 import { useAppStore } from '../store/appStore'
 import { Z } from '../zIndex'
+import AgentsModal from './AgentsModal'
+import AgentSetupModal from './AgentSetupModal'
 
 // Sessions across all CLI agents. "New" opens an agent picker; multiple
 // sessions of the same agent are allowed.
@@ -12,6 +15,8 @@ export default function SessionSidebar(): JSX.Element {
   const setActive = useAppStore((s) => s.setActiveSession)
   const removeSession = useAppStore((s) => s.removeSession)
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [showManage, setShowManage] = useState(false)
+  const [setupAgent, setSetupAgent] = useState<AgentDef | null>(null)
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -25,8 +30,7 @@ export default function SessionSidebar(): JSX.Element {
 
   const agentName = (id: string): string => agents.find((a) => a.id === id)?.name ?? id
 
-  const newSession = async (agentId: string): Promise<void> => {
-    setPickerOpen(false)
+  const spawn = async (agentId: string): Promise<void> => {
     const id = `${agentId}-${Date.now()}`
     const n = sessions.filter((s) => s.agentId === agentId).length + 1
     try {
@@ -35,6 +39,17 @@ export default function SessionSidebar(): JSX.Element {
     } catch (e) {
       console.error('new session failed', e)
     }
+  }
+
+  const newSession = (agentId: string): void => {
+    setPickerOpen(false)
+    const def = agents.find((a) => a.id === agentId)
+    // Not installed → open the setup window instead of spawning a doomed pty.
+    if (def && def.available === false) {
+      setSetupAgent(def)
+      return
+    }
+    spawn(agentId)
   }
 
   const kill = async (e: React.MouseEvent, id: string): Promise<void> => {
@@ -65,12 +80,23 @@ export default function SessionSidebar(): JSX.Element {
           {agents.map((a) => (
             <button
               key={a.id}
-              className="block w-full px-3 py-1.5 text-left hover:bg-bg"
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-bg"
               onClick={() => newSession(a.id)}
             >
+              <span className={a.available ? 'text-green-400' : 'text-gray-600'}>●</span>
               {a.name}
             </button>
           ))}
+          <div className="my-1 border-t border-border" />
+          <button
+            className="block w-full px-3 py-1.5 text-left text-gray-400 hover:bg-bg"
+            onClick={() => {
+              setPickerOpen(false)
+              setShowManage(true)
+            }}
+          >
+            ＋ Add / manage agents…
+          </button>
         </div>
       )}
       <div className="flex-1 space-y-1 overflow-y-auto p-2">
@@ -94,6 +120,15 @@ export default function SessionSidebar(): JSX.Element {
           </div>
         ))}
       </div>
+
+      {showManage && <AgentsModal onClose={() => setShowManage(false)} />}
+      {setupAgent && (
+        <AgentSetupModal
+          agent={setupAgent}
+          onClose={() => setSetupAgent(null)}
+          onReady={(a) => spawn(a.id)}
+        />
+      )}
     </div>
   )
 }
