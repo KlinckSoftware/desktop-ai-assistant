@@ -18,9 +18,7 @@ export interface PanelDef {
 
 // All dockable panels, in default creation order.
 export const PANELS: PanelDef[] = [
-  { id: 'sessions', title: 'Sessions' },
   { id: 'files', title: 'Files' },
-  { id: 'agent', title: 'Agent' },
   { id: 'gemini', title: 'Gemini' },
   { id: 'editor', title: 'Editor' },
   { id: 'terminal', title: 'Terminal' },
@@ -58,37 +56,22 @@ export function closeActivePanel(): void {
 export function toggleSidebar(): void {
   if (!api) return
   const filesOpen = !!api.getPanel('files')
-  if (filesOpen) {
-    api.getPanel('files')?.api.close()
-    api.getPanel('sessions')?.api.close()
-  } else {
-    focusPanel('sessions')
-    focusPanel('files')
-  }
+  if (filesOpen) api.getPanel('files')?.api.close()
+  else focusPanel('files')
 }
 
 // Default arrangement. The bottom row is added relative to the ROOT (no
 // referencePanel) so it spans the full width — giving one top/bottom divider
 // across the whole window and letting the left/right columns be full height.
+// Static panels only. Agent instances are added dynamically (openAgent) into
+// the gap left of Gemini, so they're not part of the saved-restore set.
 export function buildDefaultLayout(api: DockviewApi): void {
-  api.addPanel({ id: 'sessions', component: 'sessions', title: 'Sessions' })
-  api.addPanel({
-    id: 'files',
-    component: 'files',
-    title: 'Files',
-    position: { referencePanel: 'sessions', direction: 'below' }
-  })
-  api.addPanel({
-    id: 'agent',
-    component: 'agent',
-    title: 'Agent',
-    position: { referencePanel: 'sessions', direction: 'right' }
-  })
+  api.addPanel({ id: 'files', component: 'files', title: 'Files' })
   api.addPanel({
     id: 'gemini',
     component: 'gemini',
     title: 'Gemini',
-    position: { referencePanel: 'agent', direction: 'right' }
+    position: { referencePanel: 'files', direction: 'right' }
   })
   api.addPanel({
     id: 'debate',
@@ -107,7 +90,7 @@ export function buildDefaultLayout(api: DockviewApi): void {
     api.addPanel({ id, component: id, title, position: { referencePanel: 'terminal', direction: 'within' } })
   }
   try {
-    api.getPanel('sessions')?.api.setSize({ width: 230, height: 160 })
+    api.getPanel('files')?.api.setSize({ width: 230 })
   } catch {
     /* best-effort sizing */
   }

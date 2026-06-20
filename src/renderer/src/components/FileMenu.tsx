@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAppStore } from '../store/appStore'
 import { Z } from '../zIndex'
-
-const basename = (p: string): string => p.split(/[\\/]/).filter(Boolean).pop() || p
+import { openAgent } from '../dock/agents'
 
 // Top-bar File menu — IDE-style. "Open Project" sets the stable root for the
 // tree + FS + git + default session cwd. "Open Session in Folder" spawns a new
@@ -12,7 +11,6 @@ export default function FileMenu(): JSX.Element {
   const ref = useRef<HTMLDivElement>(null)
   const setProjectRoot = useAppStore((s) => s.setProjectRoot)
   const clearContextFiles = useAppStore((s) => s.clearContextFiles)
-  const addSession = useAppStore((s) => s.addSession)
 
   useEffect(() => {
     if (!open) return
@@ -34,9 +32,7 @@ export default function FileMenu(): JSX.Element {
     setOpen(false)
     const folder = await window.api.fs.pickFolder() // no root change
     if (!folder) return
-    const id = `claude-${Date.now()}`
-    await window.api.agent.newSession(id, 'claude', folder)
-    addSession({ id, agentId: 'claude', label: basename(folder), cwd: folder })
+    openAgent('claude', { cwd: folder }) // new Claude agent panel rooted there
   }
 
   return (
