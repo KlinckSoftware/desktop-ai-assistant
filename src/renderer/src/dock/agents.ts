@@ -38,7 +38,11 @@ export async function openAgent(
   }
 }
 
-/** Spawn the default agent (Claude), left of Gemini — first launch / post-restore. */
+/** Spawn the default agent (Claude), left of Gemini — first launch / post-restore.
+ * Idempotent: no-op if an agent panel already exists (guards StrictMode double-run). */
 export function openDefaultAgent(): void {
+  const api = getDockApi()
+  if (!api) return
+  if (api.panels.some((p) => p.id.includes('-'))) return
   void openAgent('claude', { position: { referencePanel: 'gemini', direction: 'left' } })
 }
