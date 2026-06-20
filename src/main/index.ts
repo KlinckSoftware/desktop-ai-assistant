@@ -43,6 +43,9 @@ function createWindow(): void {
 
   appState.mainWindow = win
   win.on('ready-to-show', () => win.show())
+  win.on('closed', () => {
+    appState.mainWindow = null
+  })
 
   if (process.env['ELECTRON_RENDERER_URL']) {
     win.loadURL(process.env['ELECTRON_RENDERER_URL'])
