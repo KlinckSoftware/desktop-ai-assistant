@@ -3,6 +3,7 @@ import type { IDockviewPanelProps } from 'dockview'
 import type { Message } from '@shared/types'
 import { useAppStore } from '../store/appStore'
 import { expandMentions } from '../utils/mentions'
+import { buildContextBlock } from '../utils/context'
 import MentionInput from '../components/MentionInput'
 
 const DONE = '[[api:done]]'
@@ -18,6 +19,7 @@ export default function ApiChatPanel(props: IDockviewPanelProps): JSX.Element {
   const [busy, setBusy] = useState(false)
   const [needKey, setNeedKey] = useState(false)
   const [keyInput, setKeyInput] = useState('')
+  const poolSize = useAppStore((s) => s.contextFiles.size)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -64,7 +66,9 @@ export default function ApiChatPanel(props: IDockviewPanelProps): JSX.Element {
     setInput('')
     const root = useAppStore.getState().projectRoot
     const expanded = await expandMentions(text, root)
-    const history: Message[] = [...messages, { role: 'user', content: expanded }]
+    const ctx = await buildContextBlock([...useAppStore.getState().contextFiles])
+    const turn = ctx ? `${ctx}\n\n---\n\n${expanded}` : expanded
+    const history: Message[] = [...messages, { role: 'user', content: turn }]
     setMessages([...messages, { role: 'user', content: text }, { role: 'assistant', content: '' }])
     setBusy(true)
     await window.api.api.send(instanceId, provider.id, model || provider.defaultModel, history)
@@ -126,6 +130,17 @@ export default function ApiChatPanel(props: IDockviewPanelProps): JSX.Element {
               </div>
             ))}
           </div>
+          {poolSize > 0 && (
+            <div className="flex items-center justify-between border-t border-border bg-gemini/10 px-3 py-1 text-[11px] text-gemini">
+              <span>◆ {poolSize} file(s) in shared context — sent with every message</span>
+              <button
+                className="text-gray-400 hover:text-gray-200"
+                onClick={() => useAppStore.getState().clearContextFiles()}
+              >
+                clear
+              </button>
+            </div>
+          )}
           <div className="flex gap-2 border-t border-border p-2">
             <MentionInput
               value={input}

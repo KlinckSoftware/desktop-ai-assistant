@@ -99,14 +99,12 @@ interface AppState {
   dockLayout: unknown | null
   setDockLayout: (l: unknown) => void
 
-  // Files checked in the tree to attach as prompt context.
+  // Shared context pool: project files prepended to every prompt-controlled
+  // agent (Gemini + API chats) until removed. Selected once, shared cockpit-wide.
   contextFiles: Set<string>
   toggleContextFile: (path: string) => void
+  removeContextFile: (path: string) => void
   clearContextFiles: () => void
-
-  // Assembled file context queued for the next Gemini send (prepended once).
-  pendingGeminiContext: string
-  setPendingGeminiContext: (s: string) => void
 
   // Drag-dropped attachments for the next Gemini message.
   attachments: Attachment[]
@@ -210,10 +208,13 @@ export const useAppStore = create<AppState>((set, get) => ({
       else next.add(path)
       return { contextFiles: next }
     }),
+  removeContextFile: (path) =>
+    set((s) => {
+      const next = new Set(s.contextFiles)
+      next.delete(path)
+      return { contextFiles: next }
+    }),
   clearContextFiles: () => set({ contextFiles: new Set() }),
-
-  pendingGeminiContext: '',
-  setPendingGeminiContext: (str) => set({ pendingGeminiContext: str }),
 
   attachments: [],
   addAttachment: (a) => set((s) => ({ attachments: [...s.attachments, a] })),

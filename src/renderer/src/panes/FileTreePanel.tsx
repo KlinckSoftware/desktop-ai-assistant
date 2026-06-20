@@ -51,7 +51,7 @@ function TreeNode({ node, depth }: { node: FileNode; depth: number }): JSX.Eleme
           onChange={() => toggleContextFile(node.path)}
           onClick={(e) => e.stopPropagation()}
           className="h-3 w-3 shrink-0 accent-gemini"
-          title="Add to prompt context"
+          title="Add to shared context pool"
         />
         <span
           className="flex-1 cursor-pointer truncate"
@@ -99,8 +99,8 @@ export default function FileTreePanel(): JSX.Element {
   const projectRoot = useAppStore((s) => s.projectRoot)
   const setGitStatus = useAppStore((s) => s.setGitStatus)
   const contextFiles = useAppStore((s) => s.contextFiles)
+  const removeContextFile = useAppStore((s) => s.removeContextFile)
   const clearContextFiles = useAppStore((s) => s.clearContextFiles)
-  const setPendingGeminiContext = useAppStore((s) => s.setPendingGeminiContext)
 
   const refresh = useCallback(() => {
     window.api.fs.readTree().then(setTree)
@@ -112,25 +112,6 @@ export default function FileTreePanel(): JSX.Element {
     const off = window.api.fs.onChanged(() => refresh())
     return off
   }, [refresh, projectRoot])
-
-  const attach = async (): Promise<void> => {
-    const paths = [...contextFiles]
-    if (paths.length === 0) return
-    const parts = await Promise.all(
-      paths.map(async (p) => {
-        try {
-          const content = await window.api.fs.readFile(p)
-          const name = p.split(/[/\\]/).pop()
-          return `### File: ${name} (${p})\n\`\`\`\n${content}\n\`\`\``
-        } catch {
-          return `### File: ${p}\n[unreadable]`
-        }
-      })
-    )
-    setPendingGeminiContext(
-      `The following ${paths.length} file(s) are attached as context:\n\n${parts.join('\n\n')}`
-    )
-  }
 
   return (
     <div className="flex h-full flex-col bg-bg text-xs">
@@ -145,21 +126,37 @@ export default function FileTreePanel(): JSX.Element {
         {tree?.children?.map((c) => <TreeNode key={c.path} node={c} depth={0} />)}
       </div>
       {contextFiles.size > 0 && (
-        <div className="flex items-center gap-1 border-t border-border p-2">
-          <button
-            className="flex-1 rounded bg-gemini py-1 text-[11px] font-medium text-white"
-            onClick={attach}
-          >
-            ✦ Attach {contextFiles.size} to Gemini
-          </button>
-          <button
-            className="rounded border border-border px-2 py-1 text-gray-400 hover:bg-panel"
-            onClick={clearContextFiles}
-            title="Clear selection"
-            aria-label="Clear selected context files"
-          >
-            ✕
-          </button>
+        <div className="border-t border-border">
+          <div className="flex items-center justify-between px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-gemini">
+            <span>◆ Context pool ({contextFiles.size})</span>
+            <button
+              className="text-gray-500 hover:text-gray-300"
+              onClick={clearContextFiles}
+              title="Clear context pool"
+              aria-label="Clear context pool"
+            >
+              clear
+            </button>
+          </div>
+          <div className="max-h-28 overflow-auto pb-1">
+            {[...contextFiles].map((p) => (
+              <div
+                key={p}
+                className="group flex items-center gap-1 px-3 py-0.5 text-[11px] text-gray-300 hover:bg-panel"
+                title={p}
+              >
+                <span className="flex-1 truncate">{p.split(/[/\\]/).pop()}</span>
+                <button
+                  className="text-gray-600 opacity-0 hover:text-red-400 group-hover:opacity-100"
+                  onClick={() => removeContextFile(p)}
+                  aria-label={`Remove ${p} from context pool`}
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="px-3 pb-1.5 text-[10px] text-gray-600">Shared by Gemini + all API chats</div>
         </div>
       )}
     </div>

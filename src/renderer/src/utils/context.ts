@@ -1,0 +1,33 @@
+// Shared context pool helper. The pool is a set of project file paths (store:
+// contextFiles) that EVERY prompt-controlled agent (Gemini + the API chats)
+// prepends to each message, so context is selected once and shared across the
+// whole cockpit rather than per-agent.
+
+const MAX_CHARS = 100_000 // hard cap so a fat pool can't blow the model's window
+
+// Read the pooled files and format them as a single context block. Returns ''
+// when the pool is empty. Unreadable/binary files are noted, not fatal.
+export async function buildContextBlock(paths: string[]): Promise<string> {
+  if (paths.length === 0) return ''
+  const parts: string[] = []
+  let total = 0
+  for (const p of paths) {
+    const name = p.split(/[/\\]/).pop()
+    let body: string
+    try {
+      body = await window.api.fs.readFile(p)
+    } catch {
+      parts.push(`### File: ${name} (${p})\n[unreadable]`)
+      continue
+    }
+    if (total + body.length > MAX_CHARS) {
+      const room = Math.max(0, MAX_CHARS - total)
+      body = body.slice(0, room) + '\n[…truncated: context pool size cap reached]'
+      parts.push(`### File: ${name} (${p})\n\`\`\`\n${body}\n\`\`\``)
+      break
+    }
+    total += body.length
+    parts.push(`### File: ${name} (${p})\n\`\`\`\n${body}\n\`\`\``)
+  }
+  return `The following ${paths.length} file(s) are shared context for this request:\n\n${parts.join('\n\n')}`
+}
