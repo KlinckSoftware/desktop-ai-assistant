@@ -94,6 +94,12 @@ class MCPClientManager {
         })
       }
     }
+    console.log(
+      '[mcp] ' +
+        (this.status
+          .map((s) => `${s.server}=${s.connected ? `${s.toolCount} tools` : `FAIL(${s.error})`}`)
+          .join(' | ') || 'no servers')
+    )
     return this.status
   }
 
