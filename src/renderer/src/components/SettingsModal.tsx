@@ -27,10 +27,12 @@ const CLAUDE_MODELS = [
 export default function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element {
   const geminiModel = useAppStore((s) => s.geminiModel)
   const claudeModel = useAppStore((s) => s.claudeModel)
+  const claudeEffort = useAppStore((s) => s.claudeEffort)
   const debateRounds = useAppStore((s) => s.debateRounds)
   const terminalShell = useAppStore((s) => s.terminalShell)
   const setGeminiModel = useAppStore((s) => s.setGeminiModel)
   const setClaudeModel = useAppStore((s) => s.setClaudeModel)
+  const setClaudeEffort = useAppStore((s) => s.setClaudeEffort)
   const setDebateRounds = useAppStore((s) => s.setDebateRounds)
   const setTerminalShell = useAppStore((s) => s.setTerminalShell)
   const trustedCount = useAppStore((s) => s.trustedSessions.size)
@@ -62,6 +64,10 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
   const onClaudeModel = (m: string): void => {
     setClaudeModel(m)
     window.api.settings.set({ claudeModel: m })
+  }
+  const onClaudeEffort = (e: string): void => {
+    setClaudeEffort(e)
+    window.api.settings.set({ claudeEffort: e })
   }
   const onRounds = (n: number): void => {
     const v = Math.min(5, Math.max(1, n))
@@ -127,6 +133,19 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
               {m.label}
             </option>
           ))}
+        </select>
+
+        {/* Claude effort (debate) */}
+        <label className="mb-1 block text-xs uppercase text-gray-500">Claude effort (debate)</label>
+        <select
+          className="mb-4 w-full rounded border border-border bg-bg px-2 py-1.5 outline-none focus:border-accent"
+          value={claudeEffort}
+          onChange={(e) => onClaudeEffort(e.target.value)}
+        >
+          <option value="">default</option>
+          <option value="low">low</option>
+          <option value="medium">medium</option>
+          <option value="high">high</option>
         </select>
 
         {/* Debate rounds */}

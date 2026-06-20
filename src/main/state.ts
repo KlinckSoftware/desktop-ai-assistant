@@ -16,6 +16,7 @@ function defaultRoot(): string {
 export interface Settings {
   geminiModel: string
   claudeModel: string // '' = use the claude CLI default; else passed via --model
+  claudeEffort: string // '' = default; else passed via --effort (low/medium/high)
   debateRounds: number
   terminalShell: 'default' | 'powershell' | 'pwsh' | 'cmd' | 'bash' | 'zsh'
 }
@@ -27,6 +28,7 @@ class AppState {
   settings: Settings = {
     geminiModel: 'gemini-2.5-flash',
     claudeModel: '',
+    claudeEffort: '',
     debateRounds: 3,
     terminalShell: 'default'
   }

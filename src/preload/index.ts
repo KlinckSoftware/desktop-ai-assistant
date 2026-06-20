@@ -159,6 +159,7 @@ const api = {
     set: (s: {
       geminiModel?: string
       claudeModel?: string
+      claudeEffort?: string
       debateRounds?: number
       terminalShell?: 'default' | 'powershell' | 'pwsh' | 'cmd' | 'bash' | 'zsh'
     }): Promise<void> => ipcRenderer.invoke(CH.settingsSet, s)
