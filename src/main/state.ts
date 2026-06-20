@@ -15,6 +15,7 @@ function defaultRoot(): string {
 
 export interface Settings {
   geminiModel: string
+  claudeModel: string // '' = use the claude CLI default; else passed via --model
   debateRounds: number
   terminalShell: 'default' | 'powershell' | 'pwsh' | 'cmd' | 'bash' | 'zsh'
 }
@@ -23,7 +24,12 @@ export interface Settings {
 class AppState {
   mainWindow: BrowserWindow | null = null
   projectRoot: string = defaultRoot()
-  settings: Settings = { geminiModel: 'gemini-2.5-flash', debateRounds: 3, terminalShell: 'default' }
+  settings: Settings = {
+    geminiModel: 'gemini-2.5-flash',
+    claudeModel: '',
+    debateRounds: 3,
+    terminalShell: 'default'
+  }
 
   send(channel: string, ...args: unknown[]): void {
     const win = this.mainWindow
