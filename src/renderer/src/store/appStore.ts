@@ -18,6 +18,17 @@ export interface Attachment {
   base64?: string
 }
 
+// One open agent as seen by the cockpit dashboard.
+export interface FleetAgent {
+  id: string // dock panel id (sessionId / instanceId / 'gemini')
+  name: string
+  kind: 'cli' | 'api' | 'gemini'
+  model?: string
+  status: 'idle' | 'busy'
+  chars: number // streamed output chars (≈ tokens/4) for a rough usage meter
+  lastTs: number // epoch ms of last activity
+}
+
 // The subset of state persisted to disk across launches. Excludes live pty
 // sessions, command-approval trust (security), and transient context.
 export interface PersistedState {
@@ -110,6 +121,20 @@ interface AppState {
   // to every prompt-controlled agent alongside the pooled files.
   repoMapInContext: boolean
   toggleRepoMap: () => void
+
+  // Agent handoff buffer: one agent's reply parked for another to pick up.
+  // Source sets it; any destination agent (Gemini/API input, CLI prompt) consumes.
+  handoff: { text: string; from: string } | null
+  setHandoff: (text: string, from: string) => void
+  clearHandoff: () => void
+
+  // Cockpit fleet: live registry of open agents for the dashboard. Each panel
+  // registers itself on mount, reports activity, and deregisters on unmount.
+  fleet: Record<string, FleetAgent>
+  registerFleet: (a: FleetAgent) => void
+  updateFleet: (id: string, patch: Partial<FleetAgent>) => void
+  bumpFleet: (id: string, chars: number) => void
+  removeFleet: (id: string) => void
 
   // Drag-dropped attachments for the next Gemini message.
   attachments: Attachment[]
@@ -223,6 +248,27 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   repoMapInContext: false,
   toggleRepoMap: () => set((s) => ({ repoMapInContext: !s.repoMapInContext })),
+
+  handoff: null,
+  setHandoff: (text, from) => set({ handoff: { text, from } }),
+  clearHandoff: () => set({ handoff: null }),
+
+  fleet: {},
+  registerFleet: (a) => set((s) => ({ fleet: { ...s.fleet, [a.id]: a } })),
+  updateFleet: (id, patch) =>
+    set((s) => (s.fleet[id] ? { fleet: { ...s.fleet, [id]: { ...s.fleet[id], ...patch } } } : s)),
+  bumpFleet: (id, chars) =>
+    set((s) => {
+      const cur = s.fleet[id]
+      if (!cur) return s
+      return { fleet: { ...s.fleet, [id]: { ...cur, chars: cur.chars + chars, lastTs: Date.now() } } }
+    }),
+  removeFleet: (id) =>
+    set((s) => {
+      const next = { ...s.fleet }
+      delete next[id]
+      return { fleet: next }
+    }),
 
   attachments: [],
   addAttachment: (a) => set((s) => ({ attachments: [...s.attachments, a] })),
