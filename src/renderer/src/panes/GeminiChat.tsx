@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAppStore } from '../store/appStore'
 import { expandMentions } from '../utils/mentions'
+import { buildContextBlock } from '../utils/context'
 import MentionInput from '../components/MentionInput'
 
 const DONE = '[[gemini:done]]'
@@ -10,8 +11,7 @@ export default function GeminiChat(): JSX.Element {
   const addMessage = useAppStore((s) => s.addGeminiMessage)
   const append = useAppStore((s) => s.appendToLastGemini)
   const hasKey = useAppStore((s) => s.hasGeminiKey)
-  const hasContext = useAppStore((s) => s.pendingGeminiContext.length > 0)
-  const setPendingContext = useAppStore((s) => s.setPendingGeminiContext)
+  const poolSize = useAppStore((s) => s.contextFiles.size)
   const attachments = useAppStore((s) => s.attachments)
   const removeAttachment = useAppStore((s) => s.removeAttachment)
   const clearAttachments = useAppStore((s) => s.clearAttachments)
@@ -64,9 +64,8 @@ export default function GeminiChat(): JSX.Element {
       .map((a) => ({ mime: a.mime as string, base64: a.base64 as string }))
 
     const withMentions = await expandMentions(text, root)
-    const ctx = useAppStore.getState().pendingGeminiContext
+    const ctx = await buildContextBlock([...useAppStore.getState().contextFiles])
     const augmented = [ctx, attachedText, withMentions].filter(Boolean).join('\n\n---\n\n')
-    if (ctx) useAppStore.getState().setPendingGeminiContext('')
     clearAttachments()
 
     const label =
@@ -95,10 +94,13 @@ export default function GeminiChat(): JSX.Element {
           </div>
         ))}
       </div>
-      {hasContext && (
+      {poolSize > 0 && (
         <div className="flex items-center justify-between border-t border-border bg-gemini/10 px-3 py-1 text-[11px] text-gemini">
-          <span>✦ file context attached — sent with next message</span>
-          <button className="text-gray-400 hover:text-gray-200" onClick={() => setPendingContext('')}>
+          <span>◆ {poolSize} file(s) in shared context — sent with every message</span>
+          <button
+            className="text-gray-400 hover:text-gray-200"
+            onClick={() => useAppStore.getState().clearContextFiles()}
+          >
             clear
           </button>
         </div>
