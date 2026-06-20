@@ -46,8 +46,9 @@ export default function App(): JSX.Element {
       } else {
         setProjectRoot(await window.api.fs.projectRoot())
       }
-      const { geminiModel, claudeModel, debateRounds, terminalShell } = useAppStore.getState()
-      window.api.settings.set({ geminiModel, claudeModel, debateRounds, terminalShell })
+      const { geminiModel, claudeModel, claudeEffort, debateRounds, terminalShell } =
+        useAppStore.getState()
+      window.api.settings.set({ geminiModel, claudeModel, claudeEffort, debateRounds, terminalShell })
       setHasGeminiKey(await window.api.gemini.hasKey())
       setReady(true)
     })()
@@ -137,6 +138,7 @@ export default function App(): JSX.Element {
           debatePrompt: s.debatePrompt,
           geminiModel: s.geminiModel,
           claudeModel: s.claudeModel,
+          claudeEffort: s.claudeEffort,
           debateRounds: s.debateRounds,
           terminalShell: s.terminalShell,
           dockLayout: s.dockLayout

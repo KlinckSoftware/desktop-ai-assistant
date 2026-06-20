@@ -13,8 +13,14 @@ export default function DebatePanel(): JSX.Element {
   const startDebateState = useAppStore((s) => s.startDebateState)
   const beginSynthesis = useAppStore((s) => s.beginSynthesis)
   const endDebate = useAppStore((s) => s.endDebate)
+  const clearDebate = useAppStore((s) => s.clearDebate)
   const lastPrompt = useAppStore((s) => s.debatePrompt)
   const [prompt, setPrompt] = useState(lastPrompt)
+
+  const clear = (): void => {
+    clearDebate()
+    setPrompt('')
+  }
 
   const approve = (): void => {
     beginSynthesis()
@@ -64,6 +70,14 @@ export default function DebatePanel(): JSX.Element {
           onClick={start}
         >
           {running ? 'Running…' : 'Start'}
+        </button>
+        <button
+          className="rounded border border-border px-3 py-1 text-gray-300 hover:bg-panel disabled:opacity-40"
+          disabled={running}
+          onClick={clear}
+          title="Clear input and transcript"
+        >
+          Clear
         </button>
       </div>
       {running && (

@@ -26,6 +26,7 @@ export interface PersistedState {
   debatePrompt: string
   geminiModel: string
   claudeModel: string
+  claudeEffort: string
   debateRounds: number
   terminalShell: AppState['terminalShell']
   dockLayout: unknown | null
@@ -47,10 +48,12 @@ interface AppState {
   // User settings (mirrored to main via window.api.settings.set).
   geminiModel: string
   claudeModel: string
+  claudeEffort: string
   debateRounds: number
   terminalShell: 'default' | 'powershell' | 'pwsh' | 'cmd' | 'bash' | 'zsh'
   setGeminiModel: (m: string) => void
   setClaudeModel: (m: string) => void
+  setClaudeEffort: (e: string) => void
   setDebateRounds: (n: number) => void
   setTerminalShell: (s: AppState['terminalShell']) => void
 
@@ -121,6 +124,7 @@ interface AppState {
   setDebateStatus: (s: string) => void
   beginSynthesis: () => void
   endDebate: () => void
+  clearDebate: () => void
 
   hydrate: (d: Partial<PersistedState>) => void
 }
@@ -140,10 +144,12 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   geminiModel: 'gemini-2.5-flash',
   claudeModel: '',
+  claudeEffort: '',
   debateRounds: 3,
   terminalShell: 'default',
   setGeminiModel: (m) => set({ geminiModel: m }),
   setClaudeModel: (m) => set({ claudeModel: m }),
+  setClaudeEffort: (e) => set({ claudeEffort: e }),
   setDebateRounds: (n) => set({ debateRounds: n }),
   setTerminalShell: (s) => set({ terminalShell: s }),
 
@@ -249,6 +255,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   setDebateStatus: (status) => set({ debateStatus: status }),
   beginSynthesis: () => set({ debateAwaiting: false, debateRunning: true, debateStatus: 'Implementing…' }),
   endDebate: () => set({ debateRunning: false, debateAwaiting: false, debateStatus: '' }),
+  clearDebate: () =>
+    set({
+      debateRunning: false,
+      debateAwaiting: false,
+      debateStatus: '',
+      debateUpdates: [],
+      debatePrompt: ''
+    }),
 
   hydrate: (d) =>
     set({
@@ -259,6 +273,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       debatePrompt: d.debatePrompt ?? '',
       geminiModel: d.geminiModel ?? 'gemini-2.5-flash',
       claudeModel: d.claudeModel ?? '',
+      claudeEffort: d.claudeEffort ?? '',
       debateRounds: d.debateRounds ?? 3,
       terminalShell: d.terminalShell ?? 'default',
       dockLayout: d.dockLayout ?? null,
