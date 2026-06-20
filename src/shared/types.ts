@@ -11,6 +11,10 @@ export interface AgentDef {
   command: string
   args: string[]
   env?: Record<string, string>
+  installHint?: string // shown in the setup window when the command isn't found
+  docsUrl?: string
+  builtin?: boolean // built-in (can be overridden but not deleted)
+  available?: boolean // computed: command resolves on PATH
 }
 
 // A running (or requested) CLI agent session.
@@ -101,6 +105,8 @@ export interface CommandResult {
 export const CH = {
   // Generic CLI-agent sessions (Claude, Gemini CLI, Aider, Codex, …).
   agentList: 'agent:list',
+  agentSave: 'agent:save',
+  agentRemove: 'agent:remove',
   agentNewSession: 'agent:new-session',
   agentSend: 'agent:send',
   agentInput: 'agent:input',

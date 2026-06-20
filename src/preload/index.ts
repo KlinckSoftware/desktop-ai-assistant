@@ -23,6 +23,8 @@ interface EditResult {
 const api = {
   agent: {
     list: (): Promise<AgentDef[]> => ipcRenderer.invoke(CH.agentList),
+    save: (def: AgentDef): Promise<AgentDef[]> => ipcRenderer.invoke(CH.agentSave, def),
+    remove: (id: string): Promise<AgentDef[]> => ipcRenderer.invoke(CH.agentRemove, id),
     newSession: (sessionId: string, agentId: string, cwd?: string): Promise<string> =>
       ipcRenderer.invoke(CH.agentNewSession, sessionId, agentId, cwd),
     send: (sessionId: string, text: string): Promise<void> =>
