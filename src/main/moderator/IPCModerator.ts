@@ -8,7 +8,14 @@ import type { CommandBroker } from '../executor/CommandBroker'
 // Orchestrates a structured Claude<->Gemini debate. Neither agent talks to the
 // other directly — everything routes through main. Uses headless `claude -p`
 // for clean Claude turns and Gemini's one-shot completion.
+// Rounds are analysis only; the editing happens in the synthesis step, which is
+// gated behind explicit user approval.
+const NO_EDIT = '\n\nThis is analysis/discussion only — do NOT modify files or run mutating commands.'
+
 export class IPCModerator {
+  private pendingTranscript: DebateRound[] | null = null
+  private pendingPrompt = ''
+
   constructor(
     private gemini: GeminiClient,
     private broker: CommandBroker
@@ -24,9 +31,10 @@ export class IPCModerator {
       for (let i = 0; i < rounds; i++) {
         status(`Claude thinking… (round ${i + 1}/${rounds})`)
         const claudePrompt =
-          i === 0
+          (i === 0
             ? userPrompt
-            : `Original task: ${userPrompt}\n\nGemini responded: "${transcript[i - 1].gemini}"\n\nRevise or defend your approach.`
+            : `Original task: ${userPrompt}\n\nGemini responded: "${transcript[i - 1].gemini}"\n\nRevise or defend your approach.`) +
+          NO_EDIT
 
         const claudeText = await claudeOneShot(claudePrompt, cwd)
         transcript.push({ round: i, claude: claudeText, gemini: '' })
@@ -53,18 +61,45 @@ export class IPCModerator {
         appState.send(CH.debateUpdate, { type: 'gemini', text: geminiText, round: i })
       }
 
-      status('Synthesizing final answer…')
-      const synthesis = await claudeOneShot(
-        `Based on this debate:\n${JSON.stringify(transcript, null, 2)}\n\nProduce the final agreed implementation.`,
-        cwd
-      )
-      appState.send(CH.debateUpdate, { type: 'synthesis', text: synthesis })
+      // Rounds done — pause for approval before the synthesis step edits files.
+      this.pendingTranscript = transcript
+      this.pendingPrompt = userPrompt
       status('')
+      appState.send(CH.debateUpdate, {
+        type: 'await',
+        text: 'Discussion complete. Approve to let Claude implement the agreed changes (this WILL edit files), or decline to keep the discussion only.'
+      })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       console.error('[debate] failed:', msg)
       status('')
       appState.send(CH.debateUpdate, { type: 'error', text: `Debate failed: ${msg}` })
     }
+  }
+
+  /** Run the agentic synthesis (edits files) — only after user approval. */
+  async synthesize(): Promise<void> {
+    const transcript = this.pendingTranscript
+    if (!transcript) return
+    this.pendingTranscript = null
+    const status = (s: string): void => appState.send(CH.debateStatus, s)
+    try {
+      status('Implementing the agreed changes…')
+      const synthesis = await claudeOneShot(
+        `Original task: ${this.pendingPrompt}\n\nDebate transcript:\n${JSON.stringify(transcript, null, 2)}\n\nImplement the final agreed changes now.`,
+        appState.projectRoot
+      )
+      appState.send(CH.debateUpdate, { type: 'synthesis', text: synthesis })
+      status('')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      status('')
+      appState.send(CH.debateUpdate, { type: 'error', text: `Synthesis failed: ${msg}` })
+    }
+  }
+
+  decline(): void {
+    this.pendingTranscript = null
+    appState.send(CH.debateUpdate, { type: 'synthesis', text: '(declined — discussion kept, no changes made)' })
   }
 }

@@ -109,12 +109,14 @@ interface AppState {
   // Debate state lives here (not in the view) so it survives minimize/close
   // and a single always-mounted listener accumulates updates.
   debateRunning: boolean
+  debateAwaiting: boolean
   debateStatus: string
   debateUpdates: DebateUpdate[]
   debatePrompt: string
   startDebateState: (prompt: string) => void
   addDebateUpdate: (u: DebateUpdate) => void
   setDebateStatus: (s: string) => void
+  beginSynthesis: () => void
   endDebate: () => void
 
   hydrate: (d: Partial<PersistedState>) => void
@@ -215,20 +217,33 @@ export const useAppStore = create<AppState>((set, get) => ({
   clearAttachments: () => set({ attachments: [] }),
 
   debateRunning: false,
+  debateAwaiting: false,
   debateStatus: '',
   debateUpdates: [],
   debatePrompt: '',
   startDebateState: (prompt) =>
-    set({ debateRunning: true, debateStatus: 'Starting…', debateUpdates: [], debatePrompt: prompt }),
+    set({
+      debateRunning: true,
+      debateAwaiting: false,
+      debateStatus: 'Starting…',
+      debateUpdates: [],
+      debatePrompt: prompt
+    }),
   addDebateUpdate: (u) =>
-    set((s) => ({
-      debateUpdates: [...s.debateUpdates, u],
-      // Synthesis or error ends the run.
-      debateRunning: u.type === 'synthesis' || u.type === 'error' ? false : s.debateRunning,
-      debateStatus: u.type === 'synthesis' || u.type === 'error' ? '' : s.debateStatus
-    })),
+    set((s) => {
+      const ended = u.type === 'synthesis' || u.type === 'error'
+      const awaiting = u.type === 'await'
+      return {
+        debateUpdates: [...s.debateUpdates, u],
+        // 'await' pauses for approval; synthesis/error ends the run.
+        debateRunning: ended || awaiting ? false : s.debateRunning,
+        debateAwaiting: awaiting ? true : ended ? false : s.debateAwaiting,
+        debateStatus: ended || awaiting ? '' : s.debateStatus
+      }
+    }),
   setDebateStatus: (status) => set({ debateStatus: status }),
-  endDebate: () => set({ debateRunning: false, debateStatus: '' }),
+  beginSynthesis: () => set({ debateAwaiting: false, debateRunning: true, debateStatus: 'Implementing…' }),
+  endDebate: () => set({ debateRunning: false, debateAwaiting: false, debateStatus: '' }),
 
   hydrate: (d) =>
     set({

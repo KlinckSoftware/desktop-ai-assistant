@@ -9,10 +9,21 @@ export default function DebatePanel(): JSX.Element {
   const updates = useAppStore((s) => s.debateUpdates)
   const running = useAppStore((s) => s.debateRunning)
   const status = useAppStore((s) => s.debateStatus)
+  const awaiting = useAppStore((s) => s.debateAwaiting)
   const startDebateState = useAppStore((s) => s.startDebateState)
+  const beginSynthesis = useAppStore((s) => s.beginSynthesis)
   const endDebate = useAppStore((s) => s.endDebate)
   const lastPrompt = useAppStore((s) => s.debatePrompt)
   const [prompt, setPrompt] = useState(lastPrompt)
+
+  const approve = (): void => {
+    beginSynthesis()
+    window.api.debate.synthesize()
+  }
+  const decline = (): void => {
+    endDebate()
+    window.api.debate.decline()
+  }
 
   const start = (): void => {
     const p = prompt.trim()
@@ -59,6 +70,19 @@ export default function DebatePanel(): JSX.Element {
         <div className="flex items-center gap-1.5 border-b border-border px-3 py-1 text-xs text-gray-400">
           <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-accent" />
           {status || 'working…'}
+        </div>
+      )}
+      {awaiting && (
+        <div className="flex items-center gap-2 border-b border-border bg-yellow-500/10 px-3 py-2 text-xs">
+          <span className="flex-1 text-yellow-300">
+            Approve to let Claude implement the agreed changes — this WILL edit files.
+          </span>
+          <button className="rounded bg-green-600 px-3 py-1 font-medium text-white" onClick={approve}>
+            Approve &amp; implement
+          </button>
+          <button className="rounded border border-border px-3 py-1 text-gray-300" onClick={decline}>
+            Decline
+          </button>
         </div>
       )}
       <div className="flex-1 space-y-3 overflow-y-auto p-3 text-sm">
