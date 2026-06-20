@@ -8,6 +8,7 @@ import EditReview from './components/EditReview'
 import SettingsModal from './components/SettingsModal'
 import FileMenu from './components/FileMenu'
 import AgentMenu from './components/AgentMenu'
+import ApiMenu from './components/ApiMenu'
 import ViewMenu from './components/ViewMenu'
 import SideChat from './components/SideChat'
 import QuickOpen from './components/QuickOpen'
@@ -28,6 +29,7 @@ export default function App(): JSX.Element {
   const debateStatus = useAppStore((s) => s.debateStatus)
   const setFileList = useAppStore((s) => s.setFileList)
   const setAgents = useAppStore((s) => s.setAgents)
+  const setApiProviders = useAppStore((s) => s.setApiProviders)
   const addAttachment = useAppStore((s) => s.addAttachment)
   const [showSettings, setShowSettings] = useState(false)
   const [showSideChat, setShowSideChat] = useState(false)
@@ -52,6 +54,7 @@ export default function App(): JSX.Element {
         useAppStore.getState()
       window.api.settings.set({ geminiModel, claudeModel, claudeEffort, debateRounds, terminalShell })
       setAgents(await window.api.agent.list())
+      setApiProviders(await window.api.api.providers())
       setHasGeminiKey(await window.api.gemini.hasKey())
       setReady(true)
     })()
@@ -79,7 +82,7 @@ export default function App(): JSX.Element {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [setProjectRoot, setHasGeminiKey, hydrate, setAgents])
+  }, [setProjectRoot, setHasGeminiKey, hydrate, setAgents, setApiProviders])
 
   // Global drag-and-drop: folder → switch project; image → multimodal attach;
   // text file → context attach. Shown as pills in the Gemini composer.
@@ -201,6 +204,7 @@ export default function App(): JSX.Element {
         <span className="mr-1 font-semibold">Desktop AI</span>
         <FileMenu />
         <AgentMenu />
+        <ApiMenu />
         <ViewMenu />
         <button
           className="rounded border border-border px-2 py-0.5 text-xs hover:bg-bg"
