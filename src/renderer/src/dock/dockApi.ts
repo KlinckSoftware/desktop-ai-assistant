@@ -20,7 +20,7 @@ export interface PanelDef {
 export const PANELS: PanelDef[] = [
   { id: 'sessions', title: 'Sessions' },
   { id: 'files', title: 'Files' },
-  { id: 'claude', title: 'Claude' },
+  { id: 'agent', title: 'Agent' },
   { id: 'gemini', title: 'Gemini' },
   { id: 'editor', title: 'Editor' },
   { id: 'terminal', title: 'Terminal' },
@@ -79,16 +79,16 @@ export function buildDefaultLayout(api: DockviewApi): void {
     position: { referencePanel: 'sessions', direction: 'below' }
   })
   api.addPanel({
-    id: 'claude',
-    component: 'claude',
-    title: 'Claude',
+    id: 'agent',
+    component: 'agent',
+    title: 'Agent',
     position: { referencePanel: 'sessions', direction: 'right' }
   })
   api.addPanel({
     id: 'gemini',
     component: 'gemini',
     title: 'Gemini',
-    position: { referencePanel: 'claude', direction: 'right' }
+    position: { referencePanel: 'agent', direction: 'right' }
   })
   api.addPanel({
     id: 'debate',

@@ -9,7 +9,8 @@ import {
   type GitChanges,
   type PendingEdit,
   type PendingTool,
-  type Checkpoint
+  type Checkpoint,
+  type AgentDef
 } from '../shared/types'
 
 interface EditResult {
@@ -20,20 +21,21 @@ interface EditResult {
 
 // The only surface the renderer can touch. No nodeIntegration, no raw ipc.
 const api = {
-  claude: {
-    newSession: (sessionId: string, cwd?: string): Promise<string> =>
-      ipcRenderer.invoke(CH.claudeNewSession, sessionId, cwd),
+  agent: {
+    list: (): Promise<AgentDef[]> => ipcRenderer.invoke(CH.agentList),
+    newSession: (sessionId: string, agentId: string, cwd?: string): Promise<string> =>
+      ipcRenderer.invoke(CH.agentNewSession, sessionId, agentId, cwd),
     send: (sessionId: string, text: string): Promise<void> =>
-      ipcRenderer.invoke(CH.claudeSend, sessionId, text),
+      ipcRenderer.invoke(CH.agentSend, sessionId, text),
     write: (sessionId: string, data: string): void =>
-      ipcRenderer.send(CH.claudeStream, sessionId, data),
+      ipcRenderer.send(CH.agentInput, sessionId, data),
     resize: (sessionId: string, cols: number, rows: number): void =>
-      ipcRenderer.send(CH.claudeResize, sessionId, cols, rows),
-    kill: (sessionId: string): Promise<void> => ipcRenderer.invoke(CH.claudeKillSession, sessionId),
+      ipcRenderer.send(CH.agentResize, sessionId, cols, rows),
+    kill: (sessionId: string): Promise<void> => ipcRenderer.invoke(CH.agentKillSession, sessionId),
     onStream: (cb: (sessionId: string, data: string) => void): (() => void) => {
       const h = (_e: unknown, sessionId: string, data: string): void => cb(sessionId, data)
-      ipcRenderer.on(CH.claudeStream, h)
-      return () => ipcRenderer.removeListener(CH.claudeStream, h)
+      ipcRenderer.on(CH.agentStream, h)
+      return () => ipcRenderer.removeListener(CH.agentStream, h)
     }
   },
   gemini: {

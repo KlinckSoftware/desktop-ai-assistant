@@ -5,7 +5,8 @@ import { CH, type Message } from '../shared/types'
 import { CommandExecutor } from './executor/CommandExecutor'
 import { CommandBroker } from './executor/CommandBroker'
 import { FileEditBroker } from './editor/FileEditBroker'
-import { ClaudeProcessManager } from './claude/ClaudeProcessManager'
+import { AgentProcessManager } from './agents/AgentProcessManager'
+import { listAgents, getAgent, ensureConfig as ensureAgentConfig } from './agents/registry'
 import { GeminiClient } from './gemini/GeminiClient'
 import { FileSystemManager } from './fs/FileSystemManager'
 import { gitStatus, gitHead, gitChanges, gitStage, gitUnstage, gitCommit } from './fs/git'
@@ -16,7 +17,7 @@ import { IPCModerator } from './moderator/IPCModerator'
 
 let executor: CommandExecutor
 let broker: CommandBroker
-let claude: ClaudeProcessManager
+let agents: AgentProcessManager
 let gemini: GeminiClient
 let fsm: FileSystemManager
 let editBroker: FileEditBroker
@@ -59,24 +60,27 @@ function initServices(): void {
   broker = new CommandBroker(executor)
   fsm = new FileSystemManager()
   editBroker = new FileEditBroker(fsm)
-  claude = new ClaudeProcessManager()
+  agents = new AgentProcessManager()
   gemini = new GeminiClient(broker, editBroker)
   moderator = new IPCModerator(gemini, broker)
   fsm.watch(appState.projectRoot)
 }
 
 function registerIpc(): void {
-  // --- Claude ---
-  ipcMain.handle(CH.claudeNewSession, (_e, sessionId: string, cwd?: string) => {
-    claude.spawn(sessionId, cwd || appState.projectRoot)
+  // --- CLI agents (Claude, Gemini CLI, Aider, Codex, …) ---
+  ipcMain.handle(CH.agentList, () => listAgents())
+  ipcMain.handle(CH.agentNewSession, async (_e, sessionId: string, agentId: string, cwd?: string) => {
+    const def = await getAgent(agentId)
+    if (!def) throw new Error(`Unknown agent: ${agentId}`)
+    agents.spawn(sessionId, def, cwd || appState.projectRoot)
     return sessionId
   })
-  ipcMain.handle(CH.claudeSend, (_e, sessionId: string, text: string) => claude.send(sessionId, text))
-  ipcMain.on(CH.claudeStream, (_e, sessionId: string, data: string) => claude.write(sessionId, data))
-  ipcMain.on(CH.claudeResize, (_e, sessionId: string, cols: number, rows: number) =>
-    claude.resize(sessionId, cols, rows)
+  ipcMain.handle(CH.agentSend, (_e, sessionId: string, text: string) => agents.send(sessionId, text))
+  ipcMain.on(CH.agentInput, (_e, sessionId: string, data: string) => agents.write(sessionId, data))
+  ipcMain.on(CH.agentResize, (_e, sessionId: string, cols: number, rows: number) =>
+    agents.resize(sessionId, cols, rows)
   )
-  ipcMain.handle(CH.claudeKillSession, (_e, sessionId: string) => claude.kill(sessionId))
+  ipcMain.handle(CH.agentKillSession, (_e, sessionId: string) => agents.kill(sessionId))
 
   // --- Gemini ---
   ipcMain.handle(
@@ -169,6 +173,7 @@ app.whenReady().then(() => {
   initServices()
   registerIpc()
   createWindow()
+  ensureAgentConfig().catch(() => {})
   // Connect MCP servers in the background (non-blocking).
   mcpManager.init().catch((e) => console.warn('[mcp] init failed:', e))
 
@@ -178,7 +183,7 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
-  claude?.killAll()
+  agents?.killAll()
   fsm?.dispose()
   mcpManager.disconnectAll()
   if (process.platform !== 'darwin') app.quit()

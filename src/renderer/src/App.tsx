@@ -26,6 +26,7 @@ export default function App(): JSX.Element {
   const debateRunning = useAppStore((s) => s.debateRunning)
   const debateStatus = useAppStore((s) => s.debateStatus)
   const setFileList = useAppStore((s) => s.setFileList)
+  const setAgents = useAppStore((s) => s.setAgents)
   const addAttachment = useAppStore((s) => s.addAttachment)
   const [showSettings, setShowSettings] = useState(false)
   const [showSideChat, setShowSideChat] = useState(false)
@@ -49,6 +50,7 @@ export default function App(): JSX.Element {
       const { geminiModel, claudeModel, claudeEffort, debateRounds, terminalShell } =
         useAppStore.getState()
       window.api.settings.set({ geminiModel, claudeModel, claudeEffort, debateRounds, terminalShell })
+      setAgents(await window.api.agent.list())
       setHasGeminiKey(await window.api.gemini.hasKey())
       setReady(true)
     })()
@@ -76,7 +78,7 @@ export default function App(): JSX.Element {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [setProjectRoot, setHasGeminiKey, hydrate])
+  }, [setProjectRoot, setHasGeminiKey, hydrate, setAgents])
 
   // Global drag-and-drop: folder → switch project; image → multimodal attach;
   // text file → context attach. Shown as pills in the Gemini composer.
