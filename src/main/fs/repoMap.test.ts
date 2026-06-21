@@ -39,4 +39,29 @@ describe('fileSignatures', () => {
     const long = 'function f(){' + 'a'.repeat(500) + '}'
     expect(fileSignatures('x.js', long)).toEqual([])
   })
+
+  it('extracts Kotlin fun/class/object', () => {
+    const sigs = fileSignatures('M.kt', 'class Foo {\nfun bar(x: Int) {\nobject Baz {\n')
+    expect(sigs).toContain('class Foo')
+    expect(sigs).toContain('fun bar(x: Int)')
+    expect(sigs).toContain('object Baz')
+  })
+
+  it('extracts Go func/type', () => {
+    const sigs = fileSignatures('m.go', 'func Run(x int) error {\ntype Thing struct {\n')
+    expect(sigs).toContain('func Run(x int) error')
+    expect(sigs).toContain('type Thing struct')
+  })
+
+  it('extracts Rust fn/struct/trait with pub', () => {
+    const sigs = fileSignatures('m.rs', 'pub fn run(x: u8) {\nstruct S {\npub trait T {\n')
+    expect(sigs).toContain('pub fn run(x: u8)')
+    expect(sigs).toContain('struct S')
+    expect(sigs).toContain('pub trait T')
+  })
+
+  it('maps .tsx/.mjs to the TS matcher', () => {
+    expect(fileSignatures('a.tsx', 'export function C() {')).toContain('export function C()')
+    expect(fileSignatures('a.mjs', 'export const f = 1')).toContain('export const f = 1')
+  })
 })

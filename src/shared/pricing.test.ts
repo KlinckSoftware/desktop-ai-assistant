@@ -31,4 +31,19 @@ describe('costFor', () => {
     const b = costFor('gpt-4o', 1000, 1000)
     expect(b! / a!).toBeCloseTo(2, 6)
   })
+
+  it('prices Gemini models (matched by substring on dated ids)', () => {
+    // gemini-2.5-flash: 0.30 in / 2.50 out
+    expect(costFor('gemini-2.5-flash', 1_000_000, 0)).toBeCloseTo(0.3, 6)
+    expect(costFor('models/gemini-2.5-flash-latest', 0, 1_000_000)).toBeCloseTo(2.5, 6)
+  })
+
+  it('prices Groq Llama and Mistral', () => {
+    expect(costFor('llama-3.3-70b-versatile', 1_000_000, 0)).toBeCloseTo(0.59, 6)
+    expect(costFor('mistral-large-latest', 0, 1_000_000)).toBeCloseTo(6, 6)
+  })
+
+  it('returns 0 for a zero-token request on a known model', () => {
+    expect(costFor('gpt-4o', 0, 0)).toBe(0)
+  })
 })

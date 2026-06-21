@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { extractBashBlocks, CommandExtractor } from './parser'
+import { extractBashBlocks, CommandExtractor, extractFileEdits } from './parser'
 
 describe('extractBashBlocks', () => {
   it('extracts a single fenced bash run block', () => {
@@ -18,6 +18,35 @@ describe('extractBashBlocks', () => {
 
   it('ignores empty blocks', () => {
     expect(extractBashBlocks('```bash run\n\n```')).toEqual([])
+  })
+})
+
+describe('extractFileEdits', () => {
+  it('extracts path + content from a file fence', () => {
+    const text = '```file src/a.ts\nconst x = 1\n```'
+    expect(extractFileEdits(text)).toEqual([{ path: 'src/a.ts', content: 'const x = 1' }])
+  })
+
+  it('drops only the single trailing newline, keeps interior blank lines', () => {
+    const text = '```file a.txt\nline1\n\nline3\n```'
+    expect(extractFileEdits(text)).toEqual([{ path: 'a.txt', content: 'line1\n\nline3' }])
+  })
+
+  it('extracts multiple file edits', () => {
+    const text = '```file a.ts\nA\n```\ntext\n```file b/c.ts\nB\n```'
+    expect(extractFileEdits(text)).toEqual([
+      { path: 'a.ts', content: 'A' },
+      { path: 'b/c.ts', content: 'B' }
+    ])
+  })
+
+  it('trims the path and preserves an empty file body', () => {
+    const text = '```file   spaced.ts  \n```'
+    expect(extractFileEdits(text)).toEqual([{ path: 'spaced.ts', content: '' }])
+  })
+
+  it('returns [] when there are no file fences', () => {
+    expect(extractFileEdits('```bash run\nls\n```')).toEqual([])
   })
 })
 
