@@ -67,14 +67,34 @@
     "appId": "com.klincksoftware.desktopai",
     "productName": "Desktop AI Assistant",
     "directories": {
-      "output": "release"
+      "output": "release",
+      "buildResources": "resources"
     },
     "files": [
       "out/**/*",
-      "resources/**/*"
+      "resources/**/*",
+      "package.json"
     ],
+    "asarUnpack": [
+      "**/node_modules/node-pty/**",
+      "**/node_modules/keytar/**"
+    ],
+    "npmRebuild": true,
+    "publish": null,
     "win": {
-      "target": "nsis"
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "artifactName": "${productName}-${version}-setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false
     }
   }
 }
