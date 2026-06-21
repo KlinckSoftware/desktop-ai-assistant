@@ -3,6 +3,7 @@ import { CH, type Message } from '../../shared/types'
 import { getProvider, getKey } from './providers'
 import { toolSpecs, execTool } from '../tools/toolExec'
 import { parseChatPayload } from './sseParse'
+import type { ApprovalPolicy } from '../policy/ApprovalPolicy'
 
 const DONE = '[[api:done]]'
 
@@ -77,6 +78,53 @@ export async function apiSend(
   } catch (err) {
     emit(`\n[API request failed: ${err instanceof Error ? err.message : String(err)}]` + DONE)
   }
+}
+
+// Agentic completion for a pipeline step: same tool loop as apiSend, but gated
+// by an ApprovalPolicy (autonomous/dry-run, no human card) and returning a text
+// transcript instead of streaming to a chat panel. Tool activity is inlined so
+// the pipeline step output shows what the model did. Throws on transport error.
+export async function apiCompleteAgentic(
+  providerId: string,
+  model: string,
+  history: Message[],
+  policy: ApprovalPolicy
+): Promise<string> {
+  const provider = await getProvider(providerId)
+  if (!provider) throw new Error(`unknown provider ${providerId}`)
+  const key = (provider.noKey ? '' : await getKey(providerId)) ?? ''
+  if (!provider.noKey && !key) throw new Error(`no key set for ${provider.name}`)
+
+  const url = `${provider.baseUrl.replace(/\/$/, '')}/chat/completions`
+  const tools = toolSpecs().map((s) => ({ type: 'function', function: s }))
+  const messages: OAMessage[] = history
+    .filter((m) => m.content)
+    .map((m) => ({ role: m.role === 'model' ? 'assistant' : m.role, content: m.content }))
+
+  let transcript = ''
+  const noEmit = (): void => {}
+  for (let turn = 0; turn < 8; turn++) {
+    const { text, calls } = await streamOnce(url, key, model || provider.defaultModel, messages, tools, noEmit)
+    if (text) transcript += text
+    if (calls.length === 0) break
+    messages.push({
+      role: 'assistant',
+      content: text || null,
+      tool_calls: calls.map((c) => ({ id: c.id, type: 'function', function: { name: c.name, arguments: c.args } }))
+    })
+    for (const c of calls) {
+      let args: Record<string, unknown> = {}
+      try {
+        args = c.args ? JSON.parse(c.args) : {}
+      } catch {
+        /* leave empty on malformed args */
+      }
+      const result = await execTool(c.name, args, 'api', `pipeline:${providerId}`, policy)
+      transcript += `\n\n_[${c.name} → ${result.slice(0, 200)}]_\n`
+      messages.push({ role: 'tool', tool_call_id: c.id, content: result })
+    }
+  }
+  return transcript.trim()
 }
 
 // One-shot, non-streaming completion with no tools — used by the debate

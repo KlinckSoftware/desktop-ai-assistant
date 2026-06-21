@@ -18,6 +18,7 @@ export default function PipelinePanel(): JSX.Element {
   const [draft, setDraft] = useState<Pipeline>(emptyDraft)
   const [input, setInput] = useState('')
   const [running, setRunning] = useState(false)
+  const [dryRun, setDryRun] = useState(false)
   const [updates, setUpdates] = useState<PipelineUpdate[]>([])
 
   useEffect(() => {
@@ -57,7 +58,7 @@ export default function PipelinePanel(): JSX.Element {
     if (!input.trim() || draft.steps.length === 0 || running) return
     setUpdates([])
     setRunning(true)
-    window.api.pipeline.run(draft.steps, input).catch((e) => {
+    window.api.pipeline.run(draft.steps, input, dryRun).catch((e) => {
       setUpdates((p) => [...p, { type: 'error', text: String(e) }])
       setRunning(false)
     })
@@ -111,6 +112,16 @@ export default function PipelinePanel(): JSX.Element {
               onChange={(e) => setStep(i, { instruction: e.target.value })}
               placeholder="optional instruction (e.g. 'review this')"
             />
+            <select
+              className="shrink-0 rounded border border-border bg-panel px-1 py-1 text-[10px] outline-none focus:border-accent"
+              value={step.permission ?? 'read-only'}
+              onChange={(e) => setStep(i, { permission: e.target.value as PipelineStep['permission'] })}
+              title="Tool capability for this step (API steps only)"
+            >
+              <option value="read-only">read-only</option>
+              <option value="edit">edit</option>
+              <option value="full">full</option>
+            </select>
             <button
               className="shrink-0 px-1 text-gray-500 hover:text-red-400"
               onClick={() => removeStep(i)}
@@ -153,12 +164,16 @@ export default function PipelinePanel(): JSX.Element {
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && run()}
         />
+        <label className="flex shrink-0 items-center gap-1 text-[11px] text-gray-400" title="Report intended tool calls without executing">
+          <input type="checkbox" checked={dryRun} onChange={(e) => setDryRun(e.target.checked)} className="accent-accent" />
+          dry-run
+        </label>
         <button
           className="rounded bg-accent px-3 py-1 font-medium text-black disabled:opacity-40"
           onClick={run}
           disabled={running || draft.steps.length === 0}
         >
-          {running ? 'Running…' : 'Run'}
+          {running ? 'Running…' : dryRun ? 'Dry-run' : 'Run'}
         </button>
       </div>
 

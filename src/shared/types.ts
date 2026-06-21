@@ -96,6 +96,7 @@ export interface DebateAgent {
 export interface PipelineStep {
   agentId: string
   instruction?: string // optional per-step framing prepended to the carried text
+  permission?: 'read-only' | 'edit' | 'full' // tool capability for this step (default read-only)
 }
 export interface Pipeline {
   id: string

@@ -78,8 +78,8 @@ const api = {
     }
   },
   pipeline: {
-    run: (steps: PipelineStep[], input: string): Promise<void> =>
-      ipcRenderer.invoke(CH.pipelineRun, steps, input),
+    run: (steps: PipelineStep[], input: string, dryRun?: boolean): Promise<void> =>
+      ipcRenderer.invoke(CH.pipelineRun, steps, input, dryRun),
     onUpdate: (cb: (u: PipelineUpdate) => void): (() => void) => {
       const h = (_e: unknown, u: PipelineUpdate): void => cb(u)
       ipcRenderer.on(CH.pipelineUpdate, h)
