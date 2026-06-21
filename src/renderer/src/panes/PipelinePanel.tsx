@@ -54,8 +54,13 @@ export default function PipelinePanel(): JSX.Element {
     setDraft(emptyDraft())
   }
 
+  // Can run if there are steps and there's *something* to feed step 1 — either
+  // the Input box or step 1's own instruction.
+  const hasStarter = input.trim().length > 0 || (draft.steps[0]?.instruction ?? '').trim().length > 0
+  const canRun = !running && draft.steps.length > 0 && hasStarter
+
   const run = (): void => {
-    if (!input.trim() || draft.steps.length === 0 || running) return
+    if (!canRun) return
     setUpdates([])
     setRunning(true)
     window.api.pipeline.run(draft.steps, input, dryRun).catch((e) => {
@@ -86,12 +91,15 @@ export default function PipelinePanel(): JSX.Element {
       </div>
 
       <div className="flex flex-col gap-2 overflow-auto border-b border-border p-3">
-        <input
-          className="rounded border border-border bg-panel px-2 py-1 outline-none focus:border-accent"
-          value={draft.name}
-          onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
-          placeholder="Pipeline name"
-        />
+        <label className="flex items-center gap-2">
+          <span className="w-12 shrink-0 text-[10px] uppercase tracking-wide text-gray-500">Name</span>
+          <input
+            className="flex-1 rounded border border-border bg-panel px-2 py-1 outline-none focus:border-accent"
+            value={draft.name}
+            onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
+            placeholder="Pipeline name (for saving)"
+          />
+        </label>
         {draft.steps.map((step, i) => (
           <div key={i} className="flex items-center gap-1.5">
             <span className="w-4 shrink-0 text-gray-600">{i + 1}.</span>
@@ -158,7 +166,7 @@ export default function PipelinePanel(): JSX.Element {
       <div className="flex items-center gap-2 border-b border-border px-3 py-2">
         <input
           className="flex-1 rounded border border-border bg-panel px-2 py-1 outline-none focus:border-accent disabled:opacity-50"
-          placeholder="Input for the pipeline…"
+          placeholder="Starting input… (optional if step 1 has an instruction)"
           value={input}
           disabled={running}
           onChange={(e) => setInput(e.target.value)}
@@ -171,7 +179,7 @@ export default function PipelinePanel(): JSX.Element {
         <button
           className="rounded bg-accent px-3 py-1 font-medium text-black disabled:opacity-40"
           onClick={run}
-          disabled={running || draft.steps.length === 0}
+          disabled={!canRun}
         >
           {running ? 'Running…' : dryRun ? 'Dry-run' : 'Run'}
         </button>

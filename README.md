@@ -51,6 +51,7 @@ Main (Node)
 ├── CommandBroker         — default-deny gate for shell commands
 ├── CommandExecutor       — single pty shell, scrubbed env
 ├── FileEditBroker        — default-deny gate for file writes + checkpoints
+├── MCPClientManager      — connects stdio MCP servers, proxies their tools
 ├── ToolBroker            — default-deny gate for MCP tool calls
 ├── ApprovalPolicy        — main-side decision: interactive | autonomous | dry-run
 ├── FileSystemManager     — root-confined fs ops + chokidar watch + repo map
