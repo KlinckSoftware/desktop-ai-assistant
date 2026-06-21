@@ -61,6 +61,14 @@ class MCPClientManager {
     await this.connectAll()
   }
 
+  /** Add or replace a server in the config, then reconnect all. */
+  async addServer(name: string, cfg: ServerConfig): Promise<ServerStatus[]> {
+    const servers = await this.readConfig()
+    servers[name] = cfg
+    await fs.writeFile(this.configPath(), JSON.stringify({ mcpServers: servers }, null, 2), 'utf-8')
+    return this.connectAll()
+  }
+
   async connectAll(): Promise<ServerStatus[]> {
     await this.disconnectAll()
     const servers = await this.readConfig()
