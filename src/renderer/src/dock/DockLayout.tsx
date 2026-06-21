@@ -38,11 +38,13 @@ export default function DockLayout(): JSX.Element {
         buildDefaultLayout(api)
       } else {
         ensureAllPanels(api)
-        // Drop stale panels from a saved layout: dynamic agent instances (ids
-        // contain '-', their ptys are dead) and the removed 'sessions'/'agent'
-        // static panels from the pre-refactor schema.
+        // Drop stale panels from a saved layout: dynamic CLI-agent instances
+        // (their ptys are dead) and the removed 'sessions'/'agent' static panels
+        // from the pre-refactor schema. API-chat panels ('api-…') are KEPT —
+        // they have no backend session and their threads are restored from store.
         for (const p of [...api.panels]) {
-          if (p.id.includes('-') || p.id === 'sessions' || p.id === 'agent') p.api.close()
+          const isApiChat = p.id.startsWith('api-')
+          if ((!isApiChat && p.id.includes('-')) || p.id === 'sessions' || p.id === 'agent') p.api.close()
         }
       }
       // Always start with one fresh agent instance.

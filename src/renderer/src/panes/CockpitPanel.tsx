@@ -26,6 +26,9 @@ function fmt(t: number): string {
 // output-token meter, and last activity. Click an entry to focus its panel.
 export default function CockpitPanel(): JSX.Element {
   const fleet = useAppStore((s) => s.fleet)
+  const sPrompt = useAppStore((s) => s.sessionPromptTokens)
+  const sCompletion = useAppStore((s) => s.sessionCompletionTokens)
+  const sCost = useAppStore((s) => s.sessionCost)
   const [now, setNow] = useState(() => Date.now())
 
   // Re-render every 3s so the "last active" column stays fresh.
@@ -87,6 +90,21 @@ export default function CockpitPanel(): JSX.Element {
               </button>
             )
           })}
+        </div>
+      )}
+      {(sPrompt > 0 || sCompletion > 0) && (
+        <div className="flex items-center justify-between border-t border-border px-3 py-1.5 text-[10px] text-gray-500">
+          <span title="cumulative provider-reported tokens this session">
+            session {fmt(sPrompt + sCompletion)} tok
+            <span className="ml-1 text-gray-600">
+              ({fmt(sPrompt)} in / {fmt(sCompletion)} out)
+            </span>
+          </span>
+          {sCost > 0 && (
+            <span className="text-green-400" title="estimated session cost (static price table)">
+              ${sCost < 0.01 ? sCost.toFixed(4) : sCost.toFixed(2)}
+            </span>
+          )}
         </div>
       )}
     </div>

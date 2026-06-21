@@ -45,6 +45,23 @@ function tidy(line: string): string {
   return line.trim().replace(/\s*\{?\s*$/, '').replace(/\s+/g, ' ').slice(0, 160)
 }
 
+// Pure extraction of declaration signatures from one file's text (exported for
+// tests). Returns [] for unrecognized extensions or files with no declarations.
+export function fileSignatures(rel: string, text: string): string[] {
+  const re = DECL[extOf(rel)]
+  if (!re) return []
+  const sigs: string[] = []
+  for (const line of text.split('\n')) {
+    if (line.length > 400) continue // minified / data line
+    if (re.test(line)) {
+      const t = tidy(line)
+      if (t && !sigs.includes(t)) sigs.push(t)
+      if (sigs.length >= MAX_SIGS_PER_FILE) break
+    }
+  }
+  return sigs
+}
+
 export async function buildRepoMap(fsm: FileSystemManager, root: string): Promise<string> {
   const files = await fsm.listFiles(root, 4000)
   const sections: string[] = []
@@ -52,23 +69,14 @@ export async function buildRepoMap(fsm: FileSystemManager, root: string): Promis
   let skipped = 0
 
   for (const rel of files.sort()) {
-    const re = DECL[extOf(rel)]
-    if (!re) continue // not a recognized code file
+    if (!DECL[extOf(rel)]) continue // not a recognized code file
     let text: string
     try {
       text = await fs.readFile(join(root, rel), 'utf-8')
     } catch {
       continue
     }
-    const sigs: string[] = []
-    for (const line of text.split('\n')) {
-      if (line.length > 400) continue // minified / data line
-      if (re.test(line)) {
-        const t = tidy(line)
-        if (t && !sigs.includes(t)) sigs.push(t)
-        if (sigs.length >= MAX_SIGS_PER_FILE) break
-      }
-    }
+    const sigs = fileSignatures(rel, text)
     if (sigs.length === 0) continue
     const section = `${rel}:\n${sigs.map((s) => `  ${s}`).join('\n')}`
     if (total + section.length > MAX_CHARS) {
