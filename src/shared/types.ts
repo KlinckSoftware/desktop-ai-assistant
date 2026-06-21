@@ -115,6 +115,16 @@ export interface PipelineUpdate {
   text?: string
 }
 
+// A completed pipeline run, kept in history so it can be reviewed / re-run.
+export interface PipelineRun {
+  id: string
+  ts: number // epoch ms
+  input: string
+  dryRun: boolean
+  steps: PipelineStep[]
+  updates: PipelineUpdate[]
+}
+
 // A command parsed from a ```bash run``` block, awaiting user approval.
 export interface PendingCommand {
   id: string
