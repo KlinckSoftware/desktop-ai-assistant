@@ -2,6 +2,7 @@ import { appState } from '../state'
 import { CH, type Message } from '../../shared/types'
 import { getProvider, getKey } from './providers'
 import { toolSpecs, execTool } from '../tools/toolExec'
+import { parseChatPayload } from './sseParse'
 
 const DONE = '[[api:done]]'
 
@@ -149,32 +150,19 @@ async function streamOnce(
       const line = buf.slice(0, nl).trim()
       buf = buf.slice(nl + 1)
       if (!line.startsWith('data:')) continue
-      const payload = line.slice(5).trim()
-      if (!payload || payload === '[DONE]') continue
-      try {
-        const obj = JSON.parse(payload)
-        if (obj?.usage) {
-          usage = {
-            promptTokens: obj.usage.prompt_tokens ?? 0,
-            completionTokens: obj.usage.completion_tokens ?? 0
-          }
-        }
-        const delta = obj?.choices?.[0]?.delta
-        if (!delta) continue
-        if (delta.content) {
-          text += delta.content
-          emit(delta.content)
-        }
-        for (const tc of delta.tool_calls ?? []) {
-          const idx = tc.index ?? 0
-          const cur = byIndex.get(idx) ?? { id: '', name: '', args: '' }
-          if (tc.id) cur.id = tc.id
-          if (tc.function?.name) cur.name = tc.function.name
-          if (tc.function?.arguments) cur.args += tc.function.arguments
-          byIndex.set(idx, cur)
-        }
-      } catch {
-        /* partial frame */
+      const d = parseChatPayload(line.slice(5))
+      if (!d) continue
+      if (d.usage) usage = d.usage
+      if (d.content) {
+        text += d.content
+        emit(d.content)
+      }
+      for (const tc of d.toolCalls) {
+        const cur = byIndex.get(tc.index) ?? { id: '', name: '', args: '' }
+        if (tc.id) cur.id = tc.id
+        if (tc.name) cur.name = tc.name
+        if (tc.argsChunk) cur.args += tc.argsChunk
+        byIndex.set(tc.index, cur)
       }
     }
   }
