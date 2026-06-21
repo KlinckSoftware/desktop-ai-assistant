@@ -66,6 +66,7 @@ const api = {
       ipcRenderer.invoke(CH.debateStart, prompt, aId, bId),
     synthesize: (): Promise<void> => ipcRenderer.invoke(CH.debateSynthesize),
     decline: (): Promise<void> => ipcRenderer.invoke(CH.debateDecline),
+    cancel: (): Promise<void> => ipcRenderer.invoke(CH.debateCancel),
     onUpdate: (cb: (u: DebateUpdate) => void): (() => void) => {
       const h = (_e: unknown, u: DebateUpdate): void => cb(u)
       ipcRenderer.on(CH.debateUpdate, h)
@@ -80,6 +81,7 @@ const api = {
   pipeline: {
     run: (steps: PipelineStep[], input: string, dryRun?: boolean): Promise<void> =>
       ipcRenderer.invoke(CH.pipelineRun, steps, input, dryRun),
+    cancel: (): Promise<void> => ipcRenderer.invoke(CH.pipelineCancel),
     onUpdate: (cb: (u: PipelineUpdate) => void): (() => void) => {
       const h = (_e: unknown, u: PipelineUpdate): void => cb(u)
       ipcRenderer.on(CH.pipelineUpdate, h)

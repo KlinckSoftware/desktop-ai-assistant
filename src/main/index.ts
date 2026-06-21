@@ -137,11 +137,13 @@ function registerIpc(): void {
   )
   ipcMain.handle(CH.debateSynthesize, () => moderator.synthesize())
   ipcMain.handle(CH.debateDecline, () => moderator.decline())
+  ipcMain.handle(CH.debateCancel, () => moderator.cancel())
 
   // --- Pipelines ---
   ipcMain.handle(CH.pipelineRun, (_e, steps: PipelineStep[], input: string, dryRun?: boolean) =>
     pipeline.run(steps, input, dryRun)
   )
+  ipcMain.handle(CH.pipelineCancel, () => pipeline.cancel())
 
   // --- Terminal (direct user input) ---
   ipcMain.on(CH.terminalInput, (_e, data: string) => executor.writeRaw(data))
