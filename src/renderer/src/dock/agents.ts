@@ -43,6 +43,7 @@ export async function openAgent(
 export function openDefaultAgent(): void {
   const api = getDockApi()
   if (!api) return
-  if (api.panels.some((p) => p.id.includes('-'))) return
+  // A CLI-agent panel already present? (ids contain '-' but aren't 'api-' chats.)
+  if (api.panels.some((p) => p.id.includes('-') && !p.id.startsWith('api-'))) return
   void openAgent('claude', { position: { referencePanel: 'gemini', direction: 'left' } })
 }

@@ -8,6 +8,7 @@ import type {
   AgentDef,
   ApiProvider
 } from '@shared/types'
+import { costFor } from '@shared/pricing'
 
 export interface Attachment {
   id: string
@@ -47,6 +48,7 @@ export interface PersistedState {
   debateSideB: string
   terminalShell: AppState['terminalShell']
   dockLayout: unknown | null
+  apiChats: Record<string, Message[]>
 }
 
 interface AppState {
@@ -96,6 +98,11 @@ interface AppState {
   addGeminiMessage: (m: Message) => void
   appendToLastGemini: (chunk: string) => void
 
+  // Persisted per-instance API chat threads (keyed by panel instanceId) so API
+  // chats survive panel close + app restart, like the Gemini thread already does.
+  apiChats: Record<string, Message[]>
+  setApiChat: (id: string, msgs: Message[]) => void
+
   // Registered CLI agents (from main). Agent instances live as dock panels.
   agents: AgentDef[]
   setAgents: (a: AgentDef[]) => void
@@ -143,6 +150,12 @@ interface AppState {
   bumpFleet: (id: string, chars: number) => void
   addUsage: (id: string, promptTokens: number, completionTokens: number) => void
   removeFleet: (id: string) => void
+
+  // Session rollup: cumulative usage across ALL agents this run (survives a
+  // single agent's panel closing, unlike per-agent fleet entries).
+  sessionPromptTokens: number
+  sessionCompletionTokens: number
+  sessionCost: number // USD, summed at usage time from each agent's model
 
   // Drag-dropped attachments for the next Gemini message.
   attachments: Attachment[]
@@ -222,6 +235,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       return { geminiMessages: msgs }
     }),
 
+  apiChats: {},
+  setApiChat: (id, msgs) => set((s) => ({ apiChats: { ...s.apiChats, [id]: msgs } })),
+
   agents: [],
   setAgents: (a) => set({ agents: a }),
   apiProviders: [],
@@ -265,6 +281,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   clearHandoff: () => set({ handoff: null }),
 
   fleet: {},
+  sessionPromptTokens: 0,
+  sessionCompletionTokens: 0,
+  sessionCost: 0,
   registerFleet: (a) => set((s) => ({ fleet: { ...s.fleet, [a.id]: a } })),
   updateFleet: (id, patch) =>
     set((s) => (s.fleet[id] ? { fleet: { ...s.fleet, [id]: { ...s.fleet[id], ...patch } } } : s)),
@@ -278,6 +297,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((s) => {
       const cur = s.fleet[id]
       if (!cur) return s
+      const cost = costFor(cur.model, promptTokens, completionTokens) ?? 0
       return {
         fleet: {
           ...s.fleet,
@@ -287,7 +307,10 @@ export const useAppStore = create<AppState>((set, get) => ({
             completionTokens: cur.completionTokens + completionTokens,
             lastTs: Date.now()
           }
-        }
+        },
+        sessionPromptTokens: s.sessionPromptTokens + promptTokens,
+        sessionCompletionTokens: s.sessionCompletionTokens + completionTokens,
+        sessionCost: s.sessionCost + cost
       }
     }),
   removeFleet: (id) =>
@@ -354,6 +377,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       debateSideB: d.debateSideB ?? 'gemini',
       terminalShell: d.terminalShell ?? 'default',
       dockLayout: d.dockLayout ?? null,
+      apiChats: d.apiChats ?? {},
       debateRunning: false, // never restore a "running" flag — the backend is gone
       debateStatus: ''
     })

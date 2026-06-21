@@ -149,7 +149,8 @@ export default function App(): JSX.Element {
           debateSideA: s.debateSideA,
           debateSideB: s.debateSideB,
           terminalShell: s.terminalShell,
-          dockLayout: s.dockLayout
+          dockLayout: s.dockLayout,
+          apiChats: s.apiChats
         })
       }, 600)
     })

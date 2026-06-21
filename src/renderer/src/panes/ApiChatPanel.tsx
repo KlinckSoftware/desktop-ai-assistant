@@ -8,6 +8,7 @@ import MentionInput from '../components/MentionInput'
 import HandoffChip from '../components/HandoffChip'
 
 const DONE = '[[api:done]]'
+const EMPTY: Message[] = [] // stable ref so the selector default doesn't churn
 
 // A chat panel for one OpenAI-compatible provider instance. Streaming is keyed
 // by instanceId so multiple API panels don't cross-talk.
@@ -15,7 +16,10 @@ export default function ApiChatPanel(props: IDockviewPanelProps): JSX.Element {
   const { instanceId, providerId } = props.params as { instanceId: string; providerId: string }
   const provider = useAppStore((s) => s.apiProviders.find((p) => p.id === providerId))
   const [model, setModel] = useState(provider?.defaultModel ?? '')
-  const [messages, setMessages] = useState<Message[]>([])
+  // Messages live in the store (keyed by instanceId) so the thread persists
+  // across panel close + app restart.
+  const messages = useAppStore((s) => s.apiChats[instanceId] ?? EMPTY)
+  const setMessages = (next: Message[]): void => useAppStore.getState().setApiChat(instanceId, next)
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
   const [needKey, setNeedKey] = useState(false)
@@ -73,13 +77,13 @@ export default function ApiChatPanel(props: IDockviewPanelProps): JSX.Element {
     scrollRef.current?.scrollTo(0, scrollRef.current.scrollHeight)
   }, [messages])
 
-  const appendLast = (chunk: string): void =>
-    setMessages((ms) => {
-      const next = [...ms]
-      const last = next[next.length - 1]
-      if (last && last.role === 'assistant') next[next.length - 1] = { ...last, content: last.content + chunk }
-      return next
-    })
+  const appendLast = (chunk: string): void => {
+    const ms = useAppStore.getState().apiChats[instanceId] ?? []
+    const next = [...ms]
+    const last = next[next.length - 1]
+    if (last && last.role === 'assistant') next[next.length - 1] = { ...last, content: last.content + chunk }
+    useAppStore.getState().setApiChat(instanceId, next)
+  }
 
   const saveKey = async (): Promise<void> => {
     if (!keyInput.trim() || !provider) return
