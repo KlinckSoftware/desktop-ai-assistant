@@ -7,7 +7,8 @@ import type {
   PendingTool,
   AgentDef,
   ApiProvider,
-  Pipeline
+  Pipeline,
+  PipelineRun
 } from '@shared/types'
 import { costFor } from '@shared/pricing'
 
@@ -52,6 +53,7 @@ export interface PersistedState {
   apiChats: Record<string, Message[]>
   apiModels: Record<string, string>
   pipelines: Pipeline[]
+  pipelineRuns: PipelineRun[]
   approvalTimeout: number
   pipelineDefaultPermission: AppState['pipelineDefaultPermission']
   pipelineDefaultDryRun: boolean
@@ -142,6 +144,10 @@ interface AppState {
   pipelines: Pipeline[]
   savePipeline: (p: Pipeline) => void
   removePipeline: (id: string) => void
+
+  // Recent pipeline runs (capped) for review / re-run.
+  pipelineRuns: PipelineRun[]
+  addPipelineRun: (r: PipelineRun) => void
 
   // Registered CLI agents (from main). Agent instances live as dock panels.
   agents: AgentDef[]
@@ -309,6 +315,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     }),
   removePipeline: (id) => set((s) => ({ pipelines: s.pipelines.filter((p) => p.id !== id) })),
 
+  pipelineRuns: [],
+  addPipelineRun: (r) => set((s) => ({ pipelineRuns: [r, ...s.pipelineRuns].slice(0, 20) })),
+
   agents: [],
   setAgents: (a) => set({ agents: a }),
   apiProviders: [],
@@ -461,6 +470,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       apiChats: d.apiChats ?? {},
       apiModels: d.apiModels ?? {},
       pipelines: d.pipelines ?? [],
+      pipelineRuns: d.pipelineRuns ?? [],
       debateRunning: false, // never restore a "running" flag — the backend is gone
       debateStatus: ''
     })

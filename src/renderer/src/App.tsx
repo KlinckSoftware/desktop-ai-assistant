@@ -154,6 +154,7 @@ export default function App(): JSX.Element {
           apiChats: s.apiChats,
           apiModels: s.apiModels,
           pipelines: s.pipelines,
+          pipelineRuns: s.pipelineRuns,
           approvalTimeout: s.approvalTimeout,
           pipelineDefaultPermission: s.pipelineDefaultPermission,
           pipelineDefaultDryRun: s.pipelineDefaultDryRun,

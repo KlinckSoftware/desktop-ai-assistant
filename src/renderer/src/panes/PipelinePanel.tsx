@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import type { DebateAgent, Pipeline, PipelineStep, PipelineUpdate } from '@shared/types'
+import { useEffect, useRef, useState } from 'react'
+import type { DebateAgent, Pipeline, PipelineStep, PipelineUpdate, PipelineRun } from '@shared/types'
 import { useAppStore } from '../store/appStore'
 
 const newId = (): string =>
@@ -16,6 +16,8 @@ export default function PipelinePanel(): JSX.Element {
   const apiProviders = useAppStore((s) => s.apiProviders)
   const defaultPermission = useAppStore((s) => s.pipelineDefaultPermission)
   const defaultDryRun = useAppStore((s) => s.pipelineDefaultDryRun)
+  const pipelineRuns = useAppStore((s) => s.pipelineRuns)
+  const addPipelineRun = useAppStore((s) => s.addPipelineRun)
 
   const [participants, setParticipants] = useState<DebateAgent[]>([])
   const [draft, setDraft] = useState<Pipeline>(emptyDraft)
@@ -23,6 +25,8 @@ export default function PipelinePanel(): JSX.Element {
   const [running, setRunning] = useState(false)
   const [dryRun, setDryRun] = useState(defaultDryRun)
   const [updates, setUpdates] = useState<PipelineUpdate[]>([])
+  // Accumulates the in-flight run so it can be saved to history on completion.
+  const runRef = useRef<{ input: string; dryRun: boolean; steps: PipelineStep[]; updates: PipelineUpdate[] } | null>(null)
 
   useEffect(() => {
     window.api.debate.agents().then(setParticipants)
@@ -30,10 +34,20 @@ export default function PipelinePanel(): JSX.Element {
 
   useEffect(() => {
     return window.api.pipeline.onUpdate((u) => {
-      if (u.type === 'done' || u.type === 'error') setRunning(false)
-      if (u.type === 'step' || u.type === 'error') setUpdates((prev) => [...prev, u])
+      if (u.type === 'step' || u.type === 'error') {
+        setUpdates((prev) => [...prev, u])
+        runRef.current?.updates.push(u)
+      }
+      if (u.type === 'done' || u.type === 'error') {
+        setRunning(false)
+        const r = runRef.current
+        if (r) {
+          addPipelineRun({ id: newId(), ts: Date.now(), input: r.input, dryRun: r.dryRun, steps: r.steps, updates: r.updates })
+          runRef.current = null
+        }
+      }
     })
-  }, [])
+  }, [addPipelineRun])
 
   const firstAgent = participants[0]?.id ?? 'claude'
 
@@ -66,11 +80,27 @@ export default function PipelinePanel(): JSX.Element {
   const run = (): void => {
     if (!canRun) return
     setUpdates([])
+    runRef.current = { input, dryRun, steps: draft.steps, updates: [] }
     setRunning(true)
     window.api.pipeline.run(draft.steps, input, dryRun).catch((e) => {
       setUpdates((p) => [...p, { type: 'error', text: String(e) }])
       setRunning(false)
+      runRef.current = null
     })
+  }
+
+  // Reopen a past run: load its input/steps/output back into the panel.
+  const loadRun = (id: string): void => {
+    const r = pipelineRuns.find((x) => x.id === id)
+    if (!r) return
+    setUpdates(r.updates)
+    setInput(r.input)
+    setDryRun(r.dryRun)
+    setDraft((d) => ({ ...d, steps: JSON.parse(JSON.stringify(r.steps)) }))
+  }
+  const runLabel = (r: PipelineRun): string => {
+    const txt = (r.input || r.steps[0]?.instruction || '(run)').replace(/\s+/g, ' ').slice(0, 28)
+    return `${txt}${r.dryRun ? ' [dry]' : ''}`
   }
 
   const nameFor = (agentId: string): string => participants.find((p) => p.id === agentId)?.name ?? agentId
@@ -92,6 +122,21 @@ export default function PipelinePanel(): JSX.Element {
             </option>
           ))}
         </select>
+        {pipelineRuns.length > 0 && (
+          <select
+            className="ml-auto max-w-[10rem] rounded border border-border bg-panel px-1.5 py-0.5 text-[11px] text-gray-300 outline-none focus:border-accent"
+            value=""
+            onChange={(e) => e.target.value && loadRun(e.target.value)}
+            title="Reopen a past run"
+          >
+            <option value="">History ▾</option>
+            {pipelineRuns.map((r) => (
+              <option key={r.id} value={r.id}>
+                {runLabel(r)}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       <div className="flex flex-col gap-2 overflow-auto border-b border-border p-3">
