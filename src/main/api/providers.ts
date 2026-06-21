@@ -14,6 +14,17 @@ const BUILTIN: Record<string, ApiProvider> = {
     docsUrl: 'https://platform.openai.com/api-keys',
     builtin: true
   },
+  google: {
+    id: 'google',
+    name: 'Google Gemini',
+    // Google's OpenAI-compatible surface — lets Gemini run through the unified
+    // API path (persistence, tools, fleet, cost, debate). The native Gemini
+    // panel still exists for multimodal image input.
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    defaultModel: 'gemini-2.5-flash',
+    docsUrl: 'https://aistudio.google.com/apikey',
+    builtin: true
+  },
   groq: {
     id: 'groq',
     name: 'Groq (free)',
@@ -92,7 +103,7 @@ export async function listProviders(): Promise<ApiProvider[]> {
     }
   }
   return Promise.all(
-    Object.values(merged).map(async (p) => ({ ...p, hasKey: p.noKey ? true : await KeychainManager.has(keyAccount(p.id)) }))
+    Object.values(merged).map(async (p) => ({ ...p, hasKey: p.noKey ? true : (await getKey(p.id)) != null }))
   )
 }
 
@@ -120,8 +131,12 @@ export async function removeProvider(id: string): Promise<ApiProvider[]> {
   return listProviders()
 }
 
-export function getKey(id: string): Promise<string | null> {
-  return KeychainManager.get(keyAccount(id))
+export async function getKey(id: string): Promise<string | null> {
+  const key = await KeychainManager.get(keyAccount(id))
+  // The Google provider reuses the native Gemini key if no dedicated one is set,
+  // so users who already added a Gemini key don't have to enter it again.
+  if (!key && id === 'google') return KeychainManager.getKey()
+  return key
 }
 export function saveKey(id: string, key: string): Promise<void> {
   return KeychainManager.set(keyAccount(id), key.trim())
