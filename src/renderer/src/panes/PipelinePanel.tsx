@@ -13,6 +13,7 @@ export default function PipelinePanel(): JSX.Element {
   const pipelines = useAppStore((s) => s.pipelines)
   const savePipeline = useAppStore((s) => s.savePipeline)
   const removePipeline = useAppStore((s) => s.removePipeline)
+  const apiProviders = useAppStore((s) => s.apiProviders)
 
   const [participants, setParticipants] = useState<DebateAgent[]>([])
   const [draft, setDraft] = useState<Pipeline>(emptyDraft)
@@ -100,45 +101,81 @@ export default function PipelinePanel(): JSX.Element {
             placeholder="Pipeline name (for saving)"
           />
         </label>
-        {draft.steps.map((step, i) => (
-          <div key={i} className="flex items-center gap-1.5">
-            <span className="w-4 shrink-0 text-gray-600">{i + 1}.</span>
-            <select
-              className="shrink-0 rounded border border-border bg-panel px-1.5 py-1 outline-none focus:border-accent"
-              value={step.agentId}
-              onChange={(e) => setStep(i, { agentId: e.target.value })}
-            >
-              {participants.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-            <input
-              className="min-w-0 flex-1 rounded border border-border bg-panel px-2 py-1 outline-none focus:border-accent"
-              value={step.instruction ?? ''}
-              onChange={(e) => setStep(i, { instruction: e.target.value })}
-              placeholder="optional instruction (e.g. 'review this')"
-            />
-            <select
-              className="shrink-0 rounded border border-border bg-panel px-1 py-1 text-[10px] outline-none focus:border-accent"
-              value={step.permission ?? 'read-only'}
-              onChange={(e) => setStep(i, { permission: e.target.value as PipelineStep['permission'] })}
-              title="Tool capability for this step (API steps only)"
-            >
-              <option value="read-only">read-only</option>
-              <option value="edit">edit</option>
-              <option value="full">full</option>
-            </select>
-            <button
-              className="shrink-0 px-1 text-gray-500 hover:text-red-400"
-              onClick={() => removeStep(i)}
-              aria-label={`Remove step ${i + 1}`}
-            >
-              ✕
-            </button>
-          </div>
-        ))}
+        {draft.steps.map((step, i) => {
+          const part = participants.find((p) => p.id === step.agentId)
+          const isClaude = part?.kind === 'claude'
+          const provider = part?.kind === 'api' ? apiProviders.find((p) => p.id === step.agentId.slice(4)) : undefined
+          const modelHints = isClaude ? ['sonnet', 'opus', 'haiku'] : (provider?.models ?? [])
+          return (
+            <div key={i} className="rounded border border-border/60 p-1.5">
+              <div className="flex items-center gap-1.5">
+                <span className="w-4 shrink-0 text-gray-600">{i + 1}.</span>
+                <select
+                  className="shrink-0 rounded border border-border bg-panel px-1.5 py-1 outline-none focus:border-accent"
+                  value={step.agentId}
+                  onChange={(e) => setStep(i, { agentId: e.target.value })}
+                >
+                  {participants.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  className="min-w-0 flex-1 rounded border border-border bg-panel px-2 py-1 outline-none focus:border-accent"
+                  value={step.instruction ?? ''}
+                  onChange={(e) => setStep(i, { instruction: e.target.value })}
+                  placeholder="optional instruction (e.g. 'review this')"
+                />
+                <button
+                  className="shrink-0 px-1 text-gray-500 hover:text-red-400"
+                  onClick={() => removeStep(i)}
+                  aria-label={`Remove step ${i + 1}`}
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="mt-1 flex items-center gap-1.5 pl-6 text-[10px]">
+                <select
+                  className="rounded border border-border bg-panel px-1 py-0.5 outline-none focus:border-accent"
+                  value={step.permission ?? 'read-only'}
+                  onChange={(e) => setStep(i, { permission: e.target.value as PipelineStep['permission'] })}
+                  title="Tool capability for this step"
+                >
+                  <option value="read-only">read-only</option>
+                  <option value="edit">edit</option>
+                  <option value="full">full</option>
+                </select>
+                <input
+                  className="w-32 rounded border border-border bg-panel px-1.5 py-0.5 outline-none focus:border-accent"
+                  value={step.model ?? ''}
+                  onChange={(e) => setStep(i, { model: e.target.value })}
+                  list={`pmodels-${i}`}
+                  placeholder={provider?.defaultModel ?? 'default model'}
+                  title="Model override (blank = participant default)"
+                />
+                <datalist id={`pmodels-${i}`}>
+                  {modelHints.map((m) => (
+                    <option key={m} value={m} />
+                  ))}
+                </datalist>
+                {isClaude && (
+                  <select
+                    className="rounded border border-border bg-panel px-1 py-0.5 outline-none focus:border-accent"
+                    value={step.effort ?? ''}
+                    onChange={(e) => setStep(i, { effort: e.target.value })}
+                    title="Reasoning effort (Claude)"
+                  >
+                    <option value="">effort: default</option>
+                    <option value="low">low</option>
+                    <option value="medium">medium</option>
+                    <option value="high">high</option>
+                  </select>
+                )}
+              </div>
+            </div>
+          )
+        })}
         <div className="flex items-center gap-2">
           <button
             className="rounded border border-border px-2 py-1 text-gray-300 hover:bg-panel disabled:opacity-40"

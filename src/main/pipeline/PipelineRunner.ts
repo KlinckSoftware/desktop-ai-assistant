@@ -47,17 +47,18 @@ export class PipelineRunner {
         if (agent.kind === 'api') {
           // API steps run the gated agentic loop → real (policy-bounded) file work.
           const providerId = agent.id.slice('api:'.length)
-          const model = providers.find((p) => p.id === providerId)?.defaultModel ?? ''
+          const model = step.model || providers.find((p) => p.id === providerId)?.defaultModel || ''
           const policy = policyForStep(step.permission ?? 'read-only', dryRun)
           text = await apiCompleteAgentic(providerId, model, [{ role: 'user', content: prompt }], policy)
         } else if (agent.kind === 'claude') {
           // Claude runs its own tooling; constrain the tool SET to the step's
           // preset via --allowedTools so a pipeline step can't exceed its grant.
+          // Per-step model/effort override the global Claude defaults.
           text = await claudeOneShot(
             prompt,
             appState.projectRoot,
-            appState.settings.claudeModel,
-            appState.settings.claudeEffort,
+            step.model || appState.settings.claudeModel,
+            step.effort || appState.settings.claudeEffort,
             claudeAllowedTools(step.permission ?? 'read-only', dryRun)
           )
         } else {
