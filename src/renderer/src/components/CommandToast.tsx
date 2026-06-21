@@ -23,8 +23,13 @@ function Card({ cmd }: { cmd: PendingCommand }): JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [left])
 
+  const danger = checkDangerous(cmd.command)
+
   const approve = (): void => {
-    window.api.command.approve(cmd.id)
+    // Dangerous commands take the explicit main-side confirm path; main refuses
+    // to run them via plain approve(). Non-dangerous use the normal path.
+    if (danger.dangerous) window.api.command.confirmDangerous(cmd.id)
+    else window.api.command.approve(cmd.id)
     remove(cmd.id)
   }
   const reject = (): void => {
@@ -35,8 +40,6 @@ function Card({ cmd }: { cmd: PendingCommand }): JSX.Element {
     trustSession(cmd.sessionId)
     approve()
   }
-
-  const danger = checkDangerous(cmd.command)
 
   return (
     <div

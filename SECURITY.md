@@ -52,12 +52,16 @@ writes, publishes, remote transfer, and credential-path access.
 
 ## Known limitations / residual risk
 
-1. **Interactive approvals trust the renderer.** On the interactive path the
-   renderer decides whether to auto-approve (trusted session) or show a card, and
-   `*.approve(id)` in main executes what the renderer approved. A *fully
-   compromised renderer* could call `approve()` directly and bypass the denylist.
-   The **autonomous** path does not have this gap (main is authoritative). A full
-   fix (nonce/handshake proving an approval was genuinely surfaced) is future work.
+1. **Interactive approvals trust the renderer (narrowed).** The renderer decides
+   whether to auto-approve (trusted session) or show a card. Main now enforces the
+   dangerous denylist in `CommandBroker.approve()` itself: a dangerous command can
+   only run via the explicit `confirmDangerous()` path that the human-facing card
+   invokes — so a renderer bug or trusted-session auto-approve can **not** silently
+   run a dangerous command. Residual: a *fully compromised* renderer could call
+   `confirmDangerous()` (or `ToolBroker`/`FileEditBroker.approve()`, which are not
+   yet denylist-gated) directly. The **autonomous** path is fully main-authoritative.
+   A complete fix (nonce/handshake proving an approval was genuinely surfaced to a
+   human) is future work.
 2. **CLI agents are not sandboxed by the app.** A `node-pty` CLI agent (e.g.
    Claude Code) has full shell access governed only by that tool's own
    permissions — it bypasses the app's brokers entirely. Treat CLI agents with the

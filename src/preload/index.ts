@@ -97,6 +97,7 @@ const api = {
   },
   command: {
     approve: (id: string): Promise<void> => ipcRenderer.invoke(CH.cmdApprove, id),
+    confirmDangerous: (id: string): Promise<void> => ipcRenderer.invoke(CH.cmdConfirmDangerous, id),
     reject: (id: string): Promise<void> => ipcRenderer.invoke(CH.cmdReject, id),
     onPending: (cb: (c: PendingCommand) => void): (() => void) => {
       const h = (_e: unknown, c: PendingCommand): void => cb(c)

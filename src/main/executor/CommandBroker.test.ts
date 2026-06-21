@@ -61,3 +61,31 @@ describe('CommandBroker.runWithPolicy', () => {
     expect(run).not.toHaveBeenCalled()
   })
 })
+
+describe('CommandBroker interactive approve (main-side danger gate)', () => {
+  let broker: CommandBroker
+  let run: ReturnType<typeof vi.fn>
+  beforeEach(() => {
+    ;({ broker, run } = makeBroker())
+  })
+
+  it('plain approve() runs a safe command', async () => {
+    const p = broker.propose('ls -la', 'claude', 's')
+    await broker.approve('cmd_1')
+    expect(await p).toBe('ran: ls -la')
+  })
+
+  it('plain approve() BLOCKS a dangerous command in main (renderer cannot bypass)', async () => {
+    const p = broker.propose('git push origin main', 'claude', 's')
+    await broker.approve('cmd_1')
+    expect(await p).toMatch(/blocked: dangerous/i)
+    expect(run).not.toHaveBeenCalled()
+  })
+
+  it('confirmDangerous() runs the dangerous command (explicit human path)', async () => {
+    const p = broker.propose('git push origin main', 'claude', 's')
+    await broker.confirmDangerous('cmd_1')
+    expect(await p).toBe('ran: git push origin main')
+    expect(run).toHaveBeenCalledOnce()
+  })
+})
