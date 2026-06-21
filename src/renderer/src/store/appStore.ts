@@ -51,6 +51,11 @@ export interface PersistedState {
   dockLayout: unknown | null
   apiChats: Record<string, Message[]>
   pipelines: Pipeline[]
+  approvalTimeout: number
+  pipelineDefaultPermission: AppState['pipelineDefaultPermission']
+  pipelineDefaultDryRun: boolean
+  startupAgent: string
+  repoMapInContext: boolean
 }
 
 interface AppState {
@@ -74,10 +79,19 @@ interface AppState {
   debateSideA: string
   debateSideB: string
   terminalShell: 'default' | 'powershell' | 'pwsh' | 'cmd' | 'bash' | 'zsh'
+  // Renderer-only preferences (persisted; not sent to main).
+  approvalTimeout: number // seconds before a command/tool card auto-rejects (0 = never)
+  pipelineDefaultPermission: 'read-only' | 'edit' | 'full'
+  pipelineDefaultDryRun: boolean
+  startupAgent: string // agent id spawned on launch
   setGeminiModel: (m: string) => void
   setClaudeModel: (m: string) => void
   setClaudeEffort: (e: string) => void
   setDebateRounds: (n: number) => void
+  setApprovalTimeout: (n: number) => void
+  setPipelineDefaultPermission: (p: 'read-only' | 'edit' | 'full') => void
+  setPipelineDefaultDryRun: (v: boolean) => void
+  setStartupAgent: (id: string) => void
   setDebateSides: (a: string, b: string) => void
   setTerminalShell: (s: AppState['terminalShell']) => void
 
@@ -207,10 +221,18 @@ export const useAppStore = create<AppState>((set, get) => ({
   debateSideA: 'claude',
   debateSideB: 'gemini',
   terminalShell: 'default',
+  approvalTimeout: 15,
+  pipelineDefaultPermission: 'read-only',
+  pipelineDefaultDryRun: false,
+  startupAgent: 'claude',
   setGeminiModel: (m) => set({ geminiModel: m }),
   setClaudeModel: (m) => set({ claudeModel: m }),
   setClaudeEffort: (e) => set({ claudeEffort: e }),
   setDebateRounds: (n) => set({ debateRounds: n }),
+  setApprovalTimeout: (n) => set({ approvalTimeout: n }),
+  setPipelineDefaultPermission: (p) => set({ pipelineDefaultPermission: p }),
+  setPipelineDefaultDryRun: (v) => set({ pipelineDefaultDryRun: v }),
+  setStartupAgent: (id) => set({ startupAgent: id }),
   setDebateSides: (a, b) => set({ debateSideA: a, debateSideB: b }),
   setTerminalShell: (s) => set({ terminalShell: s }),
 
@@ -394,6 +416,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       debateSideA: d.debateSideA ?? 'claude',
       debateSideB: d.debateSideB ?? 'gemini',
       terminalShell: d.terminalShell ?? 'default',
+      approvalTimeout: d.approvalTimeout ?? 15,
+      pipelineDefaultPermission: d.pipelineDefaultPermission ?? 'read-only',
+      pipelineDefaultDryRun: d.pipelineDefaultDryRun ?? false,
+      startupAgent: d.startupAgent ?? 'claude',
+      repoMapInContext: d.repoMapInContext ?? false,
       dockLayout: d.dockLayout ?? null,
       apiChats: d.apiChats ?? {},
       pipelines: d.pipelines ?? [],

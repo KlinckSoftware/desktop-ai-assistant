@@ -4,24 +4,24 @@ import { checkDangerous } from '@shared/dangerousCommand'
 import { useAppStore } from '../store/appStore'
 import { Z } from '../zIndex'
 
-const TIMEOUT_S = 15
-
 // Approval card for a single pending command. Default-deny: if the user does
-// nothing, it auto-REJECTS when the countdown hits zero.
+// nothing, it auto-REJECTS when the countdown hits zero (timeout 0 = never).
 function Card({ cmd }: { cmd: PendingCommand }): JSX.Element {
   const remove = useAppStore((s) => s.removePending)
   const trustSession = useAppStore((s) => s.trustSession)
-  const [left, setLeft] = useState(TIMEOUT_S)
+  const timeout = useAppStore((s) => s.approvalTimeout)
+  const [left, setLeft] = useState(timeout)
 
   useEffect(() => {
+    if (timeout <= 0) return
     const t = setInterval(() => setLeft((l) => l - 1), 1000)
     return () => clearInterval(t)
-  }, [])
+  }, [timeout])
 
   useEffect(() => {
-    if (left <= 0) reject()
+    if (timeout > 0 && left <= 0) reject()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [left])
+  }, [left, timeout])
 
   const danger = checkDangerous(cmd.command)
 
@@ -49,7 +49,7 @@ function Card({ cmd }: { cmd: PendingCommand }): JSX.Element {
         <span className={cmd.origin === 'claude' ? 'text-claude' : 'text-gemini'}>
           {cmd.origin} wants to run
         </span>
-        <span className="text-gray-500">auto-reject in {left}s</span>
+        <span className="text-gray-500">{timeout > 0 ? `auto-reject in ${left}s` : 'awaiting decision'}</span>
       </div>
       {danger.dangerous && (
         <div className="mb-1 rounded bg-red-500/15 px-2 py-1 text-xs text-red-300">
@@ -82,20 +82,22 @@ function Card({ cmd }: { cmd: PendingCommand }): JSX.Element {
 function ToolCard({ tool }: { tool: import('@shared/types').PendingTool }): JSX.Element {
   const remove = useAppStore((s) => s.removePendingTool)
   const trustTool = useAppStore((s) => s.trustTool)
-  const [left, setLeft] = useState(TIMEOUT_S)
+  const timeout = useAppStore((s) => s.approvalTimeout)
+  const [left, setLeft] = useState(timeout)
 
   useEffect(() => {
+    if (timeout <= 0) return
     const t = setInterval(() => setLeft((l) => l - 1), 1000)
     return () => clearInterval(t)
-  }, [])
+  }, [timeout])
   const reject = (): void => {
     window.api.tool.reject(tool.id)
     remove(tool.id)
   }
   useEffect(() => {
-    if (left <= 0) reject()
+    if (timeout > 0 && left <= 0) reject()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [left])
+  }, [left, timeout])
   const approve = (): void => {
     window.api.tool.approve(tool.id)
     remove(tool.id)
@@ -109,7 +111,7 @@ function ToolCard({ tool }: { tool: import('@shared/types').PendingTool }): JSX.
     <div className="w-96 rounded-lg border border-accent bg-panel p-3 shadow-xl">
       <div className="mb-1 flex items-center justify-between text-xs">
         <span className="text-accent">MCP tool: {tool.tool}</span>
-        <span className="text-gray-500">auto-reject in {left}s</span>
+        <span className="text-gray-500">{timeout > 0 ? `auto-reject in ${left}s` : 'awaiting decision'}</span>
       </div>
       <pre className="mb-2 max-h-32 overflow-auto rounded bg-bg p-2 text-xs text-gray-200">
         {tool.argsPreview}

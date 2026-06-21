@@ -45,5 +45,6 @@ export function openDefaultAgent(): void {
   if (!api) return
   // A CLI-agent panel already present? (ids contain '-' but aren't 'api-' chats.)
   if (api.panels.some((p) => p.id.includes('-') && !p.id.startsWith('api-'))) return
-  void openAgent('claude', { position: { referencePanel: 'gemini', direction: 'left' } })
+  const startup = useAppStore.getState().startupAgent || 'claude'
+  void openAgent(startup, { position: { referencePanel: 'gemini', direction: 'left' } })
 }

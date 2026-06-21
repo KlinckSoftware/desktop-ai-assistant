@@ -37,6 +37,15 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
   const setTerminalShell = useAppStore((s) => s.setTerminalShell)
   const trustedCount = useAppStore((s) => s.trustedSessions.size)
   const clearTrust = useAppStore((s) => s.clearTrust)
+  const approvalTimeout = useAppStore((s) => s.approvalTimeout)
+  const setApprovalTimeout = useAppStore((s) => s.setApprovalTimeout)
+  const pipelineDefaultPermission = useAppStore((s) => s.pipelineDefaultPermission)
+  const setPipelineDefaultPermission = useAppStore((s) => s.setPipelineDefaultPermission)
+  const pipelineDefaultDryRun = useAppStore((s) => s.pipelineDefaultDryRun)
+  const setPipelineDefaultDryRun = useAppStore((s) => s.setPipelineDefaultDryRun)
+  const startupAgent = useAppStore((s) => s.startupAgent)
+  const setStartupAgent = useAppStore((s) => s.setStartupAgent)
+  const agents = useAppStore((s) => s.agents)
   const hasKey = useAppStore((s) => s.hasGeminiKey)
   const setHasKey = useAppStore((s) => s.setHasGeminiKey)
 
@@ -207,6 +216,78 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
                 Reset all
               </button>
             </div>
+          )
+        },
+        {
+          label: 'Approval auto-reject timeout (seconds, 0 = never)',
+          kw: 'security approval timeout auto reject seconds card',
+          node: (
+            <input
+              type="number"
+              min={0}
+              max={600}
+              className="w-full rounded border border-border bg-bg px-2 py-1.5 outline-none focus:border-accent"
+              value={approvalTimeout}
+              onChange={(e) => setApprovalTimeout(Math.max(0, Math.min(600, Number(e.target.value) || 0)))}
+            />
+          )
+        }
+      ]
+    },
+    {
+      title: 'Pipelines',
+      fields: [
+        {
+          label: 'Default step permission',
+          kw: 'pipeline default permission read edit full tools',
+          node: (
+            <select
+              className="w-full rounded border border-border bg-bg px-2 py-1.5 outline-none focus:border-accent"
+              value={pipelineDefaultPermission}
+              onChange={(e) => setPipelineDefaultPermission(e.target.value as typeof pipelineDefaultPermission)}
+            >
+              <option value="read-only">read-only</option>
+              <option value="edit">edit</option>
+              <option value="full">full</option>
+            </select>
+          )
+        },
+        {
+          label: 'Default to dry-run',
+          kw: 'pipeline default dry run safe',
+          node: (
+            <label className="flex items-center gap-2 text-gray-300">
+              <input
+                type="checkbox"
+                className="accent-accent"
+                checked={pipelineDefaultDryRun}
+                onChange={(e) => setPipelineDefaultDryRun(e.target.checked)}
+              />
+              New runs start in dry-run
+            </label>
+          )
+        }
+      ]
+    },
+    {
+      title: 'Startup',
+      fields: [
+        {
+          label: 'Default agent on launch',
+          kw: 'startup default agent launch claude cli',
+          node: (
+            <select
+              className="w-full rounded border border-border bg-bg px-2 py-1.5 outline-none focus:border-accent"
+              value={startupAgent}
+              onChange={(e) => setStartupAgent(e.target.value)}
+            >
+              {agents.map((a) => (
+                <option key={a.id} value={a.id} disabled={a.available === false}>
+                  {a.name}
+                  {a.available === false ? ' (not installed)' : ''}
+                </option>
+              ))}
+            </select>
           )
         }
       ]
