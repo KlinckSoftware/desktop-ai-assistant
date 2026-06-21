@@ -30,6 +30,7 @@ import {
   ensureConfig as ensureApiConfig
 } from './api/providers'
 import { apiSend } from './api/OpenAIClient'
+import { fetchLivePricing } from './api/livePricing'
 import { setBrokers } from './tools/toolExec'
 import type { ApiProvider } from '../shared/types'
 import { IPCModerator } from './moderator/IPCModerator'
@@ -120,6 +121,7 @@ function registerIpc(): void {
   ipcMain.handle(CH.apiSend, (_e, instanceId: string, providerId: string, model: string, history) =>
     apiSend(instanceId, providerId, model, history)
   )
+  ipcMain.handle(CH.pricingLive, () => fetchLivePricing())
 
   ipcMain.handle(CH.geminiHasKey, () => gemini.hasKey())
   ipcMain.handle(CH.geminiSaveKey, (_e, key: string) => gemini.saveKey(key))

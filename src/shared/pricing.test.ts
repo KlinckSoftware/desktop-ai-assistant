@@ -1,5 +1,7 @@
-import { describe, it, expect } from 'vitest'
-import { costFor } from './pricing'
+import { describe, it, expect, afterEach } from 'vitest'
+import { costFor, setPriceOverrides } from './pricing'
+
+afterEach(() => setPriceOverrides({})) // reset live overrides between tests
 
 describe('costFor', () => {
   it('computes cost from per-1M rates', () => {
@@ -45,5 +47,16 @@ describe('costFor', () => {
 
   it('returns 0 for a zero-token request on a known model', () => {
     expect(costFor('gpt-4o', 0, 0)).toBe(0)
+  })
+
+  it('live overrides take precedence over the static table', () => {
+    setPriceOverrides({ 'gpt-4o-mini': { in: 1, out: 2 } })
+    // override: 1*1M in + 2*1M out per 1M = 3
+    expect(costFor('gpt-4o-mini', 1_000_000, 1_000_000)).toBeCloseTo(3, 6)
+  })
+
+  it('falls back to the static table for models absent from overrides', () => {
+    setPriceOverrides({ 'some-other-model': { in: 9, out: 9 } })
+    expect(costFor('gpt-4o-mini', 1_000_000, 0)).toBeCloseTo(0.15, 6)
   })
 })

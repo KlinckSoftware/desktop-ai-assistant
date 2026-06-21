@@ -117,11 +117,18 @@ export default function ApiChatPanel(props: IDockviewPanelProps): JSX.Element {
       <div className="flex items-center gap-2 border-b border-border px-3 py-1.5 text-xs">
         <span className="font-semibold text-gemini">✦ {provider.name}</span>
         <input
-          className="w-40 rounded border border-border bg-panel px-2 py-0.5 text-[11px] outline-none focus:border-accent"
+          className="w-44 rounded border border-border bg-panel px-2 py-0.5 text-[11px] outline-none focus:border-accent"
           value={model}
           onChange={(e) => setModel(e.target.value)}
-          title="Model"
+          list={`models-${instanceId}`}
+          title="Model (pick a suggestion or type any id)"
+          placeholder={provider.defaultModel}
         />
+        <datalist id={`models-${instanceId}`}>
+          {(provider.models ?? []).map((m) => (
+            <option key={m} value={m} />
+          ))}
+        </datalist>
       </div>
 
       {needKey ? (

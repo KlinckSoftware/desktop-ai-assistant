@@ -34,18 +34,34 @@ const PRICES: Record<string, Rate> = {
   // Local (Ollama) and OpenRouter pass-throughs are intentionally absent → null.
 }
 
-/** USD cost for a request, or null if the model isn't in the table. */
-export function costFor(model: string | undefined, promptTokens: number, completionTokens: number): number | null {
-  if (!model) return null
-  const m = model.toLowerCase()
+// Live overrides (e.g. LiteLLM's table), layered on top of the static snapshot
+// at runtime via setPriceOverrides(). Searched first so prices stay current.
+let OVERRIDES: Record<string, Rate> = {}
+
+/** Install a live price table (model id -> per-1M USD in/out). Keys lowercased. */
+export function setPriceOverrides(table: Record<string, Rate>): void {
+  OVERRIDES = {}
+  for (const [k, v] of Object.entries(table)) OVERRIDES[k.toLowerCase()] = v
+}
+
+// Longest substring match of model against a price table's keys.
+function lookup(table: Record<string, Rate>, m: string): Rate | null {
   let best: Rate | null = null
   let bestLen = 0
-  for (const [key, rate] of Object.entries(PRICES)) {
+  for (const [key, rate] of Object.entries(table)) {
     if (m.includes(key) && key.length > bestLen) {
       best = rate
       bestLen = key.length
     }
   }
-  if (!best) return null
-  return (promptTokens * best.in + completionTokens * best.out) / 1_000_000
+  return best
+}
+
+/** USD cost for a request, or null if the model isn't in any table. */
+export function costFor(model: string | undefined, promptTokens: number, completionTokens: number): number | null {
+  if (!model) return null
+  const m = model.toLowerCase()
+  const rate = lookup(OVERRIDES, m) ?? lookup(PRICES, m)
+  if (!rate) return null
+  return (promptTokens * rate.in + completionTokens * rate.out) / 1_000_000
 }
