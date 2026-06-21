@@ -34,6 +34,8 @@ import { fetchLivePricing } from './api/livePricing'
 import { setBrokers } from './tools/toolExec'
 import type { ApiProvider } from '../shared/types'
 import { IPCModerator } from './moderator/IPCModerator'
+import { PipelineRunner } from './pipeline/PipelineRunner'
+import type { PipelineStep } from '../shared/types'
 
 let executor: CommandExecutor
 let broker: CommandBroker
@@ -42,6 +44,7 @@ let gemini: GeminiClient
 let fsm: FileSystemManager
 let editBroker: FileEditBroker
 let moderator: IPCModerator
+let pipeline: PipelineRunner
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -84,6 +87,7 @@ function initServices(): void {
   gemini = new GeminiClient()
   setBrokers(broker, editBroker, fsm) // shared tool exec for the API chats
   moderator = new IPCModerator(gemini, broker)
+  pipeline = new PipelineRunner(gemini, moderator)
   fsm.watch(appState.projectRoot)
 }
 
@@ -133,6 +137,9 @@ function registerIpc(): void {
   )
   ipcMain.handle(CH.debateSynthesize, () => moderator.synthesize())
   ipcMain.handle(CH.debateDecline, () => moderator.decline())
+
+  // --- Pipelines ---
+  ipcMain.handle(CH.pipelineRun, (_e, steps: PipelineStep[], input: string) => pipeline.run(steps, input))
 
   // --- Terminal (direct user input) ---
   ipcMain.on(CH.terminalInput, (_e, data: string) => executor.writeRaw(data))

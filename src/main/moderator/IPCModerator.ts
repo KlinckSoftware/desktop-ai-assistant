@@ -1,10 +1,9 @@
 import { appState } from '../state'
 import { CH, type DebateRound, type DebateAgent, type Message } from '../../shared/types'
-import { claudeOneShot } from '../claude/ClaudeHeadless'
 import { extractBashBlocks } from '../executor/parser'
 import { listAgents } from '../agents/registry'
 import { listProviders } from '../api/providers'
-import { apiComplete } from '../api/OpenAIClient'
+import { completeParticipant } from '../agents/complete'
 import type { GeminiClient } from '../gemini/GeminiClient'
 import type { CommandBroker } from '../executor/CommandBroker'
 
@@ -49,16 +48,8 @@ export class IPCModerator {
 
   /** One-shot completion from any participant. `prompt` is the new turn; history
    *  is prior context (used by chat-style participants). */
-  private async complete(agent: DebateAgent, prompt: string, history: Message[]): Promise<string> {
-    if (agent.kind === 'claude') {
-      return claudeOneShot(prompt, appState.projectRoot, appState.settings.claudeModel, appState.settings.claudeEffort)
-    }
-    if (agent.kind === 'gemini') {
-      return this.gemini.complete(prompt, history)
-    }
-    const providerId = agent.id.slice('api:'.length)
-    const provider = (await listProviders()).find((p) => p.id === providerId)
-    return apiComplete(providerId, provider?.defaultModel ?? '', [...history, { role: 'user', content: prompt }])
+  private complete(agent: DebateAgent, prompt: string, history: Message[]): Promise<string> {
+    return completeParticipant(agent, prompt, history, this.gemini)
   }
 
   async runDebate(userPrompt: string, aId = 'claude', bId = 'gemini', roundsArg?: number): Promise<void> {

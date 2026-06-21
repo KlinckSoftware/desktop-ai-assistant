@@ -6,7 +6,8 @@ import type {
   PendingEdit,
   PendingTool,
   AgentDef,
-  ApiProvider
+  ApiProvider,
+  Pipeline
 } from '@shared/types'
 import { costFor } from '@shared/pricing'
 
@@ -49,6 +50,7 @@ export interface PersistedState {
   terminalShell: AppState['terminalShell']
   dockLayout: unknown | null
   apiChats: Record<string, Message[]>
+  pipelines: Pipeline[]
 }
 
 interface AppState {
@@ -102,6 +104,11 @@ interface AppState {
   // chats survive panel close + app restart, like the Gemini thread already does.
   apiChats: Record<string, Message[]>
   setApiChat: (id: string, msgs: Message[]) => void
+
+  // Saved agent pipelines (handoff chains), persisted across restarts.
+  pipelines: Pipeline[]
+  savePipeline: (p: Pipeline) => void
+  removePipeline: (id: string) => void
 
   // Registered CLI agents (from main). Agent instances live as dock panels.
   agents: AgentDef[]
@@ -237,6 +244,17 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   apiChats: {},
   setApiChat: (id, msgs) => set((s) => ({ apiChats: { ...s.apiChats, [id]: msgs } })),
+
+  pipelines: [],
+  savePipeline: (p) =>
+    set((s) => {
+      const i = s.pipelines.findIndex((x) => x.id === p.id)
+      const next = [...s.pipelines]
+      if (i >= 0) next[i] = p
+      else next.push(p)
+      return { pipelines: next }
+    }),
+  removePipeline: (id) => set((s) => ({ pipelines: s.pipelines.filter((p) => p.id !== id) })),
 
   agents: [],
   setAgents: (a) => set({ agents: a }),
@@ -378,6 +396,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       terminalShell: d.terminalShell ?? 'default',
       dockLayout: d.dockLayout ?? null,
       apiChats: d.apiChats ?? {},
+      pipelines: d.pipelines ?? [],
       debateRunning: false, // never restore a "running" flag — the backend is gone
       debateStatus: ''
     })
