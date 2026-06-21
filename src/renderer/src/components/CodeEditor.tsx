@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import CodeMirror from '@uiw/react-codemirror'
 import { EditorView } from '@codemirror/view'
+import { useAppStore } from '../store/appStore'
 import { oneDark } from '@codemirror/theme-one-dark'
 import { javascript } from '@codemirror/lang-javascript'
 import { json } from '@codemirror/lang-json'
@@ -66,9 +67,14 @@ interface Props {
 // CodeMirror 6 editor with extension-based language detection + dark theme.
 // Bundled locally (no CDN/eval) so it satisfies the renderer CSP.
 export default function CodeEditor({ value, onChange, path, readOnly }: Props): JSX.Element {
+  const fontSize = useAppStore((s) => s.editorFontSize)
+  const wrap = useAppStore((s) => s.editorWrap)
   // Stable extension identity — rebuilding this array each render makes
   // react-codemirror reconfigure the whole editor (heavy thrash / lag).
-  const extensions = useMemo(() => [oneDark, ...langFor(path), bgTheme], [path])
+  const extensions = useMemo(
+    () => [oneDark, ...langFor(path), bgTheme, ...(wrap ? [EditorView.lineWrapping] : [])],
+    [path, wrap]
+  )
   return (
     <CodeMirror
       value={value}
@@ -77,7 +83,7 @@ export default function CodeEditor({ value, onChange, path, readOnly }: Props): 
       extensions={extensions}
       readOnly={readOnly}
       height="100%"
-      style={{ height: '100%', fontSize: 13 }}
+      style={{ height: '100%', fontSize }}
       basicSetup={{ lineNumbers: true, highlightActiveLine: !readOnly, foldGutter: true }}
     />
   )

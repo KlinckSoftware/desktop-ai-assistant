@@ -15,7 +15,9 @@ const EMPTY: Message[] = [] // stable ref so the selector default doesn't churn
 export default function ApiChatPanel(props: IDockviewPanelProps): JSX.Element {
   const { instanceId, providerId } = props.params as { instanceId: string; providerId: string }
   const provider = useAppStore((s) => s.apiProviders.find((p) => p.id === providerId))
-  const [model, setModel] = useState(provider?.defaultModel ?? '')
+  // Model persists per panel instance (survives reopen), defaulting to the provider's.
+  const model = useAppStore((s) => s.apiModels[instanceId] ?? provider?.defaultModel ?? '')
+  const setModel = (m: string): void => useAppStore.getState().setApiModel(instanceId, m)
   // Messages live in the store (keyed by instanceId) so the thread persists
   // across panel close + app restart.
   const messages = useAppStore((s) => s.apiChats[instanceId] ?? EMPTY)

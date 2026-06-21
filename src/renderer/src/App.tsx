@@ -152,12 +152,17 @@ export default function App(): JSX.Element {
           terminalShell: s.terminalShell,
           dockLayout: s.dockLayout,
           apiChats: s.apiChats,
+          apiModels: s.apiModels,
           pipelines: s.pipelines,
           approvalTimeout: s.approvalTimeout,
           pipelineDefaultPermission: s.pipelineDefaultPermission,
           pipelineDefaultDryRun: s.pipelineDefaultDryRun,
           startupAgent: s.startupAgent,
-          repoMapInContext: s.repoMapInContext
+          repoMapInContext: s.repoMapInContext,
+          terminalFontSize: s.terminalFontSize,
+          terminalScrollback: s.terminalScrollback,
+          editorFontSize: s.editorFontSize,
+          editorWrap: s.editorWrap
         })
       }, 600)
     })
