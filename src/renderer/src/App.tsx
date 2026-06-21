@@ -162,7 +162,8 @@ export default function App(): JSX.Element {
           terminalFontSize: s.terminalFontSize,
           terminalScrollback: s.terminalScrollback,
           editorFontSize: s.editorFontSize,
-          editorWrap: s.editorWrap
+          editorWrap: s.editorWrap,
+          costCap: s.costCap
         })
       }, 600)
     })

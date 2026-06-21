@@ -61,6 +61,7 @@ export interface PersistedState {
   terminalScrollback: number
   editorFontSize: number
   editorWrap: boolean
+  costCap: number
 }
 
 interface AppState {
@@ -93,6 +94,7 @@ interface AppState {
   terminalScrollback: number
   editorFontSize: number
   editorWrap: boolean
+  costCap: number // USD session cap; 0 = off. Blocks new API sends when exceeded.
   setGeminiModel: (m: string) => void
   setClaudeModel: (m: string) => void
   setClaudeEffort: (e: string) => void
@@ -105,6 +107,7 @@ interface AppState {
   setTerminalScrollback: (n: number) => void
   setEditorFontSize: (n: number) => void
   setEditorWrap: (v: boolean) => void
+  setCostCap: (n: number) => void
   setDebateSides: (a: string, b: string) => void
   setTerminalShell: (s: AppState['terminalShell']) => void
 
@@ -245,6 +248,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   terminalScrollback: 10000,
   editorFontSize: 13,
   editorWrap: false,
+  costCap: 0,
   setGeminiModel: (m) => set({ geminiModel: m }),
   setClaudeModel: (m) => set({ claudeModel: m }),
   setClaudeEffort: (e) => set({ claudeEffort: e }),
@@ -257,6 +261,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setTerminalScrollback: (n) => set({ terminalScrollback: n }),
   setEditorFontSize: (n) => set({ editorFontSize: n }),
   setEditorWrap: (v) => set({ editorWrap: v }),
+  setCostCap: (n) => set({ costCap: n }),
   setDebateSides: (a, b) => set({ debateSideA: a, debateSideB: b }),
   setTerminalShell: (s) => set({ terminalShell: s }),
 
@@ -451,6 +456,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       terminalScrollback: d.terminalScrollback ?? 10000,
       editorFontSize: d.editorFontSize ?? 13,
       editorWrap: d.editorWrap ?? false,
+      costCap: d.costCap ?? 0,
       dockLayout: d.dockLayout ?? null,
       apiChats: d.apiChats ?? {},
       apiModels: d.apiModels ?? {},
