@@ -250,6 +250,7 @@ export const CH = {
   gitUnstage: 'git:unstage',
   gitCommit: 'git:commit',
 
+  appError: 'app:error', // (message) background failures surfaced as a toast
   appProjectRoot: 'app:project-root',
   appSetRoot: 'app:set-root',
   appOpenExternal: 'app:open-external',

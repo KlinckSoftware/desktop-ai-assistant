@@ -38,6 +38,16 @@ export default function App(): JSX.Element {
   // Gate the dock layout until persisted state (incl. saved layout) is hydrated,
   // so DockLayout's onReady can restore the saved arrangement.
   const [ready, setReady] = useState(false)
+  const [errors, setErrors] = useState<{ id: number; msg: string }[]>([])
+
+  // Surface background failures (agent spawn, MCP, etc.) as dismissable toasts.
+  useEffect(() => {
+    return window.api.onAppError((msg) => {
+      const id = Date.now() + Math.random()
+      setErrors((e) => [...e, { id, msg }])
+      setTimeout(() => setErrors((e) => e.filter((x) => x.id !== id)), 8000)
+    })
+  }, [])
 
   useEffect(() => {
     ;(async () => {
@@ -259,6 +269,25 @@ export default function App(): JSX.Element {
 
       <CommandToast />
       <EditReview />
+      {errors.length > 0 && (
+        <div style={{ zIndex: Z.dropdown }} className="fixed bottom-4 left-1/2 flex -translate-x-1/2 flex-col gap-2">
+          {errors.map((e) => (
+            <div
+              key={e.id}
+              className="flex max-w-lg items-start gap-2 rounded-lg border border-red-500/50 bg-panel px-3 py-2 text-xs text-red-300 shadow-xl"
+            >
+              <span className="flex-1">{e.msg}</span>
+              <button
+                className="shrink-0 text-gray-500 hover:text-gray-300"
+                onClick={() => setErrors((cur) => cur.filter((x) => x.id !== e.id))}
+                aria-label="Dismiss error"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       {showSideChat && <SideChat onClose={() => setShowSideChat(false)} />}
       {showQuickOpen && <QuickOpen onClose={() => setShowQuickOpen(false)} />}
