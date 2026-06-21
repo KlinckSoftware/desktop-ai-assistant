@@ -1,6 +1,7 @@
 import { resolve, relative, sep } from 'path'
 import { appState } from '../state'
 import { CH, type AgentId, type PendingEdit, type Checkpoint } from '../../shared/types'
+import { decide, type ApprovalPolicy } from '../policy/ApprovalPolicy'
 import type { FileSystemManager } from '../fs/FileSystemManager'
 
 // Default-deny gate for agent-proposed file writes (```file <path>``` blocks).
@@ -25,15 +26,14 @@ export class FileEditBroker {
 
   constructor(private fsm: FileSystemManager) {}
 
-  /** Propose a file write. Resolves with an outcome string fed back to the agent. */
-  async propose(agentPath: string, newContent: string, origin: AgentId): Promise<string> {
+  // Resolve an agent path against the root (confined) and snapshot old content.
+  private async buildEdit(agentPath: string, newContent: string, origin: AgentId): Promise<PendingEdit | string> {
     const root = resolve(appState.projectRoot)
     const abs = resolve(root, agentPath)
     if (abs !== root && !abs.startsWith(root + sep)) {
       return `[edit rejected: path outside project root: ${agentPath}]`
     }
     const rel = relative(root, abs).split(sep).join('/')
-
     let oldContent = ''
     let isNew = false
     try {
@@ -41,20 +41,55 @@ export class FileEditBroker {
     } catch {
       isNew = true // new file (or unreadable/binary — treated as create)
     }
+    return { id: `edit_${++this.seq}`, path: abs, rel, oldContent, newContent, isNew, origin }
+  }
 
-    const id = `edit_${++this.seq}`
-    const edit: PendingEdit = { id, path: abs, rel, oldContent, newContent, isNew, origin }
+  /** Propose a file write. Resolves with an outcome string fed back to the agent. */
+  async propose(agentPath: string, newContent: string, origin: AgentId): Promise<string> {
+    const edit = await this.buildEdit(agentPath, newContent, origin)
+    if (typeof edit === 'string') return edit
     appState.send(CH.editPending, edit)
-    return new Promise((res) => this.pending.set(id, { edit, resolve: res }))
+    return new Promise((res) => this.pending.set(edit.id, { edit, resolve: res }))
+  }
+
+  /** Apply a file write under an ApprovalPolicy (autonomous/dry-run pipeline path).
+   *  `kind` is 'apply_edit' or 'write_file' for allowlist matching. */
+  async runWithPolicy(
+    agentPath: string,
+    newContent: string,
+    origin: AgentId,
+    kind: string,
+    policy: ApprovalPolicy
+  ): Promise<string> {
+    const edit = await this.buildEdit(agentPath, newContent, origin)
+    if (typeof edit === 'string') return edit
+    const d = decide(policy, kind)
+    switch (d.action) {
+      case 'interactive':
+        appState.send(CH.editPending, edit)
+        return new Promise((res) => this.pending.set(edit.id, { edit, resolve: res }))
+      case 'dryrun':
+        return `[dry-run] would ${edit.isNew ? 'create' : 'edit'} ${edit.rel} (${newContent.length} chars)`
+      case 'block':
+        console.warn(`[policy] blocked edit to ${edit.rel} — ${d.reason}`)
+        return `[blocked by policy: ${d.reason}]`
+      case 'run':
+        return this.apply(edit)
+    }
   }
 
   async approve(id: string): Promise<void> {
     const p = this.pending.get(id)
     if (!p) return
     this.pending.delete(id)
-    const { edit } = p
+    p.resolve(await this.apply(p.edit))
+  }
+
+  // Snapshot pre-edit state as a checkpoint, then write. Shared by approve()
+  // and the autonomous policy path so checkpoints/undo cover both.
+  private async apply(edit: PendingEdit): Promise<string> {
+    const id = edit.id
     try {
-      // Snapshot pre-edit state, then write.
       this.checkpoints.unshift({
         meta: {
           id: `ckpt_${this.seq}_${edit.id}`,
@@ -69,11 +104,11 @@ export class FileEditBroker {
       await this.fsm.writeFile(edit.path, edit.newContent)
       appState.send(CH.editResult, { id, rel: edit.rel, outcome: 'applied' })
       appState.send(CH.checkpointChanged)
-      p.resolve(`[applied edit to ${edit.rel}]`)
+      return `[applied edit to ${edit.rel}]`
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       appState.send(CH.editResult, { id, rel: edit.rel, outcome: `failed: ${msg}` })
-      p.resolve(`[edit to ${edit.rel} failed: ${msg}]`)
+      return `[edit to ${edit.rel} failed: ${msg}]`
     }
   }
 

@@ -4,6 +4,7 @@ import { appState } from '../state'
 import { resolve } from 'path'
 import { gitDiff } from '../fs/git'
 import { buildRepoMap } from '../fs/repoMap'
+import type { ApprovalPolicy } from '../policy/ApprovalPolicy'
 import type { CommandBroker } from '../executor/CommandBroker'
 import type { FileEditBroker } from '../editor/FileEditBroker'
 import type { FileSystemManager } from '../fs/FileSystemManager'
@@ -145,9 +146,13 @@ export async function execTool(
   name: string,
   args: Record<string, unknown>,
   origin: 'api' | 'gemini' = 'api',
-  sessionId: string = origin
+  sessionId: string = origin,
+  policy?: ApprovalPolicy
 ): Promise<string> {
   const root = appState.projectRoot
+  // Gated mutating tools: with a policy (autonomous/dry-run pipeline) they route
+  // through the brokers' policy path; without one (interactive chat) they use the
+  // human approval card as before. Read-only tools always run (no side effects).
   try {
     switch (name) {
       // --- read-only, auto-execute ---
@@ -183,14 +188,25 @@ export async function execTool(
         const i = current.indexOf(find)
         if (i < 0) return `[apply_edit: text not found in ${path}]`
         const next = current.slice(0, i) + replace + current.slice(i + find.length)
-        return editBroker.propose(path, next, origin)
+        return policy
+          ? editBroker.runWithPolicy(path, next, origin, 'apply_edit', policy)
+          : editBroker.propose(path, next, origin)
       }
-      case 'run_command':
-        return broker ? broker.propose(String(args.command ?? ''), origin, sessionId) : '[no executor]'
-      case 'write_file':
-        return editBroker ? editBroker.propose(String(args.path ?? ''), String(args.content ?? ''), origin) : '[no editor]'
+      case 'run_command': {
+        if (!broker) return '[no executor]'
+        const cmd = String(args.command ?? '')
+        return policy ? broker.runWithPolicy(cmd, origin, sessionId, policy) : broker.propose(cmd, origin, sessionId)
+      }
+      case 'write_file': {
+        if (!editBroker) return '[no editor]'
+        const path = String(args.path ?? '')
+        const content = String(args.content ?? '')
+        return policy
+          ? editBroker.runWithPolicy(path, content, origin, 'write_file', policy)
+          : editBroker.propose(path, content, origin)
+      }
       default:
-        return toolBroker.propose(name, args)
+        return policy ? toolBroker.runWithPolicy(name, args, policy) : toolBroker.propose(name, args)
     }
   } catch (err) {
     return `[tool ${name} failed: ${err instanceof Error ? err.message : String(err)}]`

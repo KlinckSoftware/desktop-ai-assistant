@@ -37,8 +37,27 @@ export function decide(policy: ApprovalPolicy, kind: string, command?: string): 
     if (d.dangerous) return { action: 'block', reason: `dangerous command (${d.reason})` }
   }
   const allow = policy.allow ?? []
-  if (!allow.includes(kind)) return { action: 'block', reason: `'${kind}' is not allowed for this step` }
+  if (!allow.includes('*') && !allow.includes(kind)) {
+    return { action: 'block', reason: `'${kind}' is not allowed for this step` }
+  }
   return { action: 'run' }
 }
 
 export const INTERACTIVE: ApprovalPolicy = { mode: 'interactive' }
+
+// Per-step permission presets (pipeline UI). Map to an autonomous allowlist.
+export type PermissionMode = 'read-only' | 'edit' | 'full'
+
+const READ_ONLY = ['read_file', 'list_dir', 'repo_map', 'search_code', 'git_diff']
+const EDIT = [...READ_ONLY, 'apply_edit', 'write_file']
+const ALLOW: Record<PermissionMode, string[]> = {
+  'read-only': READ_ONLY,
+  edit: EDIT,
+  full: ['*'] // everything (incl. run_command + MCP); dangerous commands still blocked
+}
+
+/** Build the policy for a pipeline step from its preset + the run's dry-run flag. */
+export function policyForStep(mode: PermissionMode, dryRun: boolean): ApprovalPolicy {
+  if (dryRun) return { mode: 'dryrun' }
+  return { mode: 'autonomous', allow: ALLOW[mode] }
+}

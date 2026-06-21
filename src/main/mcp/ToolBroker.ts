@@ -1,5 +1,6 @@
 import { appState } from '../state'
 import { CH, type PendingTool } from '../../shared/types'
+import { decide, type ApprovalPolicy } from '../policy/ApprovalPolicy'
 import { mcpManager } from './MCPClientManager'
 
 // Default-deny gate for MCP tool calls (parallel to CommandBroker). The model's
@@ -21,13 +22,33 @@ export class ToolBroker {
     return new Promise((resolve) => this.pending.set(id, { tool, args, resolve }))
   }
 
+  /** Call an MCP tool under an ApprovalPolicy (autonomous/dry-run pipeline path). */
+  async runWithPolicy(tool: string, args: Record<string, unknown>, policy: ApprovalPolicy): Promise<string> {
+    const d = decide(policy, tool)
+    switch (d.action) {
+      case 'interactive':
+        return this.propose(tool, args)
+      case 'dryrun':
+        return `[dry-run] would call MCP tool ${tool}`
+      case 'block':
+        console.warn(`[policy] blocked MCP tool ${tool} — ${d.reason}`)
+        return `[blocked by policy: ${d.reason}]`
+      case 'run':
+        return this.exec(`tool_auto_${++this.seq}`, tool, args)
+    }
+  }
+
   async approve(id: string): Promise<void> {
     const p = this.pending.get(id)
     if (!p) return
     this.pending.delete(id)
-    const output = await mcpManager.call(p.tool, p.args)
-    appState.send(CH.toolResult, { id, tool: p.tool, output })
-    p.resolve(output)
+    p.resolve(await this.exec(id, p.tool, p.args))
+  }
+
+  private async exec(id: string, tool: string, args: Record<string, unknown>): Promise<string> {
+    const output = await mcpManager.call(tool, args)
+    appState.send(CH.toolResult, { id, tool, output })
+    return output
   }
 
   reject(id: string): void {

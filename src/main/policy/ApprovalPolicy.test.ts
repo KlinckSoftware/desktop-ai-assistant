@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { decide } from './ApprovalPolicy'
+import { decide, policyForStep } from './ApprovalPolicy'
 
 describe('ApprovalPolicy.decide', () => {
   it('always defers to the human in interactive mode', () => {
@@ -32,5 +32,38 @@ describe('ApprovalPolicy.decide', () => {
   it('autonomous: empty/absent allowlist blocks everything', () => {
     expect(decide({ mode: 'autonomous' }, 'read_file').action).toBe('block')
     expect(decide({ mode: 'autonomous', allow: [] }, 'read_file').action).toBe('block')
+  })
+
+  it("wildcard '*' allows any capability but still blocks dangerous commands", () => {
+    expect(decide({ mode: 'autonomous', allow: ['*'] }, 'some__mcp_tool').action).toBe('run')
+    expect(decide({ mode: 'autonomous', allow: ['*'] }, 'run_command', 'ls').action).toBe('run')
+    expect(decide({ mode: 'autonomous', allow: ['*'] }, 'run_command', 'rm -rf /').action).toBe('block')
+  })
+})
+
+describe('policyForStep', () => {
+  it('dry-run overrides the preset', () => {
+    expect(policyForStep('full', true)).toEqual({ mode: 'dryrun' })
+  })
+
+  it('read-only allows reads, blocks edits and commands', () => {
+    const p = policyForStep('read-only', false)
+    expect(decide(p, 'read_file').action).toBe('run')
+    expect(decide(p, 'apply_edit').action).toBe('block')
+    expect(decide(p, 'run_command', 'ls').action).toBe('block')
+  })
+
+  it('edit allows reads + edits, blocks run_command', () => {
+    const p = policyForStep('edit', false)
+    expect(decide(p, 'write_file').action).toBe('run')
+    expect(decide(p, 'apply_edit').action).toBe('run')
+    expect(decide(p, 'run_command', 'ls').action).toBe('block')
+  })
+
+  it('full allows commands (still dangerous-gated) and MCP tools', () => {
+    const p = policyForStep('full', false)
+    expect(decide(p, 'run_command', 'npm test').action).toBe('run')
+    expect(decide(p, 'srv__tool').action).toBe('run')
+    expect(decide(p, 'run_command', 'git push').action).toBe('block')
   })
 })
