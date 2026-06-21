@@ -40,4 +40,22 @@ describe('parseChanges', () => {
     const { unstaged } = parseChanges(' M a.ts\n', ROOT)
     expect(unstaged[0].path).toBe(abs('a.ts'))
   })
+
+  it('ignores blank lines and keeps the full 2-char code', () => {
+    const { staged } = parseChanges('\nM  a.ts\n\n', ROOT)
+    expect(staged).toHaveLength(1)
+    expect(staged[0].code).toBe('M ')
+  })
+
+  it('classifies a staged deletion', () => {
+    const { staged, unstaged } = parseChanges('D  gone.ts\n', ROOT)
+    expect(staged.map((c) => c.rel)).toEqual(['gone.ts'])
+    expect(unstaged).toHaveLength(0)
+  })
+
+  it('returns empty arrays for empty input', () => {
+    const { staged, unstaged } = parseChanges('', ROOT)
+    expect(staged).toEqual([])
+    expect(unstaged).toEqual([])
+  })
 })
