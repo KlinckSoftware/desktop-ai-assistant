@@ -90,6 +90,28 @@ export interface DebateAgent {
   kind: 'claude' | 'gemini' | 'api'
 }
 
+// A saved agent pipeline: a prompt is fed through each step in order, each
+// step's output becoming the next step's input (optionally wrapped by the
+// step's instruction). agentId uses the DebateAgent id form.
+export interface PipelineStep {
+  agentId: string
+  instruction?: string // optional per-step framing prepended to the carried text
+}
+export interface Pipeline {
+  id: string
+  name: string
+  steps: PipelineStep[]
+}
+
+// Streamed result of one pipeline step.
+export interface PipelineUpdate {
+  type: 'step' | 'error' | 'done'
+  index?: number
+  agentId?: string
+  name?: string
+  text?: string
+}
+
 // A command parsed from a ```bash run``` block, awaiting user approval.
 export interface PendingCommand {
   id: string
@@ -167,6 +189,9 @@ export const CH = {
   debateStatus: 'debate:status',
   debateSynthesize: 'debate:synthesize',
   debateDecline: 'debate:decline',
+
+  pipelineRun: 'pipeline:run',
+  pipelineUpdate: 'pipeline:update',
 
   terminalInput: 'terminal:input',
   terminalOutput: 'terminal:output',

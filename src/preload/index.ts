@@ -7,6 +7,8 @@ import {
   type CommandResult,
   type DebateUpdate,
   type DebateAgent,
+  type PipelineStep,
+  type PipelineUpdate,
   type GitChanges,
   type PendingEdit,
   type PendingTool,
@@ -73,6 +75,15 @@ const api = {
       const h = (_e: unknown, s: string): void => cb(s)
       ipcRenderer.on(CH.debateStatus, h)
       return () => ipcRenderer.removeListener(CH.debateStatus, h)
+    }
+  },
+  pipeline: {
+    run: (steps: PipelineStep[], input: string): Promise<void> =>
+      ipcRenderer.invoke(CH.pipelineRun, steps, input),
+    onUpdate: (cb: (u: PipelineUpdate) => void): (() => void) => {
+      const h = (_e: unknown, u: PipelineUpdate): void => cb(u)
+      ipcRenderer.on(CH.pipelineUpdate, h)
+      return () => ipcRenderer.removeListener(CH.pipelineUpdate, h)
     }
   },
   terminal: {

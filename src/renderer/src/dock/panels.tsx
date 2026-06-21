@@ -10,6 +10,7 @@ import DebatePanel from '../panes/DebatePanel'
 import FileEditor from '../panes/FileEditor'
 import ApiChatPanel from '../panes/ApiChatPanel'
 import CockpitPanel from '../panes/CockpitPanel'
+import PipelinePanel from '../panes/PipelinePanel'
 import { focusPanel } from './dockApi'
 
 // Each dockview panel fills its tab; panes read shared state from the store.
@@ -26,5 +27,6 @@ export const components: Record<string, React.FunctionComponent<IDockviewPanelPr
   git: wrap(<GitPanel onOpenDiff={() => focusPanel('diff')} />),
   checkpoints: wrap(<CheckpointsPanel />),
   debate: wrap(<DebatePanel />),
-  cockpit: wrap(<CockpitPanel />)
+  cockpit: wrap(<CockpitPanel />),
+  pipeline: wrap(<PipelinePanel />)
 }
