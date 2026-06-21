@@ -38,6 +38,14 @@ describe('checkDangerous', () => {
     expect(checkDangerous('Restart-Computer').dangerous).toBe(true)
   })
 
+  it('flags process-kill commands (the in-app-agent-kills-host hole)', () => {
+    expect(checkDangerous('taskkill /F /IM electron.exe').dangerous).toBe(true)
+    expect(checkDangerous('Stop-Process -Name electron -Force').dangerous).toBe(true)
+    expect(checkDangerous('pkill electron').dangerous).toBe(true)
+    expect(checkDangerous('killall node').dangerous).toBe(true)
+    expect(checkDangerous('kill -9 1234').dangerous).toBe(true)
+  })
+
   it('flags registry writes, publishes, and remote transfer', () => {
     expect(checkDangerous('reg delete HKCU\\Foo').dangerous).toBe(true)
     expect(checkDangerous('npm publish').dangerous).toBe(true)
