@@ -31,6 +31,7 @@ export interface ApiProvider {
   name: string
   baseUrl: string // up to /v1; we POST {baseUrl}/chat/completions
   defaultModel: string
+  models?: string[] // suggested model ids for the panel dropdown (free-text still allowed)
   docsUrl?: string
   noKey?: boolean // local providers (e.g. Ollama) need no API key
   builtin?: boolean
@@ -152,6 +153,7 @@ export const CH = {
   apiSend: 'api:send',
   apiStream: 'api:stream',
   usage: 'usage:update', // (id, { promptTokens, completionTokens }) provider-reported
+  pricingLive: 'pricing:live', // -> live model price table (LiteLLM), per-1M in/out
 
   geminiSend: 'gemini:send',
   geminiSideSend: 'gemini:side-send',

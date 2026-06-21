@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { checkDangerous } from '@shared/dangerousCommand'
+import { setPriceOverrides } from '@shared/pricing'
 import { useAppStore } from './store/appStore'
 import DockLayout from './dock/DockLayout'
 import { focusPanel, closeActivePanel, toggleSidebar } from './dock/dockApi'
@@ -203,6 +204,16 @@ export default function App(): JSX.Element {
   // Provider-reported token usage → cockpit fleet (always on, even if Cockpit closed).
   useEffect(() => {
     return window.api.onUsage((id, u) => useAppStore.getState().addUsage(id, u.promptTokens, u.completionTokens))
+  }, [])
+
+  // Overlay the live (LiteLLM) price table over the static snapshot, once.
+  useEffect(() => {
+    window.api
+      .pricingLive()
+      .then((table) => {
+        if (table && Object.keys(table).length) setPriceOverrides(table)
+      })
+      .catch(() => {})
   }, [])
 
   return (

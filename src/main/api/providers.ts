@@ -11,6 +11,7 @@ const BUILTIN: Record<string, ApiProvider> = {
     name: 'OpenAI',
     baseUrl: 'https://api.openai.com/v1',
     defaultModel: 'gpt-4o-mini',
+    models: ['gpt-4o-mini', 'gpt-4o', 'gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano', 'o4-mini', 'o3-mini'],
     docsUrl: 'https://platform.openai.com/api-keys',
     builtin: true
   },
@@ -22,6 +23,7 @@ const BUILTIN: Record<string, ApiProvider> = {
     // panel still exists for multimodal image input.
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
     defaultModel: 'gemini-2.5-flash',
+    models: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'],
     docsUrl: 'https://aistudio.google.com/apikey',
     builtin: true
   },
@@ -30,6 +32,7 @@ const BUILTIN: Record<string, ApiProvider> = {
     name: 'Groq (free)',
     baseUrl: 'https://api.groq.com/openai/v1',
     defaultModel: 'llama-3.3-70b-versatile',
+    models: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768'],
     docsUrl: 'https://console.groq.com/keys',
     builtin: true
   },
@@ -38,6 +41,7 @@ const BUILTIN: Record<string, ApiProvider> = {
     name: 'Mistral',
     baseUrl: 'https://api.mistral.ai/v1',
     defaultModel: 'mistral-large-latest',
+    models: ['mistral-large-latest', 'mistral-small-latest', 'codestral-latest'],
     docsUrl: 'https://console.mistral.ai/api-keys',
     builtin: true
   },
@@ -46,6 +50,7 @@ const BUILTIN: Record<string, ApiProvider> = {
     name: 'OpenRouter',
     baseUrl: 'https://openrouter.ai/api/v1',
     defaultModel: 'openrouter/auto',
+    models: ['openrouter/auto', 'anthropic/claude-3.5-sonnet', 'openai/gpt-4o-mini', 'google/gemini-2.0-flash-exp'],
     docsUrl: 'https://openrouter.ai/keys',
     builtin: true
   },
@@ -54,6 +59,7 @@ const BUILTIN: Record<string, ApiProvider> = {
     name: 'Ollama (local)',
     baseUrl: 'http://localhost:11434/v1',
     defaultModel: 'llama3.2',
+    models: ['llama3.2', 'llama3.1', 'qwen2.5-coder', 'deepseek-r1'],
     docsUrl: 'https://ollama.com',
     noKey: true,
     builtin: true
@@ -97,6 +103,7 @@ export async function listProviders(): Promise<ApiProvider[]> {
       name: def.name ?? base?.name ?? id,
       baseUrl: def.baseUrl ?? base?.baseUrl ?? '',
       defaultModel: def.defaultModel ?? base?.defaultModel ?? '',
+      models: def.models ?? base?.models,
       docsUrl: def.docsUrl ?? base?.docsUrl,
       noKey: def.noKey ?? base?.noKey,
       builtin: base?.builtin ?? false
@@ -117,6 +124,7 @@ export async function saveProvider(p: ApiProvider): Promise<ApiProvider[]> {
     name: p.name,
     baseUrl: p.baseUrl,
     defaultModel: p.defaultModel,
+    ...(p.models ? { models: p.models } : {}),
     ...(p.docsUrl ? { docsUrl: p.docsUrl } : {}),
     ...(p.noKey ? { noKey: true } : {})
   }

@@ -194,6 +194,7 @@ const api = {
     read: (): Promise<string> => ipcRenderer.invoke(CH.clipboardRead),
     write: (text: string): Promise<void> => ipcRenderer.invoke(CH.clipboardWrite, text)
   },
+  pricingLive: (): Promise<Record<string, { in: number; out: number }>> => ipcRenderer.invoke(CH.pricingLive),
   onUsage: (cb: (id: string, usage: { promptTokens: number; completionTokens: number }) => void): (() => void) => {
     const h = (_e: unknown, id: string, usage: { promptTokens: number; completionTokens: number }): void =>
       cb(id, usage)
