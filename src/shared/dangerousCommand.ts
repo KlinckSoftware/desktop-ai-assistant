@@ -17,6 +17,7 @@ const DANGEROUS: { re: RegExp; reason: string }[] = [
   { re: /\bsudo\b|\brunas\b/i, reason: 'privilege escalation' },
   { re: /\bchmod\s+777|\bchmod\s+-R/i, reason: 'broad permission change' },
   { re: /\b(shutdown|reboot|halt|Stop-Computer|Restart-Computer)\b/i, reason: 'power control' },
+  { re: /\btaskkill\b|\bStop-Process\b|\bpkill\b|\bkillall\b|\bkill\s+-/i, reason: 'kills processes (can kill this app)' },
   { re: /\breg\s+(delete|add)\b|\bSet-ItemProperty\b.*HK/i, reason: 'registry write' },
   { re: /\bgit\s+push\b/i, reason: 'pushes to remote' },
   { re: /\bnpm\s+publish\b|\byarn\s+publish\b/i, reason: 'publishes package' },

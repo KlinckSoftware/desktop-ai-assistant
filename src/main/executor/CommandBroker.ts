@@ -1,5 +1,6 @@
 import { appState } from '../state'
 import { CH, type AgentId, type PendingCommand, type CommandResult } from '../../shared/types'
+import { decide, type ApprovalPolicy } from '../policy/ApprovalPolicy'
 import type { CommandExecutor } from './CommandExecutor'
 
 // Default-deny gate between agents and the shell.
@@ -34,10 +35,37 @@ export class CommandBroker {
     const p = this.pending.get(id)
     if (!p) return
     this.pending.delete(id)
-    const output = await this.executor.run(p.command, p.origin, p.sessionId, id)
-    const result: CommandResult = { id, command: p.command, output, exitInferred: true }
-    appState.send(CH.cmdResult, result)
-    p.resolve(output)
+    p.resolve(await this.exec(id, p.command, p.origin, p.sessionId))
+  }
+
+  // Run a command under an ApprovalPolicy — the MAIN-side gate for unattended
+  // (autonomous) execution where there is no human approval card. Dangerous or
+  // non-allowlisted commands are blocked here and logged; the caller continues.
+  async runWithPolicy(
+    command: string,
+    origin: AgentId,
+    sessionId: string,
+    policy: ApprovalPolicy
+  ): Promise<string> {
+    const d = decide(policy, 'run_command', command)
+    switch (d.action) {
+      case 'interactive':
+        return this.propose(command, origin, sessionId)
+      case 'dryrun':
+        return `[dry-run] would run: ${command}`
+      case 'block':
+        console.warn(`[policy] blocked command: ${command} — ${d.reason}`)
+        return `[blocked by policy: ${d.reason}]`
+      case 'run':
+        return this.exec(`cmd_auto_${++this.seq}`, command, origin, sessionId)
+    }
+  }
+
+  // Actually run an approved command and broadcast its result.
+  private async exec(id: string, command: string, origin: AgentId, sessionId: string): Promise<string> {
+    const output = await this.executor.run(command, origin, sessionId, id)
+    appState.send(CH.cmdResult, { id, command, output, exitInferred: true } satisfies CommandResult)
+    return output
   }
 
   reject(id: string): void {

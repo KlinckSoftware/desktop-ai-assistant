@@ -2,7 +2,7 @@ import * as pty from 'node-pty'
 import type { IPty } from 'node-pty'
 import { appState } from '../state'
 import { CH, type AgentId } from '../../shared/types'
-import { resolveBin } from '../util/resolveBin'
+import { resolveBin, cleanClaudeEnv } from '../util/resolveBin'
 
 // Runs approved shell commands in a single persistent pty and mirrors output to
 // the terminal pane. Per-command output is captured using a unique sentinel
@@ -68,7 +68,9 @@ export class CommandExecutor {
       cols: 200,
       rows: 50,
       cwd: this.cwd,
-      env: process.env as Record<string, string>
+      // Scrub nesting markers + ANTHROPIC_* auth so approved commands (and any
+      // CLI they invoke) don't inherit this app's launch credentials.
+      env: cleanClaudeEnv()
     })
 
     this.shell.onData((data) => {
