@@ -199,6 +199,7 @@ export const CH = {
 
   cmdPending: 'cmd:pending',
   cmdApprove: 'cmd:approve',
+  cmdConfirmDangerous: 'cmd:confirm-dangerous',
   cmdReject: 'cmd:reject',
   cmdResult: 'cmd:result',
 

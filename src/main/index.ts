@@ -147,6 +147,7 @@ function registerIpc(): void {
 
   // --- Command approval ---
   ipcMain.handle(CH.cmdApprove, (_e, id: string) => broker.approve(id))
+  ipcMain.handle(CH.cmdConfirmDangerous, (_e, id: string) => broker.confirmDangerous(id))
   ipcMain.handle(CH.cmdReject, (_e, id: string) => broker.reject(id))
 
   // --- File-edit approval + checkpoints ---

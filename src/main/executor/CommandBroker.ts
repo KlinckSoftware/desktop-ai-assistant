@@ -1,6 +1,7 @@
 import { appState } from '../state'
 import { CH, type AgentId, type PendingCommand, type CommandResult } from '../../shared/types'
 import { decide, type ApprovalPolicy } from '../policy/ApprovalPolicy'
+import { checkDangerous } from '../../shared/dangerousCommand'
 import type { CommandExecutor } from './CommandExecutor'
 
 // Default-deny gate between agents and the shell.
@@ -32,6 +33,32 @@ export class CommandBroker {
   }
 
   async approve(id: string): Promise<void> {
+    const p = this.pending.get(id)
+    if (!p) return
+    this.pending.delete(id)
+    // Defense in depth: enforce the dangerous denylist HERE, in main. The plain
+    // approve path (incl. trusted-session auto-approve in the renderer) must
+    // never silently run a dangerous command — those require confirmDangerous,
+    // which only the explicit human-facing card invokes. A buggy/compromised
+    // renderer calling approve() on a dangerous command is blocked.
+    const danger = checkDangerous(p.command)
+    if (danger.dangerous) {
+      console.warn(`[security] approve() blocked dangerous command (needs explicit confirm): ${p.command}`)
+      appState.send(CH.cmdResult, {
+        id,
+        command: p.command,
+        output: `[blocked: dangerous command (${danger.reason}) needs explicit confirmation]`,
+        exitInferred: false
+      } satisfies CommandResult)
+      p.resolve(`[blocked: dangerous command needs explicit confirmation]`)
+      return
+    }
+    p.resolve(await this.exec(id, p.command, p.origin, p.sessionId))
+  }
+
+  /** Explicit run of a (typically dangerous) command — only the human approval
+   *  card calls this, after showing the danger warning. */
+  async confirmDangerous(id: string): Promise<void> {
     const p = this.pending.get(id)
     if (!p) return
     this.pending.delete(id)
