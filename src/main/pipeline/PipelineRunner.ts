@@ -1,9 +1,10 @@
 import { appState } from '../state'
 import { CH, type PipelineStep, type PipelineUpdate, type DebateAgent } from '../../shared/types'
 import { completeParticipant } from '../agents/complete'
+import { claudeOneShot } from '../claude/ClaudeHeadless'
 import { apiCompleteAgentic } from '../api/OpenAIClient'
 import { listProviders } from '../api/providers'
-import { policyForStep } from '../policy/ApprovalPolicy'
+import { policyForStep, type PermissionMode } from '../policy/ApprovalPolicy'
 import type { GeminiClient } from '../gemini/GeminiClient'
 import type { IPCModerator } from '../moderator/IPCModerator'
 
@@ -11,6 +12,17 @@ import type { IPCModerator } from '../moderator/IPCModerator'
 // each step's output becoming the next step's carried input. Stateless — the
 // steps come from the renderer (where pipelines are stored/edited). Results
 // stream to the renderer per step via CH.pipelineUpdate.
+// Map a step preset to Claude Code's own tool names for `--allowedTools`. A
+// dry-run is approximated as read-only (Claude has no true dry-run). 'full'
+// adds Bash (still gated by Claude's own permission checks).
+export function claudeAllowedTools(mode: PermissionMode, dryRun: boolean): string[] {
+  const READ = ['Read', 'Grep', 'Glob', 'LS']
+  if (dryRun || mode === 'read-only') return READ
+  const EDIT = [...READ, 'Edit', 'Write', 'MultiEdit']
+  if (mode === 'edit') return EDIT
+  return [...EDIT, 'Bash']
+}
+
 export class PipelineRunner {
   constructor(
     private gemini: GeminiClient,
@@ -38,8 +50,18 @@ export class PipelineRunner {
           const model = providers.find((p) => p.id === providerId)?.defaultModel ?? ''
           const policy = policyForStep(step.permission ?? 'read-only', dryRun)
           text = await apiCompleteAgentic(providerId, model, [{ role: 'user', content: prompt }], policy)
+        } else if (agent.kind === 'claude') {
+          // Claude runs its own tooling; constrain the tool SET to the step's
+          // preset via --allowedTools so a pipeline step can't exceed its grant.
+          text = await claudeOneShot(
+            prompt,
+            appState.projectRoot,
+            appState.settings.claudeModel,
+            appState.settings.claudeEffort,
+            claudeAllowedTools(step.permission ?? 'read-only', dryRun)
+          )
         } else {
-          // Claude/Gemini-native steps stay one-shot text (no app-gated tools).
+          // Gemini-native step: one-shot text (no app-gated tools).
           text = await completeParticipant(agent, prompt, [], this.gemini)
         }
         carry = text
