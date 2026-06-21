@@ -33,12 +33,21 @@ scraping, no browser automation.
   (Gemini / API input, or a CLI prompt).
 - **Debate** — pick any two usable participants (Claude, Gemini, or a keyed API
   provider); they propose / critique over N rounds, then one synthesizes (gated by
-  explicit approval).
-- **Pipelines** — chain participants so each step's output feeds the next; save
-  and re-run named chains.
+  explicit approval). Cancellable mid-run.
+- **Pipelines** — chain participants so each step's output feeds the next. API
+  and Claude steps do **gated, policy-bounded file work**: a per-step permission
+  preset (read-only / edit / full) and per-step model + effort, a **dry-run**
+  mode, live **cancel**, and persisted **run history** (re-run a past run). Save
+  and reuse named chains.
 - **Cockpit** — live fleet of open agents with model, status, provider-reported
-  token usage and an estimated-cost meter (live LiteLLM price table, cached).
-- **Checkpoints** — every approved file edit is snapshotted and can be undone.
+  token usage and an estimated-cost meter (live LiteLLM price table, cached), plus
+  a session total and an optional **cost cap** that blocks new API sends.
+- **Checkpoints** — every approved file edit is snapshotted and can be undone
+  (autonomous pipeline edits included).
+- **Settings** — one searchable, sectioned panel: models, appearance (accent),
+  budget, pipeline/terminal/editor/startup prefs, security (incl. configurable
+  approval timeout), per-provider API keys, MCP servers (with an add form), and
+  links to manage agents/providers.
 
 ## Architecture
 
@@ -84,6 +93,9 @@ Native modules (`node-pty`, `keytar`) are rebuilt against the Electron ABI by th
 - CLI agents run their own tooling in a real pty — they are **not** sandboxed by
   the app's brokers (they have full shell access, governed by that tool's own
   permissions). Prefer pointing the project root at the repo you intend to work on.
-- API/Gemini chats and pipelines route tool calls through the app's brokers.
+- API/Gemini chats and pipelines route tool calls through the app's brokers; for
+  unattended pipeline steps an `ApprovalPolicy` (interactive | autonomous | dry-run)
+  enforces an allowlist + the dangerous-command denylist in main. The pipeline
+  Claude step is constrained via `--allowedTools` per its permission preset.
 - ToS: this drives real authenticated processes. Review Anthropic/Google/OpenAI
   (etc.) terms for your use case.
