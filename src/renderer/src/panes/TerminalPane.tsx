@@ -2,11 +2,30 @@ import { useEffect, useRef } from 'react'
 import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
 import { WebLinksAddon } from 'xterm-addon-web-links'
+import { useAppStore } from '../store/appStore'
+
+const SHELL_LABELS: Record<string, string> = {
+  default: 'Default',
+  powershell: 'PowerShell',
+  pwsh: 'PowerShell 7',
+  cmd: 'cmd',
+  bash: 'bash',
+  zsh: 'zsh'
+}
+const SHELLS = ['default', 'powershell', 'pwsh', 'cmd', 'bash', 'zsh'] as const
 
 // Mirror of the shared command-executor shell. Shows output from approved
 // agent commands and accepts direct user input.
 export default function TerminalPane(): JSX.Element {
   const ref = useRef<HTMLDivElement>(null)
+  const terminalShell = useAppStore((s) => s.terminalShell)
+  const setTerminalShell = useAppStore((s) => s.setTerminalShell)
+
+  // Switch the backing shell (main respawns the executor pty on change).
+  const onShell = (s: typeof terminalShell): void => {
+    setTerminalShell(s)
+    window.api.settings.set({ terminalShell: s })
+  }
 
   useEffect(() => {
     if (!ref.current) return
@@ -62,8 +81,20 @@ export default function TerminalPane(): JSX.Element {
 
   return (
     <div className="flex h-full flex-col bg-bg">
-      <div className="border-b border-border px-3 py-1.5 text-xs font-semibold text-accent">
-        ▸ Terminal
+      <div className="flex items-center justify-between border-b border-border px-3 py-1.5 text-xs">
+        <span className="font-semibold text-accent">▸ Terminal</span>
+        <select
+          className="rounded border border-border bg-panel px-1.5 py-0.5 text-[11px] outline-none focus:border-accent"
+          value={terminalShell}
+          onChange={(e) => onShell(e.target.value as typeof terminalShell)}
+          title="Switch the shell (restarts the terminal)"
+        >
+          {SHELLS.map((s) => (
+            <option key={s} value={s}>
+              {SHELL_LABELS[s]}
+            </option>
+          ))}
+        </select>
       </div>
       <div ref={ref} className="flex-1 overflow-hidden p-1" />
     </div>
