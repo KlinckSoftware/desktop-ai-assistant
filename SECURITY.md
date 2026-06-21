@@ -30,11 +30,15 @@ limiting the blast radius when something behaves unexpectedly.
 
 - **interactive** — the operation surfaces an approval card; a human approves or
   rejects. Per-session "trust" can auto-approve, **except** commands matching the
-  dangerous denylist, which always require an explicit card.
-- **autonomous** — for unattended runs (e.g. pipelines). Main decides with **no
+  dangerous denylist, which always require an explicit card. Cards auto-reject
+  after a configurable timeout (Settings → Security; default 15s, 0 = never) —
+  default-deny: doing nothing rejects.
+- **autonomous** — for unattended runs (pipelines). Main decides with **no
   human**: it runs only if the capability is allow-listed for that step **and**
   (for shell commands) it is not on the dangerous denylist. Otherwise it is
-  **blocked and logged**, and the run continues.
+  **blocked and logged**, and the run continues. Pipeline steps map a permission
+  preset (read-only / edit / full) to the allowlist; edits still snapshot to
+  checkpoints, so autonomous edits remain undoable.
 - **dry-run** — nothing executes; the intended operation is reported.
 
 The dangerous denylist (`src/shared/dangerousCommand.ts`) always-flags recursive
@@ -49,6 +53,9 @@ writes, publishes, remote transfer, and credential-path access.
   `CLAUDECODE`, `CLAUDE_CODE_*`, and `ANTHROPIC_*` are stripped so a child can't
   inherit the launching app's credentials/proxy.
 - `openExternal` only opens `http(s)` URLs.
+- An optional session **cost cap** (Settings → Budget) blocks new API sends once
+  estimated spend reaches it — a runaway-cost backstop (interactive API chats;
+  pipeline runs are not yet capped).
 
 ## Known limitations / residual risk
 
