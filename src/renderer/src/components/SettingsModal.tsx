@@ -50,6 +50,14 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
   const agents = useAppStore((s) => s.agents)
   const apiProviders = useAppStore((s) => s.apiProviders)
   const setApiProviders = useAppStore((s) => s.setApiProviders)
+  const terminalFontSize = useAppStore((s) => s.terminalFontSize)
+  const setTerminalFontSize = useAppStore((s) => s.setTerminalFontSize)
+  const terminalScrollback = useAppStore((s) => s.terminalScrollback)
+  const setTerminalScrollback = useAppStore((s) => s.setTerminalScrollback)
+  const editorFontSize = useAppStore((s) => s.editorFontSize)
+  const setEditorFontSize = useAppStore((s) => s.setEditorFontSize)
+  const editorWrap = useAppStore((s) => s.editorWrap)
+  const setEditorWrap = useAppStore((s) => s.setEditorWrap)
   const [keyInputs, setKeyInputs] = useState<Record<string, string>>({})
 
   const saveProviderKey = async (id: string): Promise<void> => {
@@ -222,6 +230,69 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
                 </option>
               ))}
             </select>
+          )
+        },
+        {
+          label: 'Terminal font size (applies to new terminals)',
+          kw: 'terminal font size text',
+          node: (
+            <input
+              type="number"
+              min={8}
+              max={32}
+              className="w-full rounded border border-border bg-bg px-2 py-1.5 outline-none focus:border-accent"
+              value={terminalFontSize}
+              onChange={(e) => setTerminalFontSize(Math.max(8, Math.min(32, Number(e.target.value) || 13)))}
+            />
+          )
+        },
+        {
+          label: 'Terminal scrollback (lines)',
+          kw: 'terminal scrollback history lines buffer',
+          node: (
+            <input
+              type="number"
+              min={500}
+              max={100000}
+              step={500}
+              className="w-full rounded border border-border bg-bg px-2 py-1.5 outline-none focus:border-accent"
+              value={terminalScrollback}
+              onChange={(e) => setTerminalScrollback(Math.max(500, Number(e.target.value) || 10000))}
+            />
+          )
+        }
+      ]
+    },
+    {
+      title: 'Editor',
+      fields: [
+        {
+          label: 'Editor font size',
+          kw: 'editor font size code text',
+          node: (
+            <input
+              type="number"
+              min={8}
+              max={32}
+              className="w-full rounded border border-border bg-bg px-2 py-1.5 outline-none focus:border-accent"
+              value={editorFontSize}
+              onChange={(e) => setEditorFontSize(Math.max(8, Math.min(32, Number(e.target.value) || 13)))}
+            />
+          )
+        },
+        {
+          label: 'Word wrap',
+          kw: 'editor word wrap lines',
+          node: (
+            <label className="flex items-center gap-2 text-gray-300">
+              <input
+                type="checkbox"
+                className="accent-accent"
+                checked={editorWrap}
+                onChange={(e) => setEditorWrap(e.target.checked)}
+              />
+              Wrap long lines
+            </label>
           )
         }
       ]

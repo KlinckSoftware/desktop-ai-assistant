@@ -50,12 +50,17 @@ export interface PersistedState {
   terminalShell: AppState['terminalShell']
   dockLayout: unknown | null
   apiChats: Record<string, Message[]>
+  apiModels: Record<string, string>
   pipelines: Pipeline[]
   approvalTimeout: number
   pipelineDefaultPermission: AppState['pipelineDefaultPermission']
   pipelineDefaultDryRun: boolean
   startupAgent: string
   repoMapInContext: boolean
+  terminalFontSize: number
+  terminalScrollback: number
+  editorFontSize: number
+  editorWrap: boolean
 }
 
 interface AppState {
@@ -84,6 +89,10 @@ interface AppState {
   pipelineDefaultPermission: 'read-only' | 'edit' | 'full'
   pipelineDefaultDryRun: boolean
   startupAgent: string // agent id spawned on launch
+  terminalFontSize: number
+  terminalScrollback: number
+  editorFontSize: number
+  editorWrap: boolean
   setGeminiModel: (m: string) => void
   setClaudeModel: (m: string) => void
   setClaudeEffort: (e: string) => void
@@ -92,6 +101,10 @@ interface AppState {
   setPipelineDefaultPermission: (p: 'read-only' | 'edit' | 'full') => void
   setPipelineDefaultDryRun: (v: boolean) => void
   setStartupAgent: (id: string) => void
+  setTerminalFontSize: (n: number) => void
+  setTerminalScrollback: (n: number) => void
+  setEditorFontSize: (n: number) => void
+  setEditorWrap: (v: boolean) => void
   setDebateSides: (a: string, b: string) => void
   setTerminalShell: (s: AppState['terminalShell']) => void
 
@@ -118,6 +131,9 @@ interface AppState {
   // chats survive panel close + app restart, like the Gemini thread already does.
   apiChats: Record<string, Message[]>
   setApiChat: (id: string, msgs: Message[]) => void
+  // Chosen model per API panel instance (persisted so it survives reopen).
+  apiModels: Record<string, string>
+  setApiModel: (id: string, model: string) => void
 
   // Saved agent pipelines (handoff chains), persisted across restarts.
   pipelines: Pipeline[]
@@ -225,6 +241,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   pipelineDefaultPermission: 'read-only',
   pipelineDefaultDryRun: false,
   startupAgent: 'claude',
+  terminalFontSize: 13,
+  terminalScrollback: 10000,
+  editorFontSize: 13,
+  editorWrap: false,
   setGeminiModel: (m) => set({ geminiModel: m }),
   setClaudeModel: (m) => set({ claudeModel: m }),
   setClaudeEffort: (e) => set({ claudeEffort: e }),
@@ -233,6 +253,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   setPipelineDefaultPermission: (p) => set({ pipelineDefaultPermission: p }),
   setPipelineDefaultDryRun: (v) => set({ pipelineDefaultDryRun: v }),
   setStartupAgent: (id) => set({ startupAgent: id }),
+  setTerminalFontSize: (n) => set({ terminalFontSize: n }),
+  setTerminalScrollback: (n) => set({ terminalScrollback: n }),
+  setEditorFontSize: (n) => set({ editorFontSize: n }),
+  setEditorWrap: (v) => set({ editorWrap: v }),
   setDebateSides: (a, b) => set({ debateSideA: a, debateSideB: b }),
   setTerminalShell: (s) => set({ terminalShell: s }),
 
@@ -266,6 +290,8 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   apiChats: {},
   setApiChat: (id, msgs) => set((s) => ({ apiChats: { ...s.apiChats, [id]: msgs } })),
+  apiModels: {},
+  setApiModel: (id, model) => set((s) => ({ apiModels: { ...s.apiModels, [id]: model } })),
 
   pipelines: [],
   savePipeline: (p) =>
@@ -421,8 +447,13 @@ export const useAppStore = create<AppState>((set, get) => ({
       pipelineDefaultDryRun: d.pipelineDefaultDryRun ?? false,
       startupAgent: d.startupAgent ?? 'claude',
       repoMapInContext: d.repoMapInContext ?? false,
+      terminalFontSize: d.terminalFontSize ?? 13,
+      terminalScrollback: d.terminalScrollback ?? 10000,
+      editorFontSize: d.editorFontSize ?? 13,
+      editorWrap: d.editorWrap ?? false,
       dockLayout: d.dockLayout ?? null,
       apiChats: d.apiChats ?? {},
+      apiModels: d.apiModels ?? {},
       pipelines: d.pipelines ?? [],
       debateRunning: false, // never restore a "running" flag — the backend is gone
       debateStatus: ''

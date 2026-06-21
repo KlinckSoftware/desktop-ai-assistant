@@ -43,12 +43,13 @@ export default function AgentPane(props: IDockviewPanelProps): JSX.Element {
 
   useEffect(() => {
     if (!ref.current) return
+    const { terminalFontSize, terminalScrollback } = useAppStore.getState()
     const term = new Terminal({
-      fontSize: 13,
+      fontSize: terminalFontSize,
       fontFamily: 'JetBrains Mono, Consolas, monospace',
       theme: { background: '#0d1117', foreground: '#c9d1d9', cursor: '#58a6ff' },
       cursorBlink: true,
-      scrollback: 10000
+      scrollback: terminalScrollback
     })
     const fit = new FitAddon()
     term.loadAddon(fit)
