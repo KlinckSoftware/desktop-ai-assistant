@@ -209,6 +209,11 @@ const api = {
     write: (text: string): Promise<void> => ipcRenderer.invoke(CH.clipboardWrite, text)
   },
   pricingLive: (): Promise<Record<string, { in: number; out: number }>> => ipcRenderer.invoke(CH.pricingLive),
+  onAppError: (cb: (message: string) => void): (() => void) => {
+    const h = (_e: unknown, message: string): void => cb(message)
+    ipcRenderer.on(CH.appError, h)
+    return () => ipcRenderer.removeListener(CH.appError, h)
+  },
   onUsage: (cb: (id: string, usage: { promptTokens: number; completionTokens: number }) => void): (() => void) => {
     const h = (_e: unknown, id: string, usage: { promptTokens: number; completionTokens: number }): void =>
       cb(id, usage)

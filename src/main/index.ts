@@ -99,7 +99,12 @@ function registerIpc(): void {
   ipcMain.handle(CH.agentNewSession, async (_e, sessionId: string, agentId: string, cwd?: string) => {
     const def = await getAgent(agentId)
     if (!def) throw new Error(`Unknown agent: ${agentId}`)
-    agents.spawn(sessionId, def, cwd || appState.projectRoot)
+    try {
+      agents.spawn(sessionId, def, cwd || appState.projectRoot)
+    } catch (e) {
+      appState.send(CH.appError, `Failed to start ${def.name}: ${e instanceof Error ? e.message : String(e)}`)
+      throw e
+    }
     return sessionId
   })
   ipcMain.handle(CH.agentSend, (_e, sessionId: string, text: string) => agents.send(sessionId, text))
@@ -231,7 +236,10 @@ app.whenReady().then(() => {
   ensureAgentConfig().catch(() => {})
   ensureApiConfig().catch(() => {})
   // Connect MCP servers in the background (non-blocking).
-  mcpManager.init().catch((e) => console.warn('[mcp] init failed:', e))
+  mcpManager.init().catch((e) => {
+    console.warn('[mcp] init failed:', e)
+    appState.send(CH.appError, `MCP init failed: ${e instanceof Error ? e.message : String(e)}`)
+  })
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
