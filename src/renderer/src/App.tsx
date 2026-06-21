@@ -146,6 +146,8 @@ export default function App(): JSX.Element {
           claudeModel: s.claudeModel,
           claudeEffort: s.claudeEffort,
           debateRounds: s.debateRounds,
+          debateSideA: s.debateSideA,
+          debateSideB: s.debateSideB,
           terminalShell: s.terminalShell,
           dockLayout: s.dockLayout
         })
@@ -196,6 +198,11 @@ export default function App(): JSX.Element {
       else addPendingTool(t)
     })
   }, [addPendingTool])
+
+  // Provider-reported token usage → cockpit fleet (always on, even if Cockpit closed).
+  useEffect(() => {
+    return window.api.onUsage((id, u) => useAppStore.getState().addUsage(id, u.promptTokens, u.completionTokens))
+  }, [])
 
   return (
     <div className="flex h-full flex-col">

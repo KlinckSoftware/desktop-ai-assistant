@@ -6,6 +6,7 @@ import {
   type PendingCommand,
   type CommandResult,
   type DebateUpdate,
+  type DebateAgent,
   type GitChanges,
   type PendingEdit,
   type PendingTool,
@@ -58,7 +59,9 @@ const api = {
     }
   },
   debate: {
-    start: (prompt: string): Promise<void> => ipcRenderer.invoke(CH.debateStart, prompt),
+    agents: (): Promise<DebateAgent[]> => ipcRenderer.invoke(CH.debateAgents),
+    start: (prompt: string, aId?: string, bId?: string): Promise<void> =>
+      ipcRenderer.invoke(CH.debateStart, prompt, aId, bId),
     synthesize: (): Promise<void> => ipcRenderer.invoke(CH.debateSynthesize),
     decline: (): Promise<void> => ipcRenderer.invoke(CH.debateDecline),
     onUpdate: (cb: (u: DebateUpdate) => void): (() => void) => {
@@ -190,6 +193,12 @@ const api = {
   clipboard: {
     read: (): Promise<string> => ipcRenderer.invoke(CH.clipboardRead),
     write: (text: string): Promise<void> => ipcRenderer.invoke(CH.clipboardWrite, text)
+  },
+  onUsage: (cb: (id: string, usage: { promptTokens: number; completionTokens: number }) => void): (() => void) => {
+    const h = (_e: unknown, id: string, usage: { promptTokens: number; completionTokens: number }): void =>
+      cb(id, usage)
+    ipcRenderer.on(CH.usage, h)
+    return () => ipcRenderer.removeListener(CH.usage, h)
   },
   mcp: {
     status: (): Promise<{ server: string; connected: boolean; toolCount: number; error?: string }[]> =>

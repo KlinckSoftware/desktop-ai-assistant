@@ -40,9 +40,16 @@ export async function apiSend(
     .filter((m) => m.content)
     .map((m) => ({ role: m.role === 'model' ? 'assistant' : m.role, content: m.content }))
 
+  let promptTokens = 0
+  let completionTokens = 0
+
   try {
     for (let turn = 0; turn < 8; turn++) {
-      const { text, calls } = await streamOnce(url, key, model, messages, tools, emit)
+      const { text, calls, usage } = await streamOnce(url, key, model, messages, tools, emit)
+      if (usage) {
+        promptTokens += usage.promptTokens
+        completionTokens += usage.completionTokens
+      }
       if (calls.length === 0) break
 
       messages.push({
@@ -62,10 +69,40 @@ export async function apiSend(
         messages.push({ role: 'tool', tool_call_id: c.id, content: result })
       }
     }
+    if (promptTokens || completionTokens) {
+      appState.send(CH.usage, instanceId, { promptTokens, completionTokens })
+    }
     emit(DONE)
   } catch (err) {
     emit(`\n[API request failed: ${err instanceof Error ? err.message : String(err)}]` + DONE)
   }
+}
+
+// One-shot, non-streaming completion with no tools — used by the debate
+// moderator so an API provider can be a debate participant. Throws on error so
+// the moderator surfaces it.
+export async function apiComplete(providerId: string, model: string, history: Message[]): Promise<string> {
+  const provider = await getProvider(providerId)
+  if (!provider) throw new Error(`unknown provider ${providerId}`)
+  const key = (provider.noKey ? '' : await getKey(providerId)) ?? ''
+  if (!provider.noKey && !key) throw new Error(`no key set for ${provider.name}`)
+
+  const url = `${provider.baseUrl.replace(/\/$/, '')}/chat/completions`
+  const messages = history
+    .filter((m) => m.content)
+    .map((m) => ({ role: m.role === 'model' ? 'assistant' : m.role, content: m.content }))
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(key ? { Authorization: `Bearer ${key}` } : {}) },
+    body: JSON.stringify({ model: model || provider.defaultModel, messages, stream: false })
+  })
+  if (!res.ok) {
+    const errText = await res.text().catch(() => res.statusText)
+    throw new Error(`${provider.name} ${res.status}: ${errText.slice(0, 300)}`)
+  }
+  const json = (await res.json()) as { choices?: { message?: { content?: string } }[] }
+  return json?.choices?.[0]?.message?.content ?? ''
 }
 
 async function streamOnce(
@@ -75,22 +112,32 @@ async function streamOnce(
   messages: OAMessage[],
   tools: unknown[],
   emit: (c: string) => void
-): Promise<{ text: string; calls: OAToolCall[] }> {
+): Promise<{ text: string; calls: OAToolCall[]; usage: { promptTokens: number; completionTokens: number } | null }> {
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(key ? { Authorization: `Bearer ${key}` } : {}) },
-    body: JSON.stringify({ model, messages, stream: true, tools, tool_choice: 'auto' })
+    // include_usage asks the provider to append a final chunk with token counts
+    // (OpenAI/Mistral/OpenRouter honor it; Groq/Ollama may omit — handled as null).
+    body: JSON.stringify({
+      model,
+      messages,
+      stream: true,
+      stream_options: { include_usage: true },
+      tools,
+      tool_choice: 'auto'
+    })
   })
   if (!res.ok || !res.body) {
     const errText = await res.text().catch(() => res.statusText)
     emit(`\n[API error ${res.status}: ${errText.slice(0, 500)}]`)
-    return { text: '', calls: [] }
+    return { text: '', calls: [], usage: null }
   }
 
   const reader = res.body.getReader()
   const decoder = new TextDecoder()
   let buf = ''
   let text = ''
+  let usage: { promptTokens: number; completionTokens: number } | null = null
   const byIndex = new Map<number, OAToolCall>() // tool_calls stream in deltas by index
 
   while (true) {
@@ -105,7 +152,14 @@ async function streamOnce(
       const payload = line.slice(5).trim()
       if (!payload || payload === '[DONE]') continue
       try {
-        const delta = JSON.parse(payload)?.choices?.[0]?.delta
+        const obj = JSON.parse(payload)
+        if (obj?.usage) {
+          usage = {
+            promptTokens: obj.usage.prompt_tokens ?? 0,
+            completionTokens: obj.usage.completion_tokens ?? 0
+          }
+        }
+        const delta = obj?.choices?.[0]?.delta
         if (!delta) continue
         if (delta.content) {
           text += delta.content
@@ -124,5 +178,5 @@ async function streamOnce(
       }
     }
   }
-  return { text, calls: [...byIndex.values()].filter((c) => c.name) }
+  return { text, calls: [...byIndex.values()].filter((c) => c.name), usage }
 }

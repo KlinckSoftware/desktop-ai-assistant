@@ -25,7 +25,9 @@ export interface FleetAgent {
   kind: 'cli' | 'api' | 'gemini'
   model?: string
   status: 'idle' | 'busy'
-  chars: number // streamed output chars (≈ tokens/4) for a rough usage meter
+  chars: number // streamed output chars — fallback meter when no provider usage
+  promptTokens: number // provider-reported, summed across requests
+  completionTokens: number
   lastTs: number // epoch ms of last activity
 }
 
@@ -41,6 +43,8 @@ export interface PersistedState {
   claudeModel: string
   claudeEffort: string
   debateRounds: number
+  debateSideA: string
+  debateSideB: string
   terminalShell: AppState['terminalShell']
   dockLayout: unknown | null
 }
@@ -63,11 +67,14 @@ interface AppState {
   claudeModel: string
   claudeEffort: string
   debateRounds: number
+  debateSideA: string
+  debateSideB: string
   terminalShell: 'default' | 'powershell' | 'pwsh' | 'cmd' | 'bash' | 'zsh'
   setGeminiModel: (m: string) => void
   setClaudeModel: (m: string) => void
   setClaudeEffort: (e: string) => void
   setDebateRounds: (n: number) => void
+  setDebateSides: (a: string, b: string) => void
   setTerminalShell: (s: AppState['terminalShell']) => void
 
   pending: PendingCommand[]
@@ -134,6 +141,7 @@ interface AppState {
   registerFleet: (a: FleetAgent) => void
   updateFleet: (id: string, patch: Partial<FleetAgent>) => void
   bumpFleet: (id: string, chars: number) => void
+  addUsage: (id: string, promptTokens: number, completionTokens: number) => void
   removeFleet: (id: string) => void
 
   // Drag-dropped attachments for the next Gemini message.
@@ -176,11 +184,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   claudeModel: '',
   claudeEffort: '',
   debateRounds: 3,
+  debateSideA: 'claude',
+  debateSideB: 'gemini',
   terminalShell: 'default',
   setGeminiModel: (m) => set({ geminiModel: m }),
   setClaudeModel: (m) => set({ claudeModel: m }),
   setClaudeEffort: (e) => set({ claudeEffort: e }),
   setDebateRounds: (n) => set({ debateRounds: n }),
+  setDebateSides: (a, b) => set({ debateSideA: a, debateSideB: b }),
   setTerminalShell: (s) => set({ terminalShell: s }),
 
   pending: [],
@@ -263,6 +274,22 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (!cur) return s
       return { fleet: { ...s.fleet, [id]: { ...cur, chars: cur.chars + chars, lastTs: Date.now() } } }
     }),
+  addUsage: (id, promptTokens, completionTokens) =>
+    set((s) => {
+      const cur = s.fleet[id]
+      if (!cur) return s
+      return {
+        fleet: {
+          ...s.fleet,
+          [id]: {
+            ...cur,
+            promptTokens: cur.promptTokens + promptTokens,
+            completionTokens: cur.completionTokens + completionTokens,
+            lastTs: Date.now()
+          }
+        }
+      }
+    }),
   removeFleet: (id) =>
     set((s) => {
       const next = { ...s.fleet }
@@ -323,6 +350,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       claudeModel: d.claudeModel ?? '',
       claudeEffort: d.claudeEffort ?? '',
       debateRounds: d.debateRounds ?? 3,
+      debateSideA: d.debateSideA ?? 'claude',
+      debateSideB: d.debateSideB ?? 'gemini',
       terminalShell: d.terminalShell ?? 'default',
       dockLayout: d.dockLayout ?? null,
       debateRunning: false, // never restore a "running" flag — the backend is gone
