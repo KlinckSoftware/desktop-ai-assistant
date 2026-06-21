@@ -42,6 +42,12 @@ export interface Message {
   content: string
 }
 
+// Provider-reported token usage for one request (summed across agentic turns).
+export interface TokenUsage {
+  promptTokens: number
+  completionTokens: number
+}
+
 export interface FileNode {
   name: string
   path: string
@@ -61,15 +67,26 @@ export interface GitChanges {
 }
 
 export interface DebateUpdate {
-  type: 'claude' | 'gemini' | 'synthesis' | 'error' | 'await'
+  type: 'turn' | 'synthesis' | 'error' | 'await'
   text: string
   round?: number
+  side?: 'a' | 'b' // which participant produced this turn
+  name?: string // participant display name
 }
 
 export interface DebateRound {
   round: number
-  claude: string
-  gemini: string
+  a: string
+  b: string
+}
+
+// A model/agent that can act as a debate participant — only those currently
+// usable by this user (CLI binary on PATH, or API key present). id forms:
+// 'claude', 'gemini', or 'api:<providerId>'.
+export interface DebateAgent {
+  id: string
+  name: string
+  kind: 'claude' | 'gemini' | 'api'
 }
 
 // A command parsed from a ```bash run``` block, awaiting user approval.
@@ -134,6 +151,7 @@ export const CH = {
   apiSaveKey: 'api:save-key',
   apiSend: 'api:send',
   apiStream: 'api:stream',
+  usage: 'usage:update', // (id, { promptTokens, completionTokens }) provider-reported
 
   geminiSend: 'gemini:send',
   geminiSideSend: 'gemini:side-send',
@@ -142,6 +160,7 @@ export const CH = {
   geminiSaveKey: 'gemini:save-key',
 
   debateStart: 'debate:start',
+  debateAgents: 'debate:agents',
   debateUpdate: 'debate:update',
   debateStatus: 'debate:status',
   debateSynthesize: 'debate:synthesize',

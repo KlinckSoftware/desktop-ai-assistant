@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import type { DebateUpdate } from '@shared/types'
+import { useEffect, useState } from 'react'
+import type { DebateUpdate, DebateAgent } from '@shared/types'
 import { useAppStore } from '../store/appStore'
 
 // Docked Partner-Debate view. Same logic as the old overlay, without modal
@@ -15,7 +15,24 @@ export default function DebatePanel(): JSX.Element {
   const endDebate = useAppStore((s) => s.endDebate)
   const clearDebate = useAppStore((s) => s.clearDebate)
   const lastPrompt = useAppStore((s) => s.debatePrompt)
+  const sideA = useAppStore((s) => s.debateSideA)
+  const sideB = useAppStore((s) => s.debateSideB)
+  const setDebateSides = useAppStore((s) => s.setDebateSides)
   const [prompt, setPrompt] = useState(lastPrompt)
+  const [participants, setParticipants] = useState<DebateAgent[]>([])
+
+  // Load the participants the user can actually use (keyed APIs + available CLIs).
+  useEffect(() => {
+    window.api.debate.agents().then((list) => {
+      setParticipants(list)
+      // If saved sides aren't usable anymore, fall back to the first two available.
+      const ids = new Set(list.map((p) => p.id))
+      const a = ids.has(sideA) ? sideA : list[0]?.id
+      const b = ids.has(sideB) ? sideB : list.find((p) => p.id !== a)?.id
+      if (a && b && (a !== sideA || b !== sideB)) setDebateSides(a, b)
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const clear = (): void => {
     clearDebate()
@@ -35,7 +52,7 @@ export default function DebatePanel(): JSX.Element {
     const p = prompt.trim()
     if (!p || running) return
     startDebateState(p)
-    window.api.debate.start(p).catch((err) => {
+    window.api.debate.start(p, sideA, sideB).catch((err) => {
       useAppStore.getState().addDebateUpdate({
         type: 'error',
         text: `Failed to start debate: ${err instanceof Error ? err.message : String(err)}`
@@ -44,41 +61,84 @@ export default function DebatePanel(): JSX.Element {
     })
   }
 
-  const color = (t: DebateUpdate['type']): string =>
-    t === 'claude'
-      ? 'text-claude'
-      : t === 'gemini'
-        ? 'text-gemini'
-        : t === 'error'
-          ? 'text-red-400'
-          : 'text-green-400'
+  const color = (u: DebateUpdate): string =>
+    u.type === 'turn'
+      ? u.side === 'a'
+        ? 'text-claude'
+        : 'text-gemini'
+      : u.type === 'error'
+        ? 'text-red-400'
+        : 'text-green-400'
+
+  // Label shown on each update block: participant name, or the meta-type.
+  const label = (u: DebateUpdate): string =>
+    u.type === 'turn' ? (u.name ?? (u.side === 'a' ? 'A' : 'B')) : u.type
+
+  const onlyOneSide = participants.length < 2
 
   return (
     <div className="flex h-full flex-col bg-bg">
-      <div className="flex items-center gap-2 border-b border-border px-3 py-1.5 text-xs">
-        <input
-          className="flex-1 rounded border border-border bg-panel px-2 py-1 outline-none focus:border-accent disabled:opacity-50"
-          placeholder="Task for Claude & Gemini to debate…"
-          value={prompt}
-          disabled={running}
-          onChange={(e) => setPrompt(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && start()}
-        />
-        <button
-          className="rounded bg-accent px-3 py-1 font-medium text-black disabled:opacity-40"
-          disabled={running}
-          onClick={start}
-        >
-          {running ? 'Running…' : 'Start'}
-        </button>
-        <button
-          className="rounded border border-border px-3 py-1 text-gray-300 hover:bg-panel disabled:opacity-40"
-          disabled={running}
-          onClick={clear}
-          title="Clear input and transcript"
-        >
-          Clear
-        </button>
+      <div className="flex flex-col gap-1.5 border-b border-border px-3 py-1.5 text-xs">
+        <div className="flex items-center gap-2">
+          <select
+            className="min-w-0 flex-1 rounded border border-border bg-panel px-1.5 py-1 text-claude outline-none focus:border-accent disabled:opacity-50"
+            value={sideA}
+            disabled={running}
+            onChange={(e) => setDebateSides(e.target.value, sideB)}
+            title="Participant A (proposes, then synthesizes)"
+          >
+            {participants.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+          <span className="shrink-0 text-gray-500">vs</span>
+          <select
+            className="min-w-0 flex-1 rounded border border-border bg-panel px-1.5 py-1 text-gemini outline-none focus:border-accent disabled:opacity-50"
+            value={sideB}
+            disabled={running}
+            onChange={(e) => setDebateSides(sideA, e.target.value)}
+            title="Participant B (critiques)"
+          >
+            {participants.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            className="flex-1 rounded border border-border bg-panel px-2 py-1 outline-none focus:border-accent disabled:opacity-50"
+            placeholder="Task to debate…"
+            value={prompt}
+            disabled={running}
+            onChange={(e) => setPrompt(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && start()}
+          />
+          <button
+            className="rounded bg-accent px-3 py-1 font-medium text-black disabled:opacity-40"
+            disabled={running || onlyOneSide}
+            onClick={start}
+            title={onlyOneSide ? 'Need at least 2 working models/APIs (add a key or install a CLI)' : ''}
+          >
+            {running ? 'Running…' : 'Start'}
+          </button>
+          <button
+            className="rounded border border-border px-3 py-1 text-gray-300 hover:bg-panel disabled:opacity-40"
+            disabled={running}
+            onClick={clear}
+            title="Clear input and transcript"
+          >
+            Clear
+          </button>
+        </div>
+        {onlyOneSide && (
+          <div className="text-[11px] text-yellow-400">
+            Need ≥2 usable models. Add an API key or install a CLI agent (e.g. Claude).
+          </div>
+        )}
       </div>
       {running && (
         <div className="flex items-center gap-1.5 border-b border-border px-3 py-1 text-xs text-gray-400">
@@ -102,14 +162,14 @@ export default function DebatePanel(): JSX.Element {
       <div className="flex-1 space-y-3 overflow-y-auto p-3 text-sm">
         {updates.length === 0 && !running && (
           <div className="text-gray-500">
-            Enter a task and Start. Claude proposes, Gemini critiques, repeat, then Claude
-            synthesizes. This panel can be docked, hidden, or rearranged like any other.
+            Pick two models, enter a task, Start. A proposes, B critiques, repeat, then A
+            synthesizes. Only models/APIs you have working appear in the dropdowns.
           </div>
         )}
         {updates.map((u, i) => (
           <div key={i} className="rounded-lg border border-border bg-panel p-3">
-            <div className={`mb-1 text-xs font-semibold uppercase ${color(u.type)}`}>
-              {u.type} {u.round != null && `· round ${u.round + 1}`}
+            <div className={`mb-1 text-xs font-semibold uppercase ${color(u)}`}>
+              {label(u)} {u.round != null && `· round ${u.round + 1}`}
             </div>
             <div className="whitespace-pre-wrap text-gray-200">{u.text}</div>
           </div>

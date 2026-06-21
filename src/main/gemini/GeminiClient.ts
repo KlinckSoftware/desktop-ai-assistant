@@ -75,9 +75,15 @@ export class GeminiClient {
 
     const tools = this.buildTools()
     let full = ''
+    let promptTokens = 0
+    let completionTokens = 0
     for (let turn = 0; turn < maxTurns; turn++) {
-      const { text, calls } = await this.streamOnce(apiKey, contents, { tools })
+      const { text, calls, usage } = await this.streamOnce(apiKey, contents, { tools })
       full += text
+      if (usage) {
+        promptTokens += usage.promptTokens
+        completionTokens += usage.completionTokens
+      }
       if (calls.length === 0) break
 
       // Echo the model's turn (text + the calls it made) into history.
@@ -97,6 +103,9 @@ export class GeminiClient {
       contents.push({ role: 'user', parts: responses })
     }
 
+    if (promptTokens || completionTokens) {
+      appState.send(CH.usage, 'gemini', { promptTokens, completionTokens })
+    }
     appState.send(CH.geminiStream, '\n[[gemini:done]]')
     return full
   }
@@ -128,7 +137,7 @@ export class GeminiClient {
     apiKey: string,
     contents: GeminiContent[],
     opts: { emit?: boolean; tools?: { functionDeclarations: FunctionDeclaration[] } } = {}
-  ): Promise<{ text: string; calls: ToolCall[] }> {
+  ): Promise<{ text: string; calls: ToolCall[]; usage: { promptTokens: number; completionTokens: number } | null }> {
     const { emit = true, tools } = opts
     const model = appState.settings.geminiModel
     const url = `${BASE}/${model}:streamGenerateContent?alt=sse`
@@ -148,13 +157,14 @@ export class GeminiClient {
       const errText = await res.text().catch(() => res.statusText)
       const msg = `\n[Gemini error ${res.status}: ${errText.slice(0, 500)}]`
       if (emit) appState.send(CH.geminiStream, msg)
-      return { text: msg, calls: [] }
+      return { text: msg, calls: [], usage: null }
     }
 
     const reader = res.body.getReader()
     const decoder = new TextDecoder()
     let sseBuf = ''
     let text = ''
+    let usage: { promptTokens: number; completionTokens: number } | null = null
     const calls: ToolCall[] = []
 
     while (true) {
@@ -170,6 +180,12 @@ export class GeminiClient {
         if (!payload || payload === '[DONE]') continue
         try {
           const json = JSON.parse(payload)
+          if (json?.usageMetadata) {
+            usage = {
+              promptTokens: json.usageMetadata.promptTokenCount ?? 0,
+              completionTokens: json.usageMetadata.candidatesTokenCount ?? 0
+            }
+          }
           const parts = json?.candidates?.[0]?.content?.parts ?? []
           for (const part of parts) {
             if (part.text) {
@@ -184,6 +200,6 @@ export class GeminiClient {
         }
       }
     }
-    return { text, calls }
+    return { text, calls, usage }
   }
 }

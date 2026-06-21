@@ -125,7 +125,10 @@ function registerIpc(): void {
   ipcMain.handle(CH.geminiSaveKey, (_e, key: string) => gemini.saveKey(key))
 
   // --- Debate ---
-  ipcMain.handle(CH.debateStart, (_e, prompt: string) => moderator.runDebate(prompt))
+  ipcMain.handle(CH.debateAgents, () => moderator.listDebateAgents())
+  ipcMain.handle(CH.debateStart, (_e, prompt: string, aId?: string, bId?: string) =>
+    moderator.runDebate(prompt, aId, bId)
+  )
   ipcMain.handle(CH.debateSynthesize, () => moderator.synthesize())
   ipcMain.handle(CH.debateDecline, () => moderator.decline())
 

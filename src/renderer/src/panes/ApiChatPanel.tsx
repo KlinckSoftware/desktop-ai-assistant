@@ -58,6 +58,8 @@ export default function ApiChatPanel(props: IDockviewPanelProps): JSX.Element {
       model: model || provider.defaultModel,
       status: 'idle',
       chars: 0,
+      promptTokens: 0,
+      completionTokens: 0,
       lastTs: Date.now()
     })
     return () => useAppStore.getState().removeFleet(instanceId)

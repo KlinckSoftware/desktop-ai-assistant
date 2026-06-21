@@ -26,6 +26,8 @@ export default function AgentPane(props: IDockviewPanelProps): JSX.Element {
       kind: 'cli',
       status: 'idle',
       chars: 0,
+      promptTokens: 0,
+      completionTokens: 0,
       lastTs: Date.now()
     })
     return () => useAppStore.getState().removeFleet(sessionId)

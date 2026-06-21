@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAppStore } from '../store/appStore'
 import { focusPanel } from '../dock/dockApi'
+import { costFor } from '@shared/pricing'
 
 const KIND: Record<string, { label: string; cls: string }> = {
   cli: { label: 'CLI', cls: 'text-accent' },
@@ -17,8 +18,7 @@ function ago(ts: number, now: number): string {
   return `${Math.round(m / 60)}h ago`
 }
 
-function tokens(chars: number): string {
-  const t = Math.round(chars / 4) // rough heuristic, not a real tokenizer
+function fmt(t: number): string {
   return t < 1000 ? `${t}` : `${(t / 1000).toFixed(1)}k`
 }
 
@@ -50,6 +50,13 @@ export default function CockpitPanel(): JSX.Element {
         <div className="flex-1 overflow-auto">
           {agents.map((a) => {
             const k = KIND[a.kind] ?? { label: a.kind, cls: 'text-gray-400' }
+            const realTokens = a.promptTokens + a.completionTokens
+            const cost = realTokens ? costFor(a.model, a.promptTokens, a.completionTokens) : null
+            // Real provider tokens when we have them; else the chars/4 estimate.
+            const tokenLabel = realTokens ? fmt(realTokens) : `~${fmt(Math.round(a.chars / 4))}`
+            const tokenTitle = realTokens
+              ? `${a.promptTokens} in + ${a.completionTokens} out (provider-reported)`
+              : 'estimate: output chars ÷ 4 (no provider usage)'
             return (
               <button
                 key={a.id}
@@ -68,8 +75,13 @@ export default function CockpitPanel(): JSX.Element {
                   <span className={`ml-1.5 text-[10px] ${k.cls}`}>{k.label}</span>
                   {a.model && <span className="ml-1 truncate text-[10px] text-gray-500">{a.model}</span>}
                 </span>
-                <span className="shrink-0 text-[10px] text-gray-500" title="≈ output tokens (chars ÷ 4)">
-                  ~{tokens(a.chars)}
+                {cost != null && (
+                  <span className="shrink-0 text-[10px] text-green-400" title="estimated cost (static price table)">
+                    ${cost < 0.01 ? cost.toFixed(4) : cost.toFixed(2)}
+                  </span>
+                )}
+                <span className="shrink-0 text-[10px] text-gray-500" title={tokenTitle}>
+                  {tokenLabel} tok
                 </span>
                 <span className="w-14 shrink-0 text-right text-[10px] text-gray-600">{ago(a.lastTs, now)}</span>
               </button>

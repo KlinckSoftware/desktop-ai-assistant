@@ -49,6 +49,8 @@ export default function GeminiChat(): JSX.Element {
       model: geminiModel,
       status: 'idle',
       chars: 0,
+      promptTokens: 0,
+      completionTokens: 0,
       lastTs: Date.now()
     })
     return () => useAppStore.getState().removeFleet('gemini')
