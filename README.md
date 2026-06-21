@@ -1,52 +1,78 @@
 # Desktop AI Assistant
 
-Electron desktop shell around two real AI agents:
+An Electron desktop **cockpit for orchestrating multiple AI coding agents** — CLI
+agents and API providers, side by side, with a shared context pool, agent
+hand-off, debate, and saved pipelines. The app is a process orchestrator: no web
+scraping, no browser automation.
 
-- **Claude** — the `claude` (Claude Code) CLI, spawned as an interactive `node-pty`
-  session and rendered in xterm.js. Billed to your Claude subscription.
-- **Gemini** — direct REST calls to the Gemini API (`gemini-2.5-flash`), key stored
-  in the OS keychain via keytar.
+## What it runs
 
-No web scraping, no browser automation. The app is a process orchestrator.
+- **CLI agents** — any command-line agent (Claude Code, Gemini CLI, Aider, Codex,
+  OpenCode, Qwen, Crush, Goose, cursor-agent, Continue, Copilot, …) spawned as an
+  interactive `node-pty` session and rendered in xterm.js. Built-ins are listed in
+  a registry and merged with a user-editable `agents.json`; availability is probed
+  on `PATH`. Billed to your own account/login for that tool.
+- **API chats** — any OpenAI-compatible provider (OpenAI, Google Gemini via its
+  OpenAI-compatible endpoint, Groq, Mistral, OpenRouter, Ollama). Streaming chat
+  with built-in tools + MCP, per-panel model picker, keys in the OS keychain.
+  Extendable via `api_providers.json`.
+- **MCP** — Model Context Protocol servers (stdio) are connected on startup and
+  their tools exposed to the agentic loops.
+
+## Features
+
+- **Dockable panels** (dockview) — agents, chats, editor, terminal, git, diff,
+  checkpoints, debate, cockpit, pipelines. Layout persists.
+- **Shared context pool** — check files once; they ride along with every
+  prompt-controlled agent. Optional **repo map** (a symbol outline of the project)
+  can be pinned into context. CLI agents get an "inject context" button.
+- **Built-in tools** — read-only auto tools (`read_file`, `list_dir`, `repo_map`,
+  `search_code`, `git_diff`) plus gated `apply_edit` / `write_file` / `run_command`
+  and all MCP tools.
+- **Agent hand-off** — park one agent's reply and pick it up in another
+  (Gemini / API input, or a CLI prompt).
+- **Debate** — pick any two usable participants (Claude, Gemini, or a keyed API
+  provider); they propose / critique over N rounds, then one synthesizes (gated by
+  explicit approval).
+- **Pipelines** — chain participants so each step's output feeds the next; save
+  and re-run named chains.
+- **Cockpit** — live fleet of open agents with model, status, provider-reported
+  token usage and an estimated-cost meter (live LiteLLM price table, cached).
+- **Checkpoints** — every approved file edit is snapshotted and can be undone.
 
 ## Architecture
 
 ```
 Main (Node)
-├── ClaudeProcessManager  — node-pty interactive `claude` sessions
-├── ClaudeHeadless        — one-shot `claude -p` for the debate moderator
-├── GeminiClient          — streaming REST (alt=sse), bounded agentic loop
-├── CommandBroker         — default-deny approval gate for agent commands
-├── CommandExecutor       — single pty shell, sentinel-based completion detection
-├── FileSystemManager     — fs ops + chokidar watching
-├── KeychainManager       — keytar (graceful fallback if native load fails)
-└── IPCModerator          — structured Claude<->Gemini debate
-
-Renderer (React + Vite + Tailwind, allotment panes)
-├── ClaudePane    — xterm bound to the interactive Claude session
-├── GeminiChat    — streaming chat
-├── TerminalPane  — xterm bound to the executor shell
-├── FileTreePanel
-├── DebateView
-└── CommandToast  — approve / reject / trust, auto-rejects after 15s
+├── AgentProcessManager   — node-pty interactive CLI agents (generic)
+├── ClaudeHeadless        — one-shot `claude -p` (debate / pipeline Claude step)
+├── GeminiClient          — native streaming REST + tools (multimodal)
+├── OpenAIClient          — streaming /chat/completions + tools + usage capture
+├── CommandBroker         — default-deny gate for shell commands
+├── CommandExecutor       — single pty shell, scrubbed env
+├── FileEditBroker        — default-deny gate for file writes + checkpoints
+├── ToolBroker            — default-deny gate for MCP tool calls
+├── ApprovalPolicy        — main-side decision: interactive | autonomous | dry-run
+├── FileSystemManager     — root-confined fs ops + chokidar watch + repo map
+├── KeychainManager       — keytar (graceful fallback)
+├── IPCModerator          — structured two-participant debate
+└── PipelineRunner        — runs saved agent pipelines
 ```
 
-All IPC goes through a typed `window.api` bridge (`src/preload`). Context isolation
-on, node integration off.
+Renderer is React + Vite + Tailwind + dockview. All IPC goes through a typed
+`window.api` bridge (`src/preload`). Context isolation on, node integration off,
+CSP locked to `'self'`.
 
-## Security model
-
-Agent-proposed `` ```bash run `` blocks never execute automatically. Each becomes a
-PendingCommand the user must approve. "Trust" auto-approves future commands **from
-that session only**. Timeout default-rejects.
+See **[SECURITY.md](SECURITY.md)** for the trust model and where each gate lives.
 
 ## Commands
 
 ```
-npm install      # installs deps; postinstall rebuilds native modules for Electron
-npm run dev      # electron-vite dev with HMR
-npm run typecheck
-npm run dist:win # NSIS installer
+npm install       # deps; postinstall rebuilds native modules for Electron
+npm run dev       # electron-vite dev with HMR
+npm run typecheck # tsc (node + web projects)
+npm test          # vitest unit tests
+npm run dist:win  # NSIS installer (close the dev app first — native file locks)
 ```
 
 Native modules (`node-pty`, `keytar`) are rebuilt against the Electron ABI by the
@@ -54,9 +80,9 @@ Native modules (`node-pty`, `keytar`) are rebuilt against the Electron ABI by th
 
 ## Notes / caveats
 
-- Claude Code runs its own tools; the `` ```bash run `` sniffing on the Claude pty is a
-  fallback — the main execution path for parsed blocks is Gemini, which has no native
-  shell access.
-- The debate moderator uses headless `claude -p` for clean, capturable turns.
-- ToS: this drives real authenticated processes. Programmatic injection is still
-  automation — review Anthropic/Google terms for your use case.
+- CLI agents run their own tooling in a real pty — they are **not** sandboxed by
+  the app's brokers (they have full shell access, governed by that tool's own
+  permissions). Prefer pointing the project root at the repo you intend to work on.
+- API/Gemini chats and pipelines route tool calls through the app's brokers.
+- ToS: this drives real authenticated processes. Review Anthropic/Google/OpenAI
+  (etc.) terms for your use case.
