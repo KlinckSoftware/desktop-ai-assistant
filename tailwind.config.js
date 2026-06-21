@@ -8,7 +8,7 @@ export default {
         bg: '#0d1117',
         panel: '#161b22',
         border: '#30363d',
-        accent: '#58a6ff',
+        accent: 'var(--accent, #58a6ff)',
         claude: '#d97757',
         gemini: '#4285f4'
       },

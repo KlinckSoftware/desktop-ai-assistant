@@ -40,6 +40,12 @@ export default function App(): JSX.Element {
   const [ready, setReady] = useState(false)
   const [errors, setErrors] = useState<{ id: number; msg: string }[]>([])
 
+  const accentColor = useAppStore((s) => s.accentColor)
+  // Apply the accent color as the --accent CSS variable (Tailwind reads it).
+  useEffect(() => {
+    document.documentElement.style.setProperty('--accent', accentColor)
+  }, [accentColor])
+
   // Surface background failures (agent spawn, MCP, etc.) as dismissable toasts.
   useEffect(() => {
     return window.api.onAppError((msg) => {
@@ -174,7 +180,8 @@ export default function App(): JSX.Element {
           terminalScrollback: s.terminalScrollback,
           editorFontSize: s.editorFontSize,
           editorWrap: s.editorWrap,
-          costCap: s.costCap
+          costCap: s.costCap,
+          accentColor: s.accentColor
         })
       }, 600)
     })

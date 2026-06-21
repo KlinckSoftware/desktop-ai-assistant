@@ -60,6 +60,9 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
   const setEditorWrap = useAppStore((s) => s.setEditorWrap)
   const costCap = useAppStore((s) => s.costCap)
   const setCostCap = useAppStore((s) => s.setCostCap)
+  const accentColor = useAppStore((s) => s.accentColor)
+  const setAccentColor = useAppStore((s) => s.setAccentColor)
+  const ACCENTS = ['#58a6ff', '#a371f7', '#3fb950', '#f778ba', '#ff7b72', '#d29922', '#39c5cf']
   const [keyInputs, setKeyInputs] = useState<Record<string, string>>({})
 
   const saveProviderKey = async (id: string): Promise<void> => {
@@ -295,6 +298,35 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
               />
               Wrap long lines
             </label>
+          )
+        }
+      ]
+    },
+    {
+      title: 'Appearance',
+      fields: [
+        {
+          label: 'Accent color',
+          kw: 'appearance theme accent color',
+          node: (
+            <div className="flex items-center gap-2">
+              {ACCENTS.map((c) => (
+                <button
+                  key={c}
+                  className={`h-6 w-6 rounded-full border-2 ${accentColor === c ? 'border-white' : 'border-transparent'}`}
+                  style={{ backgroundColor: c }}
+                  onClick={() => setAccentColor(c)}
+                  aria-label={`Accent ${c}`}
+                />
+              ))}
+              <input
+                type="color"
+                className="h-6 w-8 cursor-pointer rounded border border-border bg-bg"
+                value={accentColor}
+                onChange={(e) => setAccentColor(e.target.value)}
+                title="Custom accent"
+              />
+            </div>
           )
         }
       ]
