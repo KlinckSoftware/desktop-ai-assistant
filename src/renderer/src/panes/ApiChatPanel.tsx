@@ -97,6 +97,15 @@ export default function ApiChatPanel(props: IDockviewPanelProps): JSX.Element {
   const send = async (): Promise<void> => {
     const text = input.trim()
     if (!text || busy || !provider) return
+    // Session cost cap (0 = off): block new sends once exceeded.
+    const st0 = useAppStore.getState()
+    if (st0.costCap > 0 && st0.sessionCost >= st0.costCap) {
+      setMessages([
+        ...messages,
+        { role: 'assistant', content: `[blocked: session cost cap $${st0.costCap} reached — raise it in Settings]` }
+      ])
+      return
+    }
     setInput('')
     const root = useAppStore.getState().projectRoot
     const expanded = await expandMentions(text, root)

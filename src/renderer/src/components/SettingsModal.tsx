@@ -58,6 +58,8 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
   const setEditorFontSize = useAppStore((s) => s.setEditorFontSize)
   const editorWrap = useAppStore((s) => s.editorWrap)
   const setEditorWrap = useAppStore((s) => s.setEditorWrap)
+  const costCap = useAppStore((s) => s.costCap)
+  const setCostCap = useAppStore((s) => s.setCostCap)
   const [keyInputs, setKeyInputs] = useState<Record<string, string>>({})
 
   const saveProviderKey = async (id: string): Promise<void> => {
@@ -293,6 +295,25 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
               />
               Wrap long lines
             </label>
+          )
+        }
+      ]
+    },
+    {
+      title: 'Budget',
+      fields: [
+        {
+          label: 'Session cost cap (USD, 0 = off)',
+          kw: 'budget cost cap money usd limit spend token',
+          node: (
+            <input
+              type="number"
+              min={0}
+              step={0.5}
+              className="w-full rounded border border-border bg-bg px-2 py-1.5 outline-none focus:border-accent"
+              value={costCap}
+              onChange={(e) => setCostCap(Math.max(0, Number(e.target.value) || 0))}
+            />
           )
         }
       ]

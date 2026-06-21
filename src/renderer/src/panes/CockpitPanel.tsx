@@ -29,6 +29,7 @@ export default function CockpitPanel(): JSX.Element {
   const sPrompt = useAppStore((s) => s.sessionPromptTokens)
   const sCompletion = useAppStore((s) => s.sessionCompletionTokens)
   const sCost = useAppStore((s) => s.sessionCost)
+  const costCap = useAppStore((s) => s.costCap)
   const [now, setNow] = useState(() => Date.now())
 
   // Re-render every 3s so the "last active" column stays fresh.
@@ -101,8 +102,16 @@ export default function CockpitPanel(): JSX.Element {
             </span>
           </span>
           {sCost > 0 && (
-            <span className="text-green-400" title="estimated session cost (static price table)">
+            <span
+              className={costCap > 0 && sCost >= costCap ? 'text-red-400' : 'text-green-400'}
+              title={
+                costCap > 0
+                  ? `estimated session cost — cap $${costCap}${sCost >= costCap ? ' (reached, API sends blocked)' : ''}`
+                  : 'estimated session cost (static price table)'
+              }
+            >
               ${sCost < 0.01 ? sCost.toFixed(4) : sCost.toFixed(2)}
+              {costCap > 0 && ` / $${costCap}`}
             </span>
           )}
         </div>
