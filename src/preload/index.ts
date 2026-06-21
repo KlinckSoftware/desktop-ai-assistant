@@ -218,7 +218,12 @@ const api = {
       ipcRenderer.invoke(CH.mcpStatus),
     reconnect: (): Promise<{ server: string; connected: boolean; toolCount: number; error?: string }[]> =>
       ipcRenderer.invoke(CH.mcpReconnect),
-    configPath: (): Promise<string> => ipcRenderer.invoke(CH.mcpConfigPath)
+    configPath: (): Promise<string> => ipcRenderer.invoke(CH.mcpConfigPath),
+    addServer: (
+      name: string,
+      cfg: { command: string; args?: string[]; env?: Record<string, string> }
+    ): Promise<{ server: string; connected: boolean; toolCount: number; error?: string }[]> =>
+      ipcRenderer.invoke(CH.mcpAddServer, name, cfg)
   }
 }
 

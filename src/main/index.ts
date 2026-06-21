@@ -189,6 +189,11 @@ function registerIpc(): void {
   ipcMain.handle(CH.mcpStatus, () => mcpManager.statusList())
   ipcMain.handle(CH.mcpReconnect, () => mcpManager.connectAll())
   ipcMain.handle(CH.mcpConfigPath, () => mcpManager.configPath())
+  ipcMain.handle(
+    CH.mcpAddServer,
+    (_e, name: string, cfg: { command: string; args?: string[]; env?: Record<string, string> }) =>
+      mcpManager.addServer(name, cfg)
+  )
   ipcMain.handle(CH.gitStatus, () => gitStatus(appState.projectRoot))
   ipcMain.handle(CH.gitHead, (_e, path: string) => gitHead(appState.projectRoot, path))
   ipcMain.handle(CH.gitChanges, () => gitChanges(appState.projectRoot))

@@ -249,5 +249,6 @@ export const CH = {
 
   mcpStatus: 'mcp:status',
   mcpReconnect: 'mcp:reconnect',
-  mcpConfigPath: 'mcp:config-path'
+  mcpConfigPath: 'mcp:config-path',
+  mcpAddServer: 'mcp:add-server'
 } as const

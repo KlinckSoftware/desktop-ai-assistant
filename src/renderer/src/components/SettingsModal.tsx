@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useAppStore } from '../store/appStore'
 import { Z } from '../zIndex'
+import AgentsModal from './AgentsModal'
+import ApiProvidersModal from './ApiProvidersModal'
 
 interface McpStatus {
   server: string
@@ -46,6 +48,31 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
   const startupAgent = useAppStore((s) => s.startupAgent)
   const setStartupAgent = useAppStore((s) => s.setStartupAgent)
   const agents = useAppStore((s) => s.agents)
+  const apiProviders = useAppStore((s) => s.apiProviders)
+  const setApiProviders = useAppStore((s) => s.setApiProviders)
+  const [keyInputs, setKeyInputs] = useState<Record<string, string>>({})
+
+  const saveProviderKey = async (id: string): Promise<void> => {
+    const v = (keyInputs[id] ?? '').trim()
+    if (!v) return
+    await window.api.api.saveKey(id, v)
+    setApiProviders(await window.api.api.providers())
+    setKeyInputs((m) => ({ ...m, [id]: '' }))
+  }
+
+  const [showAgents, setShowAgents] = useState(false)
+  const [showProviders, setShowProviders] = useState(false)
+  const [mcpName, setMcpName] = useState('')
+  const [mcpCmd, setMcpCmd] = useState('')
+  const addMcp = async (): Promise<void> => {
+    if (!mcpName.trim() || !mcpCmd.trim()) return
+    const [command, ...args] = mcpCmd.trim().split(/\s+/)
+    setMcpBusy(true)
+    setMcp(await window.api.mcp.addServer(mcpName.trim(), { command, args }))
+    setMcpBusy(false)
+    setMcpName('')
+    setMcpCmd('')
+  }
   const hasKey = useAppStore((s) => s.hasGeminiKey)
   const setHasKey = useAppStore((s) => s.setHasGeminiKey)
 
@@ -320,6 +347,38 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
               {savedMsg && <div className="mt-1 text-xs text-green-400">{savedMsg}</div>}
             </>
           )
+        },
+        {
+          label: 'Provider API keys',
+          kw: 'api key openai groq mistral openrouter google provider credential',
+          node: (
+            <div className="space-y-2">
+              {apiProviders
+                .filter((p) => !p.noKey)
+                .map((p) => (
+                  <div key={p.id} className="flex items-center gap-2">
+                    <span className="w-28 shrink-0 truncate text-gray-300" title={p.name}>
+                      {p.name} {p.hasKey && <span className="text-green-400">●</span>}
+                    </span>
+                    <input
+                      type="password"
+                      className="min-w-0 flex-1 rounded border border-border bg-bg px-2 py-1 outline-none focus:border-accent"
+                      placeholder={p.hasKey ? 'Replace key…' : 'Set key…'}
+                      value={keyInputs[p.id] ?? ''}
+                      onChange={(e) => setKeyInputs((m) => ({ ...m, [p.id]: e.target.value }))}
+                      onKeyDown={(e) => e.key === 'Enter' && saveProviderKey(p.id)}
+                    />
+                    <button
+                      className="shrink-0 rounded bg-gemini px-2 py-1 text-xs font-medium text-white disabled:opacity-40"
+                      disabled={!(keyInputs[p.id] ?? '').trim()}
+                      onClick={() => saveProviderKey(p.id)}
+                    >
+                      Save
+                    </button>
+                  </div>
+                ))}
+            </div>
+          )
         }
       ]
     },
@@ -358,7 +417,54 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
                   Edit: {mcpPath}
                 </div>
               </div>
+              <div className="mt-2 flex items-center gap-1.5">
+                <input
+                  className="w-24 rounded border border-border bg-bg px-2 py-1 text-xs outline-none focus:border-accent"
+                  placeholder="name"
+                  value={mcpName}
+                  onChange={(e) => setMcpName(e.target.value)}
+                />
+                <input
+                  className="min-w-0 flex-1 rounded border border-border bg-bg px-2 py-1 text-xs outline-none focus:border-accent"
+                  placeholder="command + args (e.g. npx -y @scope/server)"
+                  value={mcpCmd}
+                  onChange={(e) => setMcpCmd(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && addMcp()}
+                />
+                <button
+                  className="shrink-0 rounded bg-accent px-2 py-1 text-xs font-medium text-black disabled:opacity-40"
+                  disabled={mcpBusy || !mcpName.trim() || !mcpCmd.trim()}
+                  onClick={addMcp}
+                >
+                  Add
+                </button>
+              </div>
             </>
+          )
+        }
+      ]
+    },
+    {
+      title: 'Manage',
+      fields: [
+        {
+          label: 'Agents & providers',
+          kw: 'manage agents providers add cli model registry',
+          node: (
+            <div className="flex gap-2">
+              <button
+                className="flex-1 rounded border border-border bg-bg px-2 py-1.5 text-gray-200 hover:border-accent"
+                onClick={() => setShowAgents(true)}
+              >
+                Manage agents…
+              </button>
+              <button
+                className="flex-1 rounded border border-border bg-bg px-2 py-1.5 text-gray-200 hover:border-accent"
+                onClick={() => setShowProviders(true)}
+              >
+                Manage providers…
+              </button>
+            </div>
           )
         }
       ]
@@ -414,6 +520,8 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
           )}
         </div>
       </div>
+      {showAgents && <AgentsModal onClose={() => setShowAgents(false)} />}
+      {showProviders && <ApiProvidersModal onClose={() => setShowProviders(false)} />}
     </div>
   )
 }
