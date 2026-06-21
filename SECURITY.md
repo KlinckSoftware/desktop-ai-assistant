@@ -62,11 +62,14 @@ writes, publishes, remote transfer, and credential-path access.
    yet denylist-gated) directly. The **autonomous** path is fully main-authoritative.
    A complete fix (nonce/handshake proving an approval was genuinely surfaced to a
    human) is future work.
-2. **CLI agents are not sandboxed by the app.** A `node-pty` CLI agent (e.g.
-   Claude Code) has full shell access governed only by that tool's own
-   permissions — it bypasses the app's brokers entirely. Treat CLI agents with the
-   same caution as running that CLI yourself. The `claude -p` step used by
-   debate/pipelines is being constrained via `--allowedTools` (in progress).
+2. **Interactive CLI agents are not sandboxed by the app.** A `node-pty` CLI
+   agent (e.g. Claude Code in a panel) has full shell access governed only by that
+   tool's own permissions — it bypasses the app's brokers entirely. Treat
+   interactive CLI agents with the same caution as running that CLI yourself.
+   The **pipeline** `claude -p` step is constrained: its `--allowedTools` is set
+   from the step's permission preset (read-only → `Read/Grep/Glob/LS`; edit → adds
+   `Edit/Write/MultiEdit`; full → adds `Bash`), so a pipeline step can't exceed
+   its grant. (Claude still applies its own permission checks within that set.)
 3. **MCP tool arguments are not pattern-screened.** MCP calls are gated by
    approval/allowlist but there is no dangerous-argument denylist for them.
 4. **`sandbox: false`** is required for the ESM preload. Context isolation is

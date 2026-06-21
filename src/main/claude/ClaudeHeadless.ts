@@ -10,12 +10,16 @@ export function claudeOneShot(
   prompt: string,
   cwd: string,
   model?: string,
-  effort?: string
+  effort?: string,
+  allowedTools?: string[]
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const args = ['-p', prompt]
     if (model) args.push('--model', model)
     if (effort) args.push('--effort', effort)
+    // Constrain which tools Claude may use (pipeline steps). With --allowedTools
+    // set, only listed tools are pre-approved; anything else is denied under -p.
+    if (allowedTools && allowedTools.length) args.push('--allowedTools', ...allowedTools)
     const proc = spawn(CLAUDE_BIN, args, {
       cwd,
       env: cleanClaudeEnv(),
