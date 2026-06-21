@@ -117,14 +117,26 @@ export default function DebatePanel(): JSX.Element {
             onChange={(e) => setPrompt(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && start()}
           />
-          <button
-            className="rounded bg-accent px-3 py-1 font-medium text-black disabled:opacity-40"
-            disabled={running || onlyOneSide}
-            onClick={start}
-            title={onlyOneSide ? 'Need at least 2 working models/APIs (add a key or install a CLI)' : ''}
-          >
-            {running ? 'Running…' : 'Start'}
-          </button>
+          {running ? (
+            <button
+              className="rounded bg-red-600 px-3 py-1 font-medium text-white"
+              onClick={() => {
+                window.api.debate.cancel()
+                endDebate()
+              }}
+            >
+              Stop
+            </button>
+          ) : (
+            <button
+              className="rounded bg-accent px-3 py-1 font-medium text-black disabled:opacity-40"
+              disabled={onlyOneSide}
+              onClick={start}
+              title={onlyOneSide ? 'Need at least 2 working models/APIs (add a key or install a CLI)' : ''}
+            >
+              Start
+            </button>
+          )}
           <button
             className="rounded border border-border px-3 py-1 text-gray-300 hover:bg-panel disabled:opacity-40"
             disabled={running}

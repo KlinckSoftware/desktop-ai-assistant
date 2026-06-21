@@ -18,6 +18,12 @@ export class IPCModerator {
   private pendingTranscript: DebateRound[] | null = null
   private pendingPrompt = ''
   private pendingA: DebateAgent | null = null
+  private cancelled = false
+
+  /** Request cancellation; the debate stops at the next round boundary. */
+  cancel(): void {
+    this.cancelled = true
+  }
 
   constructor(
     private gemini: GeminiClient,
@@ -56,12 +62,18 @@ export class IPCModerator {
     const rounds = roundsArg ?? appState.settings.debateRounds
     const transcript: DebateRound[] = []
     const status = (s: string): void => appState.send(CH.debateStatus, s)
+    this.cancelled = false
 
     try {
       const a = await this.resolve(aId)
       const b = await this.resolve(bId)
 
       for (let i = 0; i < rounds; i++) {
+        if (this.cancelled) {
+          status('')
+          appState.send(CH.debateUpdate, { type: 'error', text: 'Debate cancelled.' })
+          return
+        }
         status(`${a.name} thinking… (round ${i + 1}/${rounds})`)
         const aPrompt =
           (i === 0

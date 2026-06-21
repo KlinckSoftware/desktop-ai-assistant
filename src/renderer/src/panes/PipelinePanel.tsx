@@ -216,13 +216,25 @@ export default function PipelinePanel(): JSX.Element {
           <input type="checkbox" checked={dryRun} onChange={(e) => setDryRun(e.target.checked)} className="accent-accent" />
           dry-run
         </label>
-        <button
-          className="rounded bg-accent px-3 py-1 font-medium text-black disabled:opacity-40"
-          onClick={run}
-          disabled={!canRun}
-        >
-          {running ? 'Running…' : dryRun ? 'Dry-run' : 'Run'}
-        </button>
+        {running ? (
+          <button
+            className="rounded bg-red-600 px-3 py-1 font-medium text-white"
+            onClick={() => {
+              window.api.pipeline.cancel()
+              setRunning(false)
+            }}
+          >
+            Stop
+          </button>
+        ) : (
+          <button
+            className="rounded bg-accent px-3 py-1 font-medium text-black disabled:opacity-40"
+            onClick={run}
+            disabled={!canRun}
+          >
+            {dryRun ? 'Dry-run' : 'Run'}
+          </button>
+        )}
       </div>
 
       <div className="flex-1 space-y-3 overflow-y-auto p-3">

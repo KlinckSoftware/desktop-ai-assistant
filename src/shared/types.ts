@@ -192,9 +192,11 @@ export const CH = {
   debateStatus: 'debate:status',
   debateSynthesize: 'debate:synthesize',
   debateDecline: 'debate:decline',
+  debateCancel: 'debate:cancel',
 
   pipelineRun: 'pipeline:run',
   pipelineUpdate: 'pipeline:update',
+  pipelineCancel: 'pipeline:cancel',
 
   terminalInput: 'terminal:input',
   terminalOutput: 'terminal:output',

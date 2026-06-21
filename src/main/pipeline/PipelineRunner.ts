@@ -24,13 +24,21 @@ export function claudeAllowedTools(mode: PermissionMode, dryRun: boolean): strin
 }
 
 export class PipelineRunner {
+  private cancelled = false
+
   constructor(
     private gemini: GeminiClient,
     private moderator: IPCModerator
   ) {}
 
+  /** Request cancellation; the run stops at the next step boundary. */
+  cancel(): void {
+    this.cancelled = true
+  }
+
   async run(steps: PipelineStep[], input: string, dryRun = false): Promise<void> {
     const send = (u: PipelineUpdate): void => appState.send(CH.pipelineUpdate, u)
+    this.cancelled = false
     try {
       const available = await this.moderator.listDebateAgents()
       const byId = new Map<string, DebateAgent>(available.map((a) => [a.id, a]))
@@ -38,6 +46,10 @@ export class PipelineRunner {
 
       let carry = input
       for (let i = 0; i < steps.length; i++) {
+        if (this.cancelled) {
+          send({ type: 'error', text: `Cancelled before step ${i + 1}.` })
+          return
+        }
         const step = steps[i]
         const agent = byId.get(step.agentId)
         if (!agent) throw new Error(`step ${i + 1}: "${step.agentId}" is not available`)
