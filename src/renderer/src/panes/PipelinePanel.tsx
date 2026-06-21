@@ -14,12 +14,14 @@ export default function PipelinePanel(): JSX.Element {
   const savePipeline = useAppStore((s) => s.savePipeline)
   const removePipeline = useAppStore((s) => s.removePipeline)
   const apiProviders = useAppStore((s) => s.apiProviders)
+  const defaultPermission = useAppStore((s) => s.pipelineDefaultPermission)
+  const defaultDryRun = useAppStore((s) => s.pipelineDefaultDryRun)
 
   const [participants, setParticipants] = useState<DebateAgent[]>([])
   const [draft, setDraft] = useState<Pipeline>(emptyDraft)
   const [input, setInput] = useState('')
   const [running, setRunning] = useState(false)
-  const [dryRun, setDryRun] = useState(false)
+  const [dryRun, setDryRun] = useState(defaultDryRun)
   const [updates, setUpdates] = useState<PipelineUpdate[]>([])
 
   useEffect(() => {
@@ -37,7 +39,8 @@ export default function PipelinePanel(): JSX.Element {
 
   const setStep = (i: number, patch: Partial<PipelineStep>): void =>
     setDraft((d) => ({ ...d, steps: d.steps.map((s, j) => (j === i ? { ...s, ...patch } : s)) }))
-  const addStep = (): void => setDraft((d) => ({ ...d, steps: [...d.steps, { agentId: firstAgent }] }))
+  const addStep = (): void =>
+    setDraft((d) => ({ ...d, steps: [...d.steps, { agentId: firstAgent, permission: defaultPermission }] }))
   const removeStep = (i: number): void => setDraft((d) => ({ ...d, steps: d.steps.filter((_, j) => j !== i) }))
 
   const loadPipeline = (id: string): void => {
