@@ -2,6 +2,7 @@ import { resolve, relative, sep } from 'path'
 import { appState } from '../state'
 import { CH, type AgentId, type PendingEdit, type Checkpoint } from '../../shared/types'
 import { decide, type ApprovalPolicy } from '../policy/ApprovalPolicy'
+import { isProtectedPath } from '../../shared/protectedPath'
 import type { FileSystemManager } from '../fs/FileSystemManager'
 
 // Default-deny gate for agent-proposed file writes (```file <path>``` blocks).
@@ -42,6 +43,8 @@ export class FileEditBroker {
       return `[edit rejected: path outside project root: ${agentPath}]`
     }
     const rel = relative(root, abs).split(sep).join('/')
+    // Block .git/ and node_modules/ writes (git-hook RCE / dependency tampering).
+    if (isProtectedPath(rel)) return `[edit rejected: protected path: ${rel}]`
     let oldContent = ''
     let isNew = false
     try {
