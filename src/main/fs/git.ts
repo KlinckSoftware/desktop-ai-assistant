@@ -232,13 +232,34 @@ export async function worktreeList(root: string): Promise<WorktreeEntry[]> {
   }
 }
 
-/** Diff of a branch against `base` (merge-base ...), capped. For review UIs. */
-export async function diffBranch(root: string, base: string, branch: string): Promise<string> {
+/**
+ * Total work in a worktree vs its base branch: a plain `git diff <base>` run
+ * INSIDE the worktree, so it captures both committed branch history and any
+ * uncommitted working changes (agents/pipelines write files but may not commit).
+ * Capped. For the review UI.
+ */
+export async function workingDiff(worktreePath: string, base: string): Promise<string> {
   try {
-    const out = await runGit(root, ['diff', '--no-color', `${base}...${branch}`])
+    const out = await runGit(worktreePath, ['diff', '--no-color', base])
     return out.length > 200000 ? out.slice(0, 200000) + '\n[…diff truncated]' : out
   } catch {
     return ''
+  }
+}
+
+/**
+ * Stage and commit everything in a worktree (best-effort; no-op when clean).
+ * Returns true if a commit was made. Used before a squash-merge so uncommitted
+ * agent work is included.
+ */
+export async function commitAll(worktreePath: string, message: string): Promise<boolean> {
+  try {
+    await runGit(worktreePath, ['add', '-A'])
+    // `commit` exits non-zero when there's nothing staged — treat as no-op.
+    await runGit(worktreePath, ['commit', '-m', message])
+    return true
+  } catch {
+    return false
   }
 }
 

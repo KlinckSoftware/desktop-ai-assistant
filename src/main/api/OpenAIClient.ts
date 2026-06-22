@@ -117,7 +117,8 @@ export async function apiCompleteAgentic(
   providerId: string,
   model: string,
   history: Message[],
-  policy: ApprovalPolicy
+  policy: ApprovalPolicy,
+  sessionId?: string
 ): Promise<string> {
   const provider = await getProvider(providerId)
   if (!provider) throw new Error(`unknown provider ${providerId}`)
@@ -141,7 +142,7 @@ export async function apiCompleteAgentic(
     messages,
     tools,
     emit: noEmit,
-    sessionId: `pipeline:${providerId}`,
+    sessionId: sessionId || `pipeline:${providerId}`,
     policy, // autonomous/dry-run: route tools through the policy, not a card
     onText: (text) => {
       transcript += text

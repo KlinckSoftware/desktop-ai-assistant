@@ -26,9 +26,17 @@ export class FileEditBroker {
 
   constructor(private fsm: FileSystemManager) {}
 
-  // Resolve an agent path against the root (confined) and snapshot old content.
-  private async buildEdit(agentPath: string, newContent: string, origin: AgentId): Promise<PendingEdit | string> {
-    const root = resolve(appState.projectRoot)
+  // Resolve an agent path against its session root (confined) and snapshot old
+  // content. `sessionRoot` is the agent's worktree when isolated, else the shared
+  // project root; it stays inside projectRoot, so fsm's own confinement holds and
+  // `rel` reads relative to the agent's tree (e.g. src/x, not .dai-trees/…/src/x).
+  private async buildEdit(
+    agentPath: string,
+    newContent: string,
+    origin: AgentId,
+    sessionRoot?: string
+  ): Promise<PendingEdit | string> {
+    const root = resolve(sessionRoot || appState.projectRoot)
     const abs = resolve(root, agentPath)
     if (abs !== root && !abs.startsWith(root + sep)) {
       return `[edit rejected: path outside project root: ${agentPath}]`
@@ -45,8 +53,8 @@ export class FileEditBroker {
   }
 
   /** Propose a file write. Resolves with an outcome string fed back to the agent. */
-  async propose(agentPath: string, newContent: string, origin: AgentId): Promise<string> {
-    const edit = await this.buildEdit(agentPath, newContent, origin)
+  async propose(agentPath: string, newContent: string, origin: AgentId, sessionRoot?: string): Promise<string> {
+    const edit = await this.buildEdit(agentPath, newContent, origin, sessionRoot)
     if (typeof edit === 'string') return edit
     appState.send(CH.editPending, edit)
     return new Promise((res) => this.pending.set(edit.id, { edit, resolve: res }))
@@ -59,9 +67,10 @@ export class FileEditBroker {
     newContent: string,
     origin: AgentId,
     kind: string,
-    policy: ApprovalPolicy
+    policy: ApprovalPolicy,
+    sessionRoot?: string
   ): Promise<string> {
-    const edit = await this.buildEdit(agentPath, newContent, origin)
+    const edit = await this.buildEdit(agentPath, newContent, origin, sessionRoot)
     if (typeof edit === 'string') return edit
     const d = decide(policy, kind)
     switch (d.action) {

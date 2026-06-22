@@ -88,9 +88,16 @@ export class CommandBroker {
     }
   }
 
-  // Actually run an approved command and broadcast its result.
+  // Actually run an approved command and broadcast its result. A session with an
+  // isolated worktree runs in that cwd (a one-off process), separate from the
+  // shared interactive pty which stays on the project root and mirrors to the
+  // terminal pane.
   private async exec(id: string, command: string, origin: AgentId, sessionId: string): Promise<string> {
-    const output = await this.executor.run(command, origin, sessionId, id)
+    const root = appState.rootFor(sessionId)
+    const output =
+      root === appState.projectRoot
+        ? await this.executor.run(command, origin, sessionId, id)
+        : await this.executor.execOnce(command, root)
     appState.send(CH.cmdResult, { id, command, output, exitInferred: true } satisfies CommandResult)
     return output
   }

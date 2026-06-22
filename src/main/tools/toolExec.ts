@@ -136,10 +136,12 @@ export function toolSpecs(): ToolSpec[] {
   return specs
 }
 
-// Resolve an agent-supplied path against the project root (kept relative-safe;
-// FileSystemManager.readFile/writeFile re-assert confinement defensively).
-function abs(p: string): string {
-  return resolve(appState.projectRoot, p)
+// Resolve an agent-supplied path against the SESSION's root — its isolated
+// worktree when it has one, else the shared project root. Worktrees live inside
+// the project root, so FileSystemManager.readFile/writeFile's root confinement
+// (assertInRoot) still holds.
+function abs(root: string, p: string): string {
+  return resolve(root, p)
 }
 
 export async function execTool(
@@ -149,7 +151,7 @@ export async function execTool(
   sessionId: string = origin,
   policy?: ApprovalPolicy
 ): Promise<string> {
-  const root = appState.projectRoot
+  const root = appState.rootFor(sessionId)
   // Gated mutating tools: with a policy (autonomous/dry-run pipeline) they route
   // through the brokers' policy path; without one (interactive chat) they use the
   // human approval card as before. Read-only tools always run (no side effects).
@@ -158,7 +160,7 @@ export async function execTool(
       // --- read-only, auto-execute ---
       case 'read_file': {
         if (!fsm) return '[no fs]'
-        const content = await fsm.readFile(abs(String(args.path ?? '')))
+        const content = await fsm.readFile(abs(root, String(args.path ?? '')))
         return content.length > 60000 ? content.slice(0, 60000) + '\n[…truncated]' : content
       }
       case 'list_dir': {
@@ -184,13 +186,13 @@ export async function execTool(
         const path = String(args.path ?? '')
         const find = String(args.find ?? '')
         const replace = String(args.replace ?? '')
-        const current = await fsm.readFile(abs(path))
+        const current = await fsm.readFile(abs(root, path))
         const i = current.indexOf(find)
         if (i < 0) return `[apply_edit: text not found in ${path}]`
         const next = current.slice(0, i) + replace + current.slice(i + find.length)
         return policy
-          ? editBroker.runWithPolicy(path, next, origin, 'apply_edit', policy)
-          : editBroker.propose(path, next, origin)
+          ? editBroker.runWithPolicy(path, next, origin, 'apply_edit', policy, root)
+          : editBroker.propose(path, next, origin, root)
       }
       case 'run_command': {
         if (!broker) return '[no executor]'
@@ -202,8 +204,8 @@ export async function execTool(
         const path = String(args.path ?? '')
         const content = String(args.content ?? '')
         return policy
-          ? editBroker.runWithPolicy(path, content, origin, 'write_file', policy)
-          : editBroker.propose(path, content, origin)
+          ? editBroker.runWithPolicy(path, content, origin, 'write_file', policy, root)
+          : editBroker.propose(path, content, origin, root)
       }
       default:
         return policy ? toolBroker.runWithPolicy(name, args, policy) : toolBroker.propose(name, args)

@@ -1,5 +1,6 @@
 import * as pty from 'node-pty'
 import type { IPty } from 'node-pty'
+import { exec } from 'child_process'
 import { appState } from '../state'
 import { CH, type AgentId } from '../../shared/types'
 import { resolveBin, cleanClaudeEnv } from '../util/resolveBin'
@@ -116,6 +117,26 @@ export class CommandExecutor {
     return new Promise((resolve) => {
       this.queue.push({ id, command, origin, sessionId, resolve })
       this.pump()
+    })
+  }
+
+  /**
+   * Run a one-off command in a specific working directory (an isolated worktree),
+   * separate from the shared interactive pty. Used for agent/pipeline tool calls
+   * that must execute in the session's worktree rather than the project root.
+   * Returns combined stdout+stderr; never rejects.
+   */
+  execOnce(command: string, cwd: string): Promise<string> {
+    return new Promise((resolve) => {
+      exec(
+        command,
+        { cwd, env: cleanClaudeEnv() as NodeJS.ProcessEnv, timeout: 120_000, maxBuffer: 1 << 24, windowsHide: true },
+        (err, stdout, stderr) => {
+          const out = `${stdout || ''}${stderr || ''}`.trimEnd()
+          if (err && !out) resolve(`[command failed: ${err.message}]`)
+          else resolve(out || '[no output]')
+        }
+      )
     })
   }
 
