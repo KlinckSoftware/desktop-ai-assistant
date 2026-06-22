@@ -240,7 +240,18 @@ export async function worktreeList(root: string): Promise<WorktreeEntry[]> {
  */
 export async function workingDiff(worktreePath: string, base: string): Promise<string> {
   try {
-    const out = await runGit(worktreePath, ['diff', '--no-color', base])
+    // Diff against the MERGE-BASE (the commit the branch forked from), not the
+    // live `base` ref — `base` (e.g. "main") keeps moving as the user commits, and
+    // diffing a stale worktree against the moved tip would show those unrelated
+    // later commits inverted as deletions. The merge-base is the stable fork point,
+    // so this shows only what THIS worktree actually changed (committed + working).
+    let from = base
+    try {
+      from = (await runGit(worktreePath, ['merge-base', base, 'HEAD'])).trim() || base
+    } catch {
+      /* base ref unresolvable — fall back to the ref itself */
+    }
+    const out = await runGit(worktreePath, ['diff', '--no-color', from])
     return out.length > 200000 ? out.slice(0, 200000) + '\n[…diff truncated]' : out
   } catch {
     return ''
