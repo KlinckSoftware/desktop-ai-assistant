@@ -106,13 +106,28 @@ export interface Pipeline {
   steps: PipelineStep[]
 }
 
-// Streamed result of one pipeline step.
+// Streamed result of one pipeline step. `runId` ties updates to a specific run
+// (RunManager) so the renderer can route concurrent/background runs correctly.
 export interface PipelineUpdate {
-  type: 'step' | 'error' | 'done'
+  type: 'queued' | 'started' | 'step' | 'error' | 'done'
+  runId?: string
   index?: number
   agentId?: string
   name?: string
   text?: string
+}
+
+// Main-owned record of a pipeline run (active or recent), so a reopened panel
+// can show in-flight runs and history survives the panel being closed.
+export interface RunInfo {
+  id: string
+  ts: number
+  input: string
+  dryRun: boolean
+  label: string
+  status: 'queued' | 'running' | 'done' | 'error' | 'cancelled'
+  steps: PipelineStep[]
+  updates: PipelineUpdate[]
 }
 
 // A completed pipeline run, kept in history so it can be reviewed / re-run.
@@ -215,9 +230,11 @@ export const CH = {
   debateDecline: 'debate:decline',
   debateCancel: 'debate:cancel',
 
-  pipelineRun: 'pipeline:run',
-  pipelineUpdate: 'pipeline:update',
-  pipelineCancel: 'pipeline:cancel',
+  pipelineRun: 'pipeline:run', // (steps, input, dryRun) -> runId
+  pipelineUpdate: 'pipeline:update', // runId-tagged step/status updates
+  pipelineCancel: 'pipeline:cancel', // (runId)
+  pipelineRuns: 'pipeline:runs', // -> RunInfo[] (active + recent), for panel mount
+  runComplete: 'run:complete', // (RunInfo) a run finished — for toast/notify
 
   terminalInput: 'terminal:input',
   terminalOutput: 'terminal:output',

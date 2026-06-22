@@ -17,7 +17,6 @@ export default function PipelinePanel(): JSX.Element {
   const defaultPermission = useAppStore((s) => s.pipelineDefaultPermission)
   const defaultDryRun = useAppStore((s) => s.pipelineDefaultDryRun)
   const pipelineRuns = useAppStore((s) => s.pipelineRuns)
-  const addPipelineRun = useAppStore((s) => s.addPipelineRun)
 
   const [participants, setParticipants] = useState<DebateAgent[]>([])
   const [draft, setDraft] = useState<Pipeline>(emptyDraft)
@@ -25,29 +24,32 @@ export default function PipelinePanel(): JSX.Element {
   const [running, setRunning] = useState(false)
   const [dryRun, setDryRun] = useState(defaultDryRun)
   const [updates, setUpdates] = useState<PipelineUpdate[]>([])
-  // Accumulates the in-flight run so it can be saved to history on completion.
-  const runRef = useRef<{ input: string; dryRun: boolean; steps: PipelineStep[]; updates: PipelineUpdate[] } | null>(null)
+  // The run this panel is currently showing (set on Run, or adopted on mount if
+  // a background run is in flight). Updates for other runs are ignored here.
+  const activeRunId = useRef<string | null>(null)
 
   useEffect(() => {
     window.api.debate.agents().then(setParticipants)
+    // Adopt an in-flight run (e.g. started before this panel was opened/reopened).
+    window.api.pipeline.runs().then((runs) => {
+      const live = runs.find((r) => r.status === 'running' || r.status === 'queued')
+      if (live) {
+        activeRunId.current = live.id
+        setUpdates(live.updates.filter((u) => u.type === 'step' || u.type === 'error'))
+        setRunning(true)
+      }
+    })
   }, [])
 
   useEffect(() => {
+    // Display only the run this panel owns. History + completion toast are handled
+    // globally in App.tsx, so the run is captured even if this panel is closed.
     return window.api.pipeline.onUpdate((u) => {
-      if (u.type === 'step' || u.type === 'error') {
-        setUpdates((prev) => [...prev, u])
-        runRef.current?.updates.push(u)
-      }
-      if (u.type === 'done' || u.type === 'error') {
-        setRunning(false)
-        const r = runRef.current
-        if (r) {
-          addPipelineRun({ id: newId(), ts: Date.now(), input: r.input, dryRun: r.dryRun, steps: r.steps, updates: r.updates })
-          runRef.current = null
-        }
-      }
+      if (u.runId !== activeRunId.current) return
+      if (u.type === 'step' || u.type === 'error') setUpdates((prev) => [...prev, u])
+      if (u.type === 'done' || u.type === 'error') setRunning(false)
     })
-  }, [addPipelineRun])
+  }, [])
 
   const firstAgent = participants[0]?.id ?? 'claude'
 
@@ -77,16 +79,16 @@ export default function PipelinePanel(): JSX.Element {
   const hasStarter = input.trim().length > 0 || (draft.steps[0]?.instruction ?? '').trim().length > 0
   const canRun = !running && draft.steps.length > 0 && hasStarter
 
-  const run = (): void => {
+  const run = async (): Promise<void> => {
     if (!canRun) return
     setUpdates([])
-    runRef.current = { input, dryRun, steps: draft.steps, updates: [] }
     setRunning(true)
-    window.api.pipeline.run(draft.steps, input, dryRun).catch((e) => {
+    try {
+      activeRunId.current = await window.api.pipeline.run(draft.steps, input, dryRun)
+    } catch (e) {
       setUpdates((p) => [...p, { type: 'error', text: String(e) }])
       setRunning(false)
-      runRef.current = null
-    })
+    }
   }
 
   // Reopen a past run: load its input/steps/output back into the panel.
@@ -265,7 +267,7 @@ export default function PipelinePanel(): JSX.Element {
           <button
             className="rounded bg-red-600 px-3 py-1 font-medium text-white"
             onClick={() => {
-              window.api.pipeline.cancel()
+              if (activeRunId.current) window.api.pipeline.cancel(activeRunId.current)
               setRunning(false)
             }}
           >

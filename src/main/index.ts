@@ -35,6 +35,7 @@ import { setBrokers } from './tools/toolExec'
 import type { ApiProvider } from '../shared/types'
 import { IPCModerator } from './moderator/IPCModerator'
 import { PipelineRunner } from './pipeline/PipelineRunner'
+import { RunManager } from './pipeline/RunManager'
 import type { PipelineStep, WorktreeInfo } from '../shared/types'
 import { worktreeManager } from './worktree/WorktreeManager'
 import { workingDiff } from './fs/git'
@@ -47,6 +48,7 @@ let fsm: FileSystemManager
 let editBroker: FileEditBroker
 let moderator: IPCModerator
 let pipeline: PipelineRunner
+let runManager: RunManager
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -90,6 +92,7 @@ function initServices(): void {
   setBrokers(broker, editBroker, fsm) // shared tool exec for the API chats
   moderator = new IPCModerator(gemini, broker)
   pipeline = new PipelineRunner(gemini, moderator)
+  runManager = new RunManager(pipeline)
   fsm.watch(appState.projectRoot)
 }
 
@@ -173,11 +176,12 @@ function registerIpc(): void {
   ipcMain.handle(CH.debateDecline, () => moderator.decline())
   ipcMain.handle(CH.debateCancel, () => moderator.cancel())
 
-  // --- Pipelines ---
+  // --- Pipelines (runs go through RunManager: serialized, main-owned, background-safe) ---
   ipcMain.handle(CH.pipelineRun, (_e, steps: PipelineStep[], input: string, dryRun?: boolean) =>
-    pipeline.run(steps, input, dryRun)
+    runManager.start(steps, input, dryRun)
   )
-  ipcMain.handle(CH.pipelineCancel, () => pipeline.cancel())
+  ipcMain.handle(CH.pipelineCancel, (_e, runId: string) => runManager.cancel(runId))
+  ipcMain.handle(CH.pipelineRuns, () => runManager.list())
 
   // --- Terminal (direct user input) ---
   ipcMain.on(CH.terminalInput, (_e, data: string) => executor.writeRaw(data))

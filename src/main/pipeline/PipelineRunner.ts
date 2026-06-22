@@ -42,8 +42,17 @@ export class PipelineRunner {
     this.controller?.abort()
   }
 
-  async run(steps: PipelineStep[], input: string, dryRun = false): Promise<void> {
-    const send = (u: PipelineUpdate): void => appState.send(CH.pipelineUpdate, u)
+  // `emit` is the update sink (RunManager tags each update with its runId and
+  // broadcasts/stores it). `runId` (when given) is used as the worktree/session
+  // key so a run's branch is named after it.
+  async run(
+    steps: PipelineStep[],
+    input: string,
+    dryRun = false,
+    emit: (u: PipelineUpdate) => void = (u) => appState.send(CH.pipelineUpdate, u),
+    runIdArg?: string
+  ): Promise<void> {
+    const send = emit
     this.cancelled = false
     this.controller = new AbortController()
     const signal = this.controller.signal
@@ -55,7 +64,7 @@ export class PipelineRunner {
     // One canonical session key for the whole run — used as the WorktreeManager
     // key, the appState session-root key, and the execTool sessionId, so all three
     // agree (and worktreeRemove can clear the right root).
-    const runId = `run-${++runSeq}`
+    const runId = runIdArg || `run-${++runSeq}`
     let workRoot = appState.projectRoot
     if (!dryRun && appState.settings.isolateAgents) {
       const wt = await worktreeManager.create(appState.projectRoot, runId, 'pipeline').catch(() => null)
