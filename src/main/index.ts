@@ -62,6 +62,9 @@ function createWindow(): void {
     show: false,
     backgroundColor: '#0d1117',
     title: 'Desktop AI Assistant',
+    // Packaged: use the bundled app icon for the window/taskbar (resources are
+    // unpacked next to the exe). Dev falls back to Electron's default.
+    ...(app.isPackaged ? { icon: join(process.resourcesPath, 'icon.ico') } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.mjs'),
       contextIsolation: true,
