@@ -14,15 +14,23 @@ export async function completeParticipant(
   agent: DebateAgent,
   prompt: string,
   history: Message[],
-  gemini: GeminiClient
+  gemini: GeminiClient,
+  signal?: AbortSignal
 ): Promise<string> {
   if (agent.kind === 'claude') {
-    return claudeOneShot(prompt, appState.projectRoot, appState.settings.claudeModel, appState.settings.claudeEffort)
+    return claudeOneShot(
+      prompt,
+      appState.projectRoot,
+      appState.settings.claudeModel,
+      appState.settings.claudeEffort,
+      undefined,
+      signal
+    )
   }
   if (agent.kind === 'gemini') {
-    return gemini.complete(prompt, history)
+    return gemini.complete(prompt, history, signal)
   }
   const providerId = agent.id.slice('api:'.length)
   const provider = (await listProviders()).find((p) => p.id === providerId)
-  return apiComplete(providerId, provider?.defaultModel ?? '', [...history, { role: 'user', content: prompt }])
+  return apiComplete(providerId, provider?.defaultModel ?? '', [...history, { role: 'user', content: prompt }], signal)
 }

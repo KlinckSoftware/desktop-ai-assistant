@@ -28,20 +28,25 @@ export function claudeAllowedTools(mode: PermissionMode, dryRun: boolean): strin
 
 export class PipelineRunner {
   private cancelled = false
+  private controller: AbortController | null = null
 
   constructor(
     private gemini: GeminiClient,
     private moderator: IPCModerator
   ) {}
 
-  /** Request cancellation; the run stops at the next step boundary. */
+  /** Request cancellation: aborts the in-flight step's model call AND stops at
+   *  the next step boundary. */
   cancel(): void {
     this.cancelled = true
+    this.controller?.abort()
   }
 
   async run(steps: PipelineStep[], input: string, dryRun = false): Promise<void> {
     const send = (u: PipelineUpdate): void => appState.send(CH.pipelineUpdate, u)
     this.cancelled = false
+    this.controller = new AbortController()
+    const signal = this.controller.signal
 
     // The whole run shares ONE worktree/branch (pipeline/<runId>): every step and
     // any orchestrator-spawned subagent commits there, so the run produces a single
@@ -85,7 +90,7 @@ export class PipelineRunner {
           const providerId = agent.id.slice('api:'.length)
           const model = step.model || providers.find((p) => p.id === providerId)?.defaultModel || ''
           const policy = policyForStep(step.permission ?? 'read-only', dryRun)
-          text = await apiCompleteAgentic(providerId, model, [{ role: 'user', content: prompt }], policy, runId)
+          text = await apiCompleteAgentic(providerId, model, [{ role: 'user', content: prompt }], policy, runId, signal)
         } else if (agent.kind === 'claude') {
           // Claude runs its own tooling in the run's worktree; constrain the tool
           // SET to the step's preset via --allowedTools so it can't exceed its grant.
@@ -95,17 +100,22 @@ export class PipelineRunner {
             workRoot,
             step.model || appState.settings.claudeModel,
             step.effort || appState.settings.claudeEffort,
-            claudeAllowedTools(step.permission ?? 'read-only', dryRun)
+            claudeAllowedTools(step.permission ?? 'read-only', dryRun),
+            signal
           )
         } else {
           // Gemini-native step: one-shot text (no app-gated tools).
-          text = await completeParticipant(agent, prompt, [], this.gemini)
+          text = await completeParticipant(agent, prompt, [], this.gemini, signal)
         }
         carry = text
         send({ type: 'step', index: i, agentId: agent.id, name: agent.name, text })
       }
       send({ type: 'done' })
     } catch (err) {
+      if (this.cancelled || (err instanceof Error && err.name === 'AbortError')) {
+        send({ type: 'error', text: 'Cancelled.' })
+        return
+      }
       send({ type: 'error', text: err instanceof Error ? err.message : String(err) })
     }
   }
