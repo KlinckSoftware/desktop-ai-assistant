@@ -7,6 +7,42 @@ const newId = (): string =>
 
 const emptyDraft = (): Pipeline => ({ id: newId(), name: 'New pipeline', steps: [] })
 
+// Assign sequential s1.. ids to any steps missing one (deps reference ids).
+const ensureIds = (steps: PipelineStep[]): PipelineStep[] => {
+  const used = new Set(steps.map((s) => s.id).filter(Boolean))
+  let i = 1
+  return steps.map((s) => {
+    if (s.id) return s
+    let id = `s${i++}`
+    while (used.has(id)) id = `s${i++}`
+    used.add(id)
+    return { ...s, id }
+  })
+}
+const nextStepId = (steps: PipelineStep[]): string => {
+  const nums = steps.map((s) => Number(/^s(\d+)$/.exec(s.id ?? '')?.[1])).filter((n) => !Number.isNaN(n))
+  return `s${(nums.length ? Math.max(...nums) : 0) + 1}`
+}
+
+// Role templates: pre-built chains (per-step models) the user can instantiate.
+const PRESETS: { name: string; steps: PipelineStep[] }[] = [
+  {
+    name: 'Plan → Implement → Review',
+    steps: [
+      { id: 'plan', agentId: 'claude', instruction: 'Write a concise step-by-step implementation plan.', permission: 'read-only', model: 'opus' },
+      { id: 'impl', agentId: 'claude', instruction: 'Implement this plan now — make the edits.', permission: 'edit', model: 'opus', deps: ['plan'] },
+      { id: 'review', agentId: 'claude', instruction: 'Review the changes for bugs/style; list issues.', permission: 'read-only', model: 'haiku', deps: ['impl'] }
+    ]
+  },
+  {
+    name: 'Implement → Docs',
+    steps: [
+      { id: 'impl', agentId: 'claude', instruction: 'Implement the task.', permission: 'edit', model: 'opus' },
+      { id: 'docs', agentId: 'claude', instruction: 'Update the README/docs to reflect these changes.', permission: 'edit', model: 'haiku', deps: ['impl'] }
+    ]
+  }
+]
+
 // Saved agent pipelines: chain participants so each one's output feeds the next.
 // Edit + save chains; run a prompt through them and watch each step's output.
 export default function PipelinePanel(): JSX.Element {
@@ -56,13 +92,30 @@ export default function PipelinePanel(): JSX.Element {
   const setStep = (i: number, patch: Partial<PipelineStep>): void =>
     setDraft((d) => ({ ...d, steps: d.steps.map((s, j) => (j === i ? { ...s, ...patch } : s)) }))
   const addStep = (): void =>
-    setDraft((d) => ({ ...d, steps: [...d.steps, { agentId: firstAgent, permission: defaultPermission }] }))
+    setDraft((d) => ({
+      ...d,
+      steps: [...d.steps, { id: nextStepId(d.steps), agentId: firstAgent, permission: defaultPermission }]
+    }))
   const removeStep = (i: number): void => setDraft((d) => ({ ...d, steps: d.steps.filter((_, j) => j !== i) }))
+  // Toggle whether step i consumes the output of an earlier step `depId`.
+  const toggleDep = (i: number, depId: string): void =>
+    setDraft((d) => ({
+      ...d,
+      steps: d.steps.map((s, j) => {
+        if (j !== i) return s
+        const cur = s.deps ?? []
+        return { ...s, deps: cur.includes(depId) ? cur.filter((x) => x !== depId) : [...cur, depId] }
+      })
+    }))
+  const loadTemplate = (name: string): void => {
+    const p = PRESETS.find((x) => x.name === name)
+    if (p) setDraft({ id: newId(), name: p.name, steps: JSON.parse(JSON.stringify(p.steps)) })
+  }
 
   const loadPipeline = (id: string): void => {
     if (id === '') return setDraft(emptyDraft())
     const p = pipelines.find((x) => x.id === id)
-    if (p) setDraft(JSON.parse(JSON.stringify(p)))
+    if (p) setDraft({ ...JSON.parse(JSON.stringify(p)), steps: ensureIds(JSON.parse(JSON.stringify(p.steps))) })
   }
 
   const save = (): void => {
@@ -98,7 +151,7 @@ export default function PipelinePanel(): JSX.Element {
     setUpdates(r.updates)
     setInput(r.input)
     setDryRun(r.dryRun)
-    setDraft((d) => ({ ...d, steps: JSON.parse(JSON.stringify(r.steps)) }))
+    setDraft((d) => ({ ...d, steps: ensureIds(JSON.parse(JSON.stringify(r.steps))) }))
   }
   const runLabel = (r: PipelineRun): string => {
     const txt = (r.input || r.steps[0]?.instruction || '(run)').replace(/\s+/g, ' ').slice(0, 28)
@@ -120,6 +173,19 @@ export default function PipelinePanel(): JSX.Element {
           <option value="">+ New</option>
           {pipelines.map((p) => (
             <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+        <select
+          className="rounded border border-border bg-panel px-1.5 py-0.5 text-[11px] text-gray-300 outline-none focus:border-accent"
+          value=""
+          onChange={(e) => e.target.value && loadTemplate(e.target.value)}
+          title="Start from a role template"
+        >
+          <option value="">Template ▾</option>
+          {PRESETS.map((p) => (
+            <option key={p.name} value={p.name}>
               {p.name}
             </option>
           ))}
@@ -222,6 +288,40 @@ export default function PipelinePanel(): JSX.Element {
                     <option value="high">high</option>
                   </select>
                 )}
+              </div>
+              {/* DAG inputs + conditional + map */}
+              <div className="mt-1 flex flex-wrap items-center gap-1.5 pl-6 text-[10px] text-gray-500">
+                <span className="font-mono text-gray-600">#{step.id}</span>
+                {i > 0 && (
+                  <span className="flex flex-wrap items-center gap-1">
+                    <span>inputs:</span>
+                    {draft.steps.slice(0, i).map((dep) => {
+                      const on = (step.deps ?? []).includes(dep.id ?? '')
+                      return (
+                        <button
+                          key={dep.id}
+                          onClick={() => toggleDep(i, dep.id ?? '')}
+                          className={`rounded border px-1 ${on ? 'border-accent text-accent' : 'border-border text-gray-500'}`}
+                          title="Feed this earlier step's output into this step"
+                        >
+                          #{dep.id}
+                        </button>
+                      )
+                    })}
+                    {!step.deps?.length && <span className="text-gray-600">(prev)</span>}
+                  </span>
+                )}
+                <input
+                  className="w-32 rounded border border-border bg-panel px-1.5 py-0.5 outline-none focus:border-accent"
+                  placeholder="only if contains…"
+                  value={step.condition?.contains ?? ''}
+                  onChange={(e) => setStep(i, { condition: e.target.value ? { contains: e.target.value } : undefined })}
+                  title="Skip this step unless its input contains this text"
+                />
+                <label className="flex items-center gap-1" title="Run the instruction once per non-empty input line">
+                  <input type="checkbox" checked={!!step.map} onChange={(e) => setStep(i, { map: e.target.checked })} />
+                  map
+                </label>
               </div>
             </div>
           )

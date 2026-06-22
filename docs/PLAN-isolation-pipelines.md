@@ -8,7 +8,7 @@ Recommended build order:
 2. **§2 option A** ✅ DONE (0.30.0) — Review & Merge panel (diff per branch, Merge/Discard); boot reconciles surviving worktrees.
 3. **§6 cancel** ✅ DONE (0.31.0) — cancel aborts the in-flight model call (fetch signal + child kill), not just at the step boundary.
 4. **§5 Tier 1/2** ✅ DONE (0.32.0 + 0.33.0) — RunManager (background-safe) + in-app Scheduler (interval/daily/git triggers).
-5. **§3 DAG + role template** — remaining
+5. **§3 DAG + role template** ✅ DONE (0.35.0 + 0.36.0) — graph runner (topo, multi-input, conditional, map) + DAG UI + role-template presets. All plan items shipped.
 
 ---
 
@@ -90,6 +90,17 @@ Phase it: (a) WorktreeManager + per-session CommandExecutor; (b) thread sessionR
 Plan: **A** now, **B** as a gated toggle, evolve cockpit toward **C**.
 
 ---
+
+## ✅ §3 — Pipeline redesign — **DONE (0.35.0 + 0.36.0)**
+
+> **As built:** steps gained `id`/`deps`/`condition`/`map`. Pure `graph.ts`
+> (normalize, topoOrder, resolvePrompt with `${id}`/`${input}`, conditionMet,
+> mapItems) drives a `outputs`-map runner that executes in **topological order,
+> sequentially** (one shared worktree stays safe). Conditional steps skip; map
+> steps fan out over input lines. UI: per-step id badge + "inputs from" dep chips
+> + only-if-contains field + map toggle, plus a **Template ▾** menu with
+> role-template presets (Plan→Implement→Review, Implement→Docs, per-step models).
+> **True parallel execution + sub-worktrees deferred** (the heavy option).
 
 ## §3 — Pipeline redesign (design options)
 
