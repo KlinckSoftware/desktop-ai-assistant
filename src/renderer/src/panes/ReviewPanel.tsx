@@ -56,14 +56,33 @@ export default function ReviewPanel(): JSX.Element {
     refresh()
   }
 
+  const discardAll = async (): Promise<void> => {
+    if (!worktrees.length) return
+    if (!window.confirm(`Discard all ${worktrees.length} branch(es) and their worktrees? This cannot be undone.`)) return
+    setBusy(true)
+    for (const w of worktrees) await window.api.worktree.remove(w.sessionId, 'discard')
+    setBusy(false)
+    refresh()
+  }
+
   const cur = worktrees.find((w) => w.sessionId === selected)
 
   return (
     <div className="flex h-full bg-bg text-xs">
       {/* left: worktree list */}
       <div className="flex w-56 shrink-0 flex-col border-r border-border">
-        <div className="border-b border-border px-3 py-1.5 font-semibold text-accent">
-          Review ({worktrees.length})
+        <div className="flex items-center gap-2 border-b border-border px-3 py-1.5">
+          <span className="font-semibold text-accent">Review ({worktrees.length})</span>
+          {worktrees.length > 0 && (
+            <button
+              disabled={busy}
+              onClick={discardAll}
+              className="ml-auto rounded border border-red-700/60 px-1.5 py-0.5 text-[10px] text-red-300 hover:bg-red-900/30 disabled:opacity-50"
+              title="Discard every branch + worktree"
+            >
+              Discard all
+            </button>
+          )}
         </div>
         <div className="flex-1 overflow-auto">
           {worktrees.length === 0 && (
