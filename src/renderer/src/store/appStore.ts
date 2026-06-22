@@ -56,6 +56,7 @@ export interface PersistedState {
   apiModels: Record<string, string>
   pipelines: Pipeline[]
   pipelineRuns: PipelineRun[]
+  persistRunOutputs: boolean
   approvalTimeout: number
   pipelineDefaultPermission: AppState['pipelineDefaultPermission']
   pipelineDefaultDryRun: boolean
@@ -157,6 +158,9 @@ interface AppState {
   // Recent pipeline runs (capped) for review / re-run.
   pipelineRuns: PipelineRun[]
   addPipelineRun: (r: PipelineRun) => void
+  persistRunOutputs: boolean // keep run output text in history (off → metadata only)
+  setPersistRunOutputs: (v: boolean) => void
+  clearHistory: () => void // wipe chats, debate, api chats, run history
 
   // Registered CLI agents (from main). Agent instances live as dock panels.
   agents: AgentDef[]
@@ -332,6 +336,9 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   pipelineRuns: [],
   addPipelineRun: (r) => set((s) => ({ pipelineRuns: [r, ...s.pipelineRuns].slice(0, 20) })),
+  persistRunOutputs: true,
+  setPersistRunOutputs: (v) => set({ persistRunOutputs: v }),
+  clearHistory: () => set({ geminiMessages: [], debateUpdates: [], apiChats: {}, pipelineRuns: [] }),
 
   agents: [],
   setAgents: (a) => set({ agents: a }),
@@ -489,6 +496,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       apiModels: d.apiModels ?? {},
       pipelines: d.pipelines ?? [],
       pipelineRuns: d.pipelineRuns ?? [],
+      persistRunOutputs: d.persistRunOutputs ?? true,
       debateRunning: false, // never restore a "running" flag — the backend is gone
       debateStatus: ''
     })

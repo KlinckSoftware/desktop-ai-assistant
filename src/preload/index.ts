@@ -86,6 +86,7 @@ const api = {
       ipcRenderer.invoke(CH.pipelineRun, steps, input, dryRun, allowFull),
     cancel: (runId: string): Promise<void> => ipcRenderer.invoke(CH.pipelineCancel, runId),
     runs: (): Promise<RunInfo[]> => ipcRenderer.invoke(CH.pipelineRuns),
+    clearRuns: (): Promise<void> => ipcRenderer.invoke(CH.pipelineClearRuns),
     onUpdate: (cb: (u: PipelineUpdate) => void): (() => void) => {
       const h = (_e: unknown, u: PipelineUpdate): void => cb(u)
       ipcRenderer.on(CH.pipelineUpdate, h)
