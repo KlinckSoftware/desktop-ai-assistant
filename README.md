@@ -2,8 +2,10 @@
 
 An Electron desktop **cockpit for orchestrating multiple AI coding agents** — CLI
 agents and API providers, side by side, with a shared context pool, agent
-hand-off, debate, and saved pipelines. The app is a process orchestrator: no web
-scraping, no browser automation.
+hand-off, debate, saved pipelines, **per-agent git-worktree isolation**, a
+**review/merge** flow, and a **scheduler** for unattended runs. The app is a
+process orchestrator: no web scraping, no browser automation. There's an in-app
+**Guide** (top-bar `? Guide`, auto-opens on first run) that walks through all of it.
 
 ## What it runs
 
@@ -22,32 +24,48 @@ scraping, no browser automation.
 ## Features
 
 - **Dockable panels** (dockview) — agents, chats, editor, terminal, git, diff,
-  checkpoints, debate, cockpit, pipelines. Layout persists.
+  checkpoints, debate, cockpit, pipelines, **review**, **runs**. Layout persists.
 - **Shared context pool** — check files once; they ride along with every
   prompt-controlled agent. Optional **repo map** (a symbol outline of the project)
   can be pinned into context. CLI agents get an "inject context" button.
 - **Built-in tools** — read-only auto tools (`read_file`, `list_dir`, `repo_map`,
   `search_code`, `git_diff`) plus gated `apply_edit` / `write_file` / `run_command`
-  and all MCP tools.
+  and all MCP tools. API + Gemini share the same tools **and** the same tool-usage
+  system prompt, so they behave alike.
+- **Per-agent isolation** — each CLI-agent session and each pipeline run works in
+  its **own git worktree on its own branch** (needs a git repo with a commit; else
+  it falls back to the shared folder). Parallel agents can't stomp each other, and
+  an agent is confined to a branch. Idle worktrees auto-prune on launch.
+- **Review & merge** — the **Review** panel lists each branch, shows its diff vs
+  the fork point, and offers **Merge** (squash into base) or **Discard** (+ a
+  "Discard all").
 - **Agent hand-off** — park one agent's reply and pick it up in another
   (Gemini / API input, or a CLI prompt).
 - **Debate** — pick any two usable participants (Claude, Gemini, or a keyed API
   provider); they propose / critique over N rounds, then one synthesizes (gated by
-  explicit approval). Cancellable mid-run.
-- **Pipelines** — chain participants so each step's output feeds the next. API
-  and Claude steps do **gated, policy-bounded file work**: a per-step permission
-  preset (read-only / edit / full) and per-step model + effort, a **dry-run**
-  mode, live **cancel**, and persisted **run history** (re-run a past run). Save
-  and reuse named chains.
+  explicit approval). Claude is tool-constrained per phase (read-only rounds, edit
+  synthesis). Cancellable mid-run.
+- **Pipelines** — build a small **graph**, not just a chain: per step a permission
+  preset (read-only / edit / full), model + effort, **inputs** (fan-in from earlier
+  steps), an **only-if-contains** condition, and **map** (run per input line).
+  Run in topological order; `${id}`/`${input}` interpolation; **templates**
+  (plan→implement→review); **dry-run**; live **cancel**; persisted **run history**.
+  A `full` step runs shell only with an explicit **allow-shell** opt-in.
+- **Runs & scheduler** — the **Runs** panel shows every run (manual, background, or
+  scheduled) live; runs survive closing their panel and are serialized. **Settings
+  → Schedules** runs a saved pipeline on a trigger — every N minutes, daily, or on
+  a git/file change (unattended/autonomous; in-app, i.e. while the app is open).
 - **Cockpit** — live fleet of open agents with model, status, provider-reported
   token usage and an estimated-cost meter (live LiteLLM price table, cached), plus
-  a session total and an optional **cost cap** that blocks new API sends.
+  a session total and an optional **cost cap** (enforced in main, so it also bounds
+  scheduled/background runs).
 - **Checkpoints** — every approved file edit is snapshotted and can be undone
   (autonomous pipeline edits included).
-- **Settings** — one searchable, sectioned panel: models, appearance (accent),
-  budget, pipeline/terminal/editor/startup prefs, security (incl. configurable
-  approval timeout), per-provider API keys, MCP servers (with an add form), and
-  links to manage agents/providers.
+- **Settings** — a searchable, IntelliJ-style two-pane panel (section list + content):
+  models, appearance, budget, pipeline/terminal/editor/startup prefs, **security**
+  (approval timeout, secret-read guard, clear-history, and restrict/loosen knobs:
+  always-confirm, default-allow-shell, allow-protected-writes), isolation,
+  schedules, per-provider keys, MCP servers, and links to manage agents/providers.
 
 ## Architecture
 
@@ -57,16 +75,21 @@ Main (Node)
 ├── ClaudeHeadless        — one-shot `claude -p` (debate / pipeline Claude step)
 ├── GeminiClient          — native streaming REST + tools (multimodal)
 ├── OpenAIClient          — streaming /chat/completions + tools + usage capture
+├── systemPrompt          — shared AGENT_SYSTEM + MAX_TOOL_TURNS (api ≡ gemini)
 ├── CommandBroker         — default-deny gate for shell commands
-├── CommandExecutor       — single pty shell, scrubbed env
+├── CommandExecutor       — pty shell + execOnce(cwd) for worktree commands
 ├── FileEditBroker        — default-deny gate for file writes + checkpoints
 ├── MCPClientManager      — connects stdio MCP servers, proxies their tools
 ├── ToolBroker            — default-deny gate for MCP tool calls
 ├── ApprovalPolicy        — main-side decision: interactive | autonomous | dry-run
-├── FileSystemManager     — root-confined fs ops + chokidar watch + repo map
+├── budget                — main-side session spend cap (covers scheduled runs)
+├── FileSystemManager     — root-confined fs ops (protected-path block) + watch + repo map
+├── WorktreeManager       — per-session git worktrees (isolation, prune, merge/discard)
 ├── KeychainManager       — keytar (graceful fallback)
 ├── IPCModerator          — structured two-participant debate
-└── PipelineRunner        — runs saved agent pipelines
+├── PipelineRunner        — runs a pipeline graph (topo, conditional, map) in one worktree
+├── RunManager            — serialized run queue, main-owned records (background-safe)
+└── Scheduler + JobStore  — in-app cron (interval / daily / git) over saved pipelines
 ```
 
 Renderer is React + Vite + Tailwind + dockview. All IPC goes through a typed
@@ -91,11 +114,15 @@ Native modules (`node-pty`, `keytar`) are rebuilt against the Electron ABI by th
 ## Notes / caveats
 
 - CLI agents run their own tooling in a real pty — they are **not** sandboxed by
-  the app's brokers (they have full shell access, governed by that tool's own
-  permissions). Prefer pointing the project root at the repo you intend to work on.
+  the app's brokers (full shell access, governed by that tool's own permissions),
+  but isolation now confines an agent to its own worktree/branch.
 - API/Gemini chats and pipelines route tool calls through the app's brokers; for
-  unattended pipeline steps an `ApprovalPolicy` (interactive | autonomous | dry-run)
-  enforces an allowlist + the dangerous-command denylist in main. The pipeline
-  Claude step is constrained via `--allowedTools` per its permission preset.
+  unattended pipeline/scheduled steps an `ApprovalPolicy` (interactive | autonomous
+  | dry-run) enforces an allowlist + the dangerous-command denylist in main. A
+  `full` step's shell is off unless the run opts in. Writes to `.git/` and
+  `node_modules/` are blocked, and secret files (`.env`, keys) aren't read by tools
+  — both overridable in Settings → Security.
+- Scheduled jobs run only while the app is open (no headless/background daemon).
+- See **[SECURITY.md](SECURITY.md)** for the full trust model and every gate.
 - ToS: this drives real authenticated processes. Review Anthropic/Google/OpenAI
   (etc.) terms for your use case.
