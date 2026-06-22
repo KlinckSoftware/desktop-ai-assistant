@@ -36,6 +36,9 @@ import type { ApiProvider } from '../shared/types'
 import { IPCModerator } from './moderator/IPCModerator'
 import { PipelineRunner } from './pipeline/PipelineRunner'
 import { RunManager } from './pipeline/RunManager'
+import { jobStore } from './schedule/JobStore'
+import { Scheduler } from './schedule/Scheduler'
+import type { ScheduledJob } from '../shared/types'
 import type { PipelineStep, WorktreeInfo } from '../shared/types'
 import { worktreeManager } from './worktree/WorktreeManager'
 import { workingDiff } from './fs/git'
@@ -49,6 +52,7 @@ let editBroker: FileEditBroker
 let moderator: IPCModerator
 let pipeline: PipelineRunner
 let runManager: RunManager
+let scheduler: Scheduler
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -93,6 +97,7 @@ function initServices(): void {
   moderator = new IPCModerator(gemini, broker)
   pipeline = new PipelineRunner(gemini, moderator)
   runManager = new RunManager(pipeline)
+  scheduler = new Scheduler(runManager, jobStore, fsm)
   fsm.watch(appState.projectRoot)
 }
 
@@ -183,6 +188,16 @@ function registerIpc(): void {
   ipcMain.handle(CH.pipelineCancel, (_e, runId: string) => runManager.cancel(runId))
   ipcMain.handle(CH.pipelineRuns, () => runManager.list())
 
+  // --- Scheduled jobs ---
+  ipcMain.handle(CH.jobList, () => jobStore.list())
+  ipcMain.handle(CH.jobSave, (_e, job: ScheduledJob) => jobStore.save(job))
+  ipcMain.handle(CH.jobRemove, (_e, id: string) => jobStore.remove(id))
+  ipcMain.handle(CH.jobRunNow, (_e, id: string) => {
+    const job = jobStore.list().find((j) => j.id === id)
+    if (!job) throw new Error(`no such job: ${id}`)
+    return scheduler.fire(job)
+  })
+
   // --- Terminal (direct user input) ---
   ipcMain.on(CH.terminalInput, (_e, data: string) => executor.writeRaw(data))
   ipcMain.on(CH.terminalResize, (_e, cols: number, rows: number) => executor.resize(cols, rows))
@@ -268,6 +283,8 @@ app.whenReady().then(() => {
   createWindow()
   // Clean up worktree admin state orphaned by a previous crash.
   worktreeManager.pruneOnBoot(appState.projectRoot).catch(() => {})
+  // Start the in-app job scheduler (runs while the app is open).
+  scheduler.start().catch((e) => console.warn('[scheduler] start failed:', e))
   ensureAgentConfig().catch(() => {})
   ensureApiConfig().catch(() => {})
   // Connect MCP servers in the background (non-blocking).
@@ -284,6 +301,7 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   agents?.killAll()
   fsm?.dispose()
+  scheduler?.stop()
   mcpManager.disconnectAll()
   if (process.platform !== 'darwin') app.quit()
 })

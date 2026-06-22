@@ -140,6 +140,24 @@ export interface PipelineRun {
   updates: PipelineUpdate[]
 }
 
+// A scheduled pipeline job. Runs unattended via RunManager (pipeline steps are
+// always autonomous, never interactive), while the app is open. `steps` is a
+// snapshot of a saved pipeline so the job is stable if the pipeline is edited.
+export type JobTrigger =
+  | { kind: 'interval'; minutes: number }
+  | { kind: 'daily'; time: string } // local 'HH:MM'
+  | { kind: 'git' } // on project file change (debounced)
+
+export interface ScheduledJob {
+  id: string
+  name: string
+  steps: PipelineStep[]
+  input: string
+  trigger: JobTrigger
+  enabled: boolean
+  lastRun?: number // epoch ms
+}
+
 // A command parsed from a ```bash run``` block, awaiting user approval.
 export interface PendingCommand {
   id: string
@@ -235,6 +253,13 @@ export const CH = {
   pipelineCancel: 'pipeline:cancel', // (runId)
   pipelineRuns: 'pipeline:runs', // -> RunInfo[] (active + recent), for panel mount
   runComplete: 'run:complete', // (RunInfo) a run finished — for toast/notify
+
+  // Scheduled jobs (in-app scheduler).
+  jobList: 'job:list',
+  jobSave: 'job:save', // (ScheduledJob) add or update -> ScheduledJob[]
+  jobRemove: 'job:remove', // (id) -> ScheduledJob[]
+  jobRunNow: 'job:run-now', // (id) -> runId
+  jobsChanged: 'job:changed', // event: jobs list changed (e.g. lastRun updated)
 
   terminalInput: 'terminal:input',
   terminalOutput: 'terminal:output',

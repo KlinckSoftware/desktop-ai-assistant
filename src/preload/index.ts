@@ -16,7 +16,8 @@ import {
   type AgentDef,
   type ApiProvider,
   type WorktreeInfo,
-  type RunInfo
+  type RunInfo,
+  type ScheduledJob
 } from '../shared/types'
 
 interface EditResult {
@@ -195,6 +196,17 @@ const api = {
       terminalShell?: 'default' | 'powershell' | 'pwsh' | 'cmd' | 'bash' | 'zsh'
       isolateAgents?: boolean
     }): Promise<void> => ipcRenderer.invoke(CH.settingsSet, s)
+  },
+  jobs: {
+    list: (): Promise<ScheduledJob[]> => ipcRenderer.invoke(CH.jobList),
+    save: (job: ScheduledJob): Promise<ScheduledJob[]> => ipcRenderer.invoke(CH.jobSave, job),
+    remove: (id: string): Promise<ScheduledJob[]> => ipcRenderer.invoke(CH.jobRemove, id),
+    runNow: (id: string): Promise<string> => ipcRenderer.invoke(CH.jobRunNow, id),
+    onChanged: (cb: () => void): (() => void) => {
+      const h = (): void => cb()
+      ipcRenderer.on(CH.jobsChanged, h)
+      return () => ipcRenderer.removeListener(CH.jobsChanged, h)
+    }
   },
   worktree: {
     list: (): Promise<WorktreeInfo[]> => ipcRenderer.invoke(CH.worktreeList),

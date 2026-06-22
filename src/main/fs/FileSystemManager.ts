@@ -4,7 +4,7 @@ import chokidar, { type FSWatcher } from 'chokidar'
 import { appState } from '../state'
 import { CH, type FileNode } from '../../shared/types'
 
-const IGNORE = new Set(['node_modules', '.git', 'out', 'dist', 'release', '.next', '.cache'])
+const IGNORE = new Set(['node_modules', '.git', 'out', 'dist', 'release', '.next', '.cache', '.dai-trees'])
 
 // Extensions we refuse to load as text (would render garbage and corrupt on save).
 const BINARY_EXT = new Set([
@@ -34,6 +34,14 @@ function assertInRoot(p: string): string {
 
 export class FileSystemManager {
   private watcher: FSWatcher | null = null
+  private changeListeners = new Set<() => void>()
+
+  /** Subscribe (main-side) to project file changes — used by the Scheduler's
+   *  git/file-watch trigger. Returns an unsubscribe fn. */
+  onChange(cb: () => void): () => void {
+    this.changeListeners.add(cb)
+    return () => this.changeListeners.delete(cb)
+  }
 
   async readTree(root: string, depth = 4): Promise<FileNode> {
     return this.buildNode(root, depth)
@@ -181,7 +189,10 @@ export class FileSystemManager {
       followSymlinks: false,
       depth: 4
     })
-    const notify = (): void => appState.send(CH.fsChanged, root)
+    const notify = (): void => {
+      appState.send(CH.fsChanged, root)
+      for (const cb of this.changeListeners) cb()
+    }
     this.watcher
       .on('add', notify)
       .on('unlink', notify)

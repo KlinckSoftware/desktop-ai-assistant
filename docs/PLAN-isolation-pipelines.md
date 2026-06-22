@@ -7,7 +7,8 @@ Recommended build order:
 1. **§1 isolation** ✅ DONE (0.28.0 + 0.29.0) — branch per CLI agent; pipeline = one shared branch; chat/pipeline tool calls scoped to the session worktree.
 2. **§2 option A** ✅ DONE (0.30.0) — Review & Merge panel (diff per branch, Merge/Discard); boot reconciles surviving worktrees.
 3. **§6 cancel** ✅ DONE (0.31.0) — cancel aborts the in-flight model call (fetch signal + child kill), not just at the step boundary.
-4. **§3 DAG + role template**, then **§5 Tier 1/2** — remaining
+4. **§5 Tier 1/2** ✅ DONE (0.32.0 + 0.33.0) — RunManager (background-safe) + in-app Scheduler (interval/daily/git triggers).
+5. **§3 DAG + role template** — remaining
 
 ---
 
@@ -116,6 +117,20 @@ Plan: keep linear as the simple default; add **DAG (a)** + **role template (c)**
 upgrade; **gate steps (d)** next.
 
 ---
+
+## ✅ §5 — Background / scheduled — **DONE (Tier 1+2, 0.32.0 + 0.33.0)**
+
+> **As built:**
+> - **Tier 1 (RunManager, 0.32.0):** main owns runs (serialized queue, per-run id,
+>   accumulated updates, `run:complete`). Runs survive panel close; App.tsx always
+>   captures completion → history + toast; reopened panel adopts in-flight runs.
+> - **Tier 2 (Scheduler, 0.33.0):** `JobStore` (jobs.json) + `Scheduler` with
+>   **interval**, **daily-time**, and **git/file-watch** triggers (chokidar; `.dai-trees`
+>   added to the ignore set so a job's own output can't retrigger it). Due job →
+>   `RunManager.start` (pipeline steps are already autonomous, so unattended is safe).
+>   Schedules UI in Settings (pick saved pipeline + input + trigger, enable/disable,
+>   run-now, delete). **In-app only** (runs while the app is open).
+> - **Tier 3 (remote):** not built (out of scope, as planned).
 
 ## §5 — Background / scheduled / remote (walkthrough)
 
