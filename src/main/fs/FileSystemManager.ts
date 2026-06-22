@@ -1,8 +1,9 @@
 import { promises as fs } from 'fs'
-import { join, basename, resolve, sep } from 'path'
+import { join, basename, resolve, relative, sep } from 'path'
 import chokidar, { type FSWatcher } from 'chokidar'
 import { appState } from '../state'
 import { CH, type FileNode } from '../../shared/types'
+import { isProtectedPath } from '../../shared/protectedPath'
 
 const IGNORE = new Set(['node_modules', '.git', 'out', 'dist', 'release', '.next', '.cache', '.dai-trees'])
 
@@ -176,6 +177,12 @@ export class FileSystemManager {
 
   async writeFile(path: string, content: string): Promise<void> {
     const abs = assertInRoot(path)
+    // Never let a write land in .git/ or node_modules/ — a planted git hook would
+    // execute on the next commit/merge, bypassing the shell denylist entirely.
+    // This is the single chokepoint for every write (edit broker, undo, fs:write).
+    if (isProtectedPath(relative(appState.projectRoot, abs))) {
+      throw new Error(`Refusing to write protected path: ${basename(abs)}`)
+    }
     if (isBinaryPath(abs)) throw new Error(`Refusing to write binary file: ${basename(abs)}`)
     await fs.writeFile(abs, content, 'utf-8')
   }
