@@ -135,6 +135,7 @@ export interface RunInfo {
   ts: number
   input: string
   dryRun: boolean
+  allowFull?: boolean // run opted into autonomous shell for `full` steps
   label: string
   status: 'queued' | 'running' | 'done' | 'error' | 'cancelled'
   steps: PipelineStep[]
@@ -166,6 +167,7 @@ export interface ScheduledJob {
   input: string
   trigger: JobTrigger
   enabled: boolean
+  allowFull?: boolean // opt this unattended job into autonomous shell (full steps)
   lastRun?: number // epoch ms
 }
 

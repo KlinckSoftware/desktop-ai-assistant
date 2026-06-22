@@ -183,8 +183,8 @@ function registerIpc(): void {
   ipcMain.handle(CH.debateCancel, () => moderator.cancel())
 
   // --- Pipelines (runs go through RunManager: serialized, main-owned, background-safe) ---
-  ipcMain.handle(CH.pipelineRun, (_e, steps: PipelineStep[], input: string, dryRun?: boolean) =>
-    runManager.start(steps, input, dryRun)
+  ipcMain.handle(CH.pipelineRun, (_e, steps: PipelineStep[], input: string, dryRun?: boolean, allowFull?: boolean) =>
+    runManager.start(steps, input, dryRun, allowFull)
   )
   ipcMain.handle(CH.pipelineCancel, (_e, runId: string) => runManager.cancel(runId))
   ipcMain.handle(CH.pipelineRuns, () => runManager.list())

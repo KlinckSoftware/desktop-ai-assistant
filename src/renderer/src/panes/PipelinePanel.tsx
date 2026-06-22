@@ -59,6 +59,7 @@ export default function PipelinePanel(): JSX.Element {
   const [input, setInput] = useState('')
   const [running, setRunning] = useState(false)
   const [dryRun, setDryRun] = useState(defaultDryRun)
+  const [allowFull, setAllowFull] = useState(false)
   const [updates, setUpdates] = useState<PipelineUpdate[]>([])
   // The run this panel is currently showing (set on Run, or adopted on mount if
   // a background run is in flight). Updates for other runs are ignored here.
@@ -137,7 +138,7 @@ export default function PipelinePanel(): JSX.Element {
     setUpdates([])
     setRunning(true)
     try {
-      activeRunId.current = await window.api.pipeline.run(draft.steps, input, dryRun)
+      activeRunId.current = await window.api.pipeline.run(draft.steps, input, dryRun, allowFull)
     } catch (e) {
       setUpdates((p) => [...p, { type: 'error', text: String(e) }])
       setRunning(false)
@@ -363,6 +364,15 @@ export default function PipelinePanel(): JSX.Element {
           <input type="checkbox" checked={dryRun} onChange={(e) => setDryRun(e.target.checked)} className="accent-accent" />
           dry-run
         </label>
+        {draft.steps.some((s) => s.permission === 'full') && (
+          <label
+            className="flex shrink-0 items-center gap-1 text-[11px] text-yellow-400"
+            title="A 'full' step runs shell commands autonomously (no approval). Off → it's capped at file edits."
+          >
+            <input type="checkbox" checked={allowFull} onChange={(e) => setAllowFull(e.target.checked)} />
+            allow shell
+          </label>
+        )}
         {running ? (
           <button
             className="rounded bg-red-600 px-3 py-1 font-medium text-white"

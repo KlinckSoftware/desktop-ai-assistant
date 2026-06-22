@@ -16,8 +16,12 @@ describe('claudeAllowedTools', () => {
     expect(t).not.toContain('Bash')
   })
 
-  it('full → adds Bash', () => {
-    expect(claudeAllowedTools('full', false)).toContain('Bash')
+  it('full WITHOUT opt-in is capped at edit tools (no Bash)', () => {
+    expect(claudeAllowedTools('full', false)).not.toContain('Bash')
+  })
+
+  it('full WITH opt-in adds Bash', () => {
+    expect(claudeAllowedTools('full', false, true)).toContain('Bash')
   })
 
   it('dry-run forces read-only regardless of preset', () => {

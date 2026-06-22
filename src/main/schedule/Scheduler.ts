@@ -88,6 +88,6 @@ export class Scheduler {
     job.lastRun = Date.now()
     await this.store.flush()
     appState.send(CH.jobsChanged)
-    return this.runManager.start(job.steps, job.input, false)
+    return this.runManager.start(job.steps, job.input, false, !!job.allowFull)
   }
 }

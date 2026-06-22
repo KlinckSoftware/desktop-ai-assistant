@@ -60,8 +60,15 @@ describe('policyForStep', () => {
     expect(decide(p, 'run_command', 'ls').action).toBe('block')
   })
 
-  it('full allows commands (still dangerous-gated) and MCP tools', () => {
-    const p = policyForStep('full', false)
+  it('full WITHOUT opt-in is downgraded to edit (no autonomous shell)', () => {
+    const p = policyForStep('full', false) // allowFull defaults to false
+    expect(decide(p, 'write_file').action).toBe('run') // edits still allowed
+    expect(decide(p, 'run_command', 'npm test').action).toBe('block') // shell denied
+    expect(decide(p, 'srv__tool').action).toBe('block') // wildcard not granted
+  })
+
+  it('full WITH opt-in allows commands (still dangerous-gated) and MCP tools', () => {
+    const p = policyForStep('full', false, true)
     expect(decide(p, 'run_command', 'npm test').action).toBe('run')
     expect(decide(p, 'srv__tool').action).toBe('run')
     expect(decide(p, 'run_command', 'git push').action).toBe('block')

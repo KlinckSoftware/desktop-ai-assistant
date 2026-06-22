@@ -56,8 +56,14 @@ const ALLOW: Record<PermissionMode, string[]> = {
   full: ['*'] // everything (incl. run_command + MCP); dangerous commands still blocked
 }
 
-/** Build the policy for a pipeline step from its preset + the run's dry-run flag. */
-export function policyForStep(mode: PermissionMode, dryRun: boolean): ApprovalPolicy {
+/**
+ * Build the policy for a pipeline step from its preset + the run's dry-run flag.
+ * `full` (the `*` wildcard — autonomous shell + MCP) is only honored when the run
+ * was explicitly opted into it (`allowFull`); otherwise it is downgraded to `edit`
+ * so an unattended run can't run arbitrary commands without a human deciding to.
+ */
+export function policyForStep(mode: PermissionMode, dryRun: boolean, allowFull = false): ApprovalPolicy {
   if (dryRun) return { mode: 'dryrun' }
-  return { mode: 'autonomous', allow: ALLOW[mode] }
+  const effective: PermissionMode = mode === 'full' && !allowFull ? 'edit' : mode
+  return { mode: 'autonomous', allow: ALLOW[effective] }
 }

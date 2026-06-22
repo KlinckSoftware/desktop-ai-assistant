@@ -26,14 +26,16 @@ export class RunManager {
 
   constructor(private runner: PipelineRunner) {}
 
-  /** Queue a run; returns its id immediately. Executes when the queue reaches it. */
-  start(steps: PipelineStep[], input: string, dryRun = false): string {
+  /** Queue a run; returns its id immediately. Executes when the queue reaches it.
+   *  `allowFull` opts the run into autonomous shell for `full` steps. */
+  start(steps: PipelineStep[], input: string, dryRun = false, allowFull = false): string {
     const id = `run-${Date.now().toString(36)}-${++this.seq}`
     const rec: RunInfo = {
       id,
       ts: Date.now(),
       input,
       dryRun,
+      allowFull,
       label: label(input, steps),
       status: 'queued',
       steps,
@@ -88,7 +90,7 @@ export class RunManager {
     rec.status = 'running'
     this.broadcast({ type: 'started', runId: id, name: rec.label })
     try {
-      await this.runner.run(rec.steps, rec.input, rec.dryRun, (u) => this.onUpdate(id, u), id)
+      await this.runner.run(rec.steps, rec.input, rec.dryRun, (u) => this.onUpdate(id, u), id, rec.allowFull)
     } catch (err) {
       this.onUpdate(id, { type: 'error', text: err instanceof Error ? err.message : String(err) })
     }
