@@ -15,15 +15,19 @@ export async function completeParticipant(
   prompt: string,
   history: Message[],
   gemini: GeminiClient,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  claudeTools?: string[]
 ): Promise<string> {
   if (agent.kind === 'claude') {
+    // Constrain Claude's tool set for debate (read-only during rounds, edit for
+    // synthesis) so it can't freely edit/run while the API/Gemini participants
+    // can't — keeps the participants homogeneous. undefined = unconstrained.
     return claudeOneShot(
       prompt,
       appState.projectRoot,
       appState.settings.claudeModel,
       appState.settings.claudeEffort,
-      undefined,
+      claudeTools,
       signal
     )
   }

@@ -39,6 +39,12 @@ describe('completeParticipant dispatch', () => {
     expect(claudeOneShot).toHaveBeenCalledWith('prompt', '/proj', 'cm', 'high', undefined, ctrl.signal)
   })
 
+  it('forwards a constrained Claude tool set (debate phase)', async () => {
+    const a: DebateAgent = { id: 'claude', name: 'Claude', kind: 'claude' }
+    await completeParticipant(a, 'p', [], gemini, undefined, ['Read', 'Grep', 'Glob', 'LS'])
+    expect(claudeOneShot).toHaveBeenCalledWith('p', '/proj', 'cm', 'high', ['Read', 'Grep', 'Glob', 'LS'], undefined)
+  })
+
   it("routes 'gemini' to gemini.complete with history", async () => {
     const a: DebateAgent = { id: 'gemini', name: 'Gemini', kind: 'gemini' }
     const hist = [{ role: 'user' as const, content: 'h' }]

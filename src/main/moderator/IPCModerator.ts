@@ -57,8 +57,14 @@ export class IPCModerator {
 
   /** One-shot completion from any participant. `prompt` is the new turn; history
    *  is prior context (used by chat-style participants). */
-  private complete(agent: DebateAgent, prompt: string, history: Message[]): Promise<string> {
-    return completeParticipant(agent, prompt, history, this.gemini, this.controller?.signal)
+  // Claude tool sets per debate phase: rounds are analysis-only (read tools),
+  // synthesis may edit. API/Gemini participants have no tools either way, so this
+  // keeps the participants as homogeneous as their backends allow.
+  private static ROUND_TOOLS = ['Read', 'Grep', 'Glob', 'LS']
+  private static SYNTH_TOOLS = ['Read', 'Grep', 'Glob', 'LS', 'Edit', 'Write', 'MultiEdit']
+
+  private complete(agent: DebateAgent, prompt: string, history: Message[], claudeTools?: string[]): Promise<string> {
+    return completeParticipant(agent, prompt, history, this.gemini, this.controller?.signal, claudeTools)
   }
 
   async runDebate(userPrompt: string, aId = 'claude', bId = 'gemini', roundsArg?: number): Promise<void> {
@@ -92,7 +98,7 @@ export class IPCModerator {
             { role: 'user' as const, content: r.b }
           ])
           .filter((m) => m.content)
-        const aText = await this.complete(a, aPrompt, aHistory)
+        const aText = await this.complete(a, aPrompt, aHistory, IPCModerator.ROUND_TOOLS)
         transcript.push({ round: i, a: aText, b: '' })
         appState.send(CH.debateUpdate, { type: 'turn', side: 'a', name: a.name, text: aText, round: i })
 
@@ -110,7 +116,7 @@ export class IPCModerator {
 
         status(`${b.name} critiquing… (round ${i + 1}/${rounds})`)
         const bPrompt = `${a.name} proposed:\n${aText}\n\nTerminal output:\n${results.join('\n')}\n\nCritique and improve.${NO_EDIT}`
-        const bText = await this.complete(b, bPrompt, bHistory)
+        const bText = await this.complete(b, bPrompt, bHistory, IPCModerator.ROUND_TOOLS)
         transcript[i].b = bText
         appState.send(CH.debateUpdate, { type: 'turn', side: 'b', name: b.name, text: bText, round: i })
       }
@@ -156,7 +162,7 @@ export class IPCModerator {
           ? 'Implement the final agreed changes now.'
           : 'Write the final, agreed implementation as a concrete plan with full code.'
       }`
-      const synthesis = await this.complete(a, prompt, [])
+      const synthesis = await this.complete(a, prompt, [], IPCModerator.SYNTH_TOOLS)
       appState.send(CH.debateUpdate, { type: 'synthesis', name: a.name, text: synthesis })
       status('')
     } catch (err) {

@@ -3,18 +3,11 @@ import { CH, type Message } from '../../shared/types'
 import { KeychainManager } from '../keychain/KeychainManager'
 import { toolSpecs, execTool } from '../tools/toolExec'
 import { addUsageCost, capReached } from '../budget'
+import { AGENT_SYSTEM, MAX_TOOL_TURNS } from '../agents/systemPrompt'
 
 const BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
 
-const SYSTEM = `You are an expert coding assistant working inside a desktop IDE.
-You have function tools available:
-- read_file / list_dir / search_code / git_diff: inspect the project freely (no approval needed).
-- apply_edit: make a small surgical find/replace edit (user approves first).
-- write_file: create or overwrite a whole file (user approves first).
-- run_command: run a shell command on the user's machine (user approves first).
-- plus any configured MCP tools.
-Prefer reading with read_file/search_code before editing. Prefer apply_edit over
-write_file for small changes. Tool results are returned to you.`
+const SYSTEM = AGENT_SYSTEM
 
 interface GeminiPart {
   text?: string
@@ -59,7 +52,7 @@ export class GeminiClient {
     return execTool(call.name, call.args, 'gemini', 'gemini-main')
   }
 
-  async send(prompt: string, history: Message[], images: ImagePart[] = [], maxTurns = 8): Promise<string> {
+  async send(prompt: string, history: Message[], images: ImagePart[] = [], maxTurns = MAX_TOOL_TURNS): Promise<string> {
     const apiKey = await KeychainManager.getKey()
     if (!apiKey) {
       appState.send(CH.geminiStream, '\n[Gemini: no API key set. Add one in settings.]')
