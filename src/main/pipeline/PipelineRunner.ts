@@ -5,8 +5,11 @@ import { claudeOneShot } from '../claude/ClaudeHeadless'
 import { apiCompleteAgentic } from '../api/OpenAIClient'
 import { listProviders } from '../api/providers'
 import { policyForStep, type PermissionMode } from '../policy/ApprovalPolicy'
+import { worktreeManager } from '../worktree/WorktreeManager'
 import type { GeminiClient } from '../gemini/GeminiClient'
 import type { IPCModerator } from '../moderator/IPCModerator'
+
+let runSeq = 0
 
 // Runs a saved pipeline: the user's prompt flows through each step in order,
 // each step's output becoming the next step's carried input. Stateless — the
@@ -39,6 +42,26 @@ export class PipelineRunner {
   async run(steps: PipelineStep[], input: string, dryRun = false): Promise<void> {
     const send = (u: PipelineUpdate): void => appState.send(CH.pipelineUpdate, u)
     this.cancelled = false
+
+    // The whole run shares ONE worktree/branch (pipeline/<runId>): every step and
+    // any orchestrator-spawned subagent commits there, so the run produces a single
+    // reviewable diff. Dry-runs execute nothing, so they need no worktree. Falls
+    // back to the project root when isolation is off or the project isn't a repo.
+    // One canonical session key for the whole run — used as the WorktreeManager
+    // key, the appState session-root key, and the execTool sessionId, so all three
+    // agree (and worktreeRemove can clear the right root).
+    const runId = `run-${++runSeq}`
+    let workRoot = appState.projectRoot
+    if (!dryRun && appState.settings.isolateAgents) {
+      const wt = await worktreeManager.create(appState.projectRoot, runId, 'pipeline').catch(() => null)
+      if (wt) {
+        workRoot = wt.path
+        appState.setSessionRoot(runId, wt.path)
+        worktreeManager.setLabel(runId, `pipeline (${steps.length} steps)`)
+        appState.send(CH.worktreeChanged)
+      }
+    }
+
     try {
       const available = await this.moderator.listDebateAgents()
       const byId = new Map<string, DebateAgent>(available.map((a) => [a.id, a]))
@@ -57,18 +80,19 @@ export class PipelineRunner {
 
         let text: string
         if (agent.kind === 'api') {
-          // API steps run the gated agentic loop → real (policy-bounded) file work.
+          // API steps run the gated agentic loop → real (policy-bounded) file work,
+          // scoped to the run's shared worktree via runSession.
           const providerId = agent.id.slice('api:'.length)
           const model = step.model || providers.find((p) => p.id === providerId)?.defaultModel || ''
           const policy = policyForStep(step.permission ?? 'read-only', dryRun)
-          text = await apiCompleteAgentic(providerId, model, [{ role: 'user', content: prompt }], policy)
+          text = await apiCompleteAgentic(providerId, model, [{ role: 'user', content: prompt }], policy, runId)
         } else if (agent.kind === 'claude') {
-          // Claude runs its own tooling; constrain the tool SET to the step's
-          // preset via --allowedTools so a pipeline step can't exceed its grant.
+          // Claude runs its own tooling in the run's worktree; constrain the tool
+          // SET to the step's preset via --allowedTools so it can't exceed its grant.
           // Per-step model/effort override the global Claude defaults.
           text = await claudeOneShot(
             prompt,
-            appState.projectRoot,
+            workRoot,
             step.model || appState.settings.claudeModel,
             step.effort || appState.settings.claudeEffort,
             claudeAllowedTools(step.permission ?? 'read-only', dryRun)

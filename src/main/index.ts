@@ -37,7 +37,7 @@ import { IPCModerator } from './moderator/IPCModerator'
 import { PipelineRunner } from './pipeline/PipelineRunner'
 import type { PipelineStep, WorktreeInfo } from '../shared/types'
 import { worktreeManager } from './worktree/WorktreeManager'
-import { diffBranch } from './fs/git'
+import { workingDiff } from './fs/git'
 
 let executor: CommandExecutor
 let broker: CommandBroker
@@ -134,7 +134,7 @@ function registerIpc(): void {
   ipcMain.handle(CH.worktreeDiff, (_e, sessionId: string) => {
     const wt = worktreeManager.get(sessionId)
     if (!wt) return ''
-    return diffBranch(appState.projectRoot, wt.base, wt.branch)
+    return workingDiff(wt.path, wt.base)
   })
   ipcMain.handle(CH.worktreeRemove, async (_e, sessionId: string, mode: 'merge' | 'discard') => {
     const status = await worktreeManager.remove(appState.projectRoot, sessionId, mode)

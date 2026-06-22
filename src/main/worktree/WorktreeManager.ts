@@ -8,6 +8,7 @@ import {
   worktreeRemove,
   worktreePrune,
   branchDelete,
+  commitAll,
   squashMergeBranch
 } from '../fs/git'
 
@@ -128,6 +129,9 @@ export class WorktreeManager {
 
     let status = ''
     if (mode === 'merge') {
+      // Agents/pipelines write files but may not commit — capture any working
+      // changes as a commit on the branch first, so the squash-merge includes them.
+      await commitAll(wt.path, `work on ${wt.branch}`)
       status = await squashMergeBranch(repoRoot, wt.branch, `merge ${wt.branch}`)
     }
     await worktreeRemove(repoRoot, wt.path)

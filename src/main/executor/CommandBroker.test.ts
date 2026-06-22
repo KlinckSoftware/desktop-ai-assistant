@@ -1,28 +1,44 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-// state.send broadcasts to a (possibly absent) window — stub it out.
-vi.mock('../state', () => ({ appState: { send: vi.fn() } }))
+// state.send broadcasts to a (possibly absent) window — stub it out. rootFor is
+// controllable per-test: when it returns projectRoot, exec() uses the shared pty
+// (executor.run); a different root routes to a one-off executor.execOnce(cwd).
+const state = vi.hoisted(() => ({ rootFor: (_s?: string) => '/root' }))
+vi.mock('../state', () => ({
+  appState: { send: vi.fn(), projectRoot: '/root', rootFor: (s?: string) => state.rootFor(s) }
+}))
 
 import { CommandBroker } from './CommandBroker'
 import type { CommandExecutor } from './CommandExecutor'
 
 function makeBroker() {
   const run = vi.fn(async (cmd: string) => `ran: ${cmd}`)
-  const broker = new CommandBroker({ run } as unknown as CommandExecutor)
-  return { broker, run }
+  const execOnce = vi.fn(async (cmd: string, cwd: string) => `ranIn(${cwd}): ${cmd}`)
+  const broker = new CommandBroker({ run, execOnce } as unknown as CommandExecutor)
+  return { broker, run, execOnce }
 }
 
 describe('CommandBroker.runWithPolicy', () => {
   let broker: CommandBroker
   let run: ReturnType<typeof vi.fn>
+  let execOnce: ReturnType<typeof vi.fn>
   beforeEach(() => {
-    ;({ broker, run } = makeBroker())
+    state.rootFor = () => '/root' // default: no isolation → shared pty
+    ;({ broker, run, execOnce } = makeBroker())
   })
 
   it('autonomous: executes an allowlisted, safe command', async () => {
     const out = await broker.runWithPolicy('ls -la', 'api', 's', { mode: 'autonomous', allow: ['run_command'] })
     expect(out).toBe('ran: ls -la')
     expect(run).toHaveBeenCalledOnce()
+  })
+
+  it('isolation: a session with a worktree root runs in that cwd via execOnce', async () => {
+    state.rootFor = (s) => (s === 'wt' ? '/root/.dai-trees/agent-wt' : '/root')
+    const out = await broker.runWithPolicy('ls', 'api', 'wt', { mode: 'autonomous', allow: ['run_command'] })
+    expect(out).toBe('ranIn(/root/.dai-trees/agent-wt): ls')
+    expect(execOnce).toHaveBeenCalledOnce()
+    expect(run).not.toHaveBeenCalled()
   })
 
   it('autonomous: blocks a dangerous command in MAIN (never reaches the executor)', async () => {
