@@ -10,6 +10,7 @@ import {
   worktreeList,
   branchDelete,
   commitAll,
+  isWorktreeIdle,
   squashMergeBranch
 } from '../fs/git'
 
@@ -143,11 +144,13 @@ export class WorktreeManager {
   }
 
   /**
-   * On boot: prune stale admin state left by a crash, then re-adopt any of our
-   * worktrees (under .dai-trees/, on an agent/ or pipeline/ branch) that survived
-   * a previous run, so they reappear in the review list and stay manageable.
-   * The original base branch isn't recorded on disk, so diffs use the current
-   * branch as the base — adequate for review.
+   * On boot: prune stale admin state left by a crash, AUTO-REMOVE idle worktrees
+   * (nothing to review — e.g. a startup agent that never wrote), and re-adopt the
+   * rest (under .dai-trees/, on an agent/ or pipeline/ branch) so they reappear in
+   * the review list. The original base branch isn't recorded on disk, so the
+   * current branch is used as the base — adequate for the idle check + review.
+   * Safe to remove here: this runs before any agent pty is spawned, so no live
+   * session owns these worktrees.
    */
   async pruneOnBoot(repoRoot: string): Promise<void> {
     if (!(await isGitRepo(repoRoot))) return
@@ -159,8 +162,14 @@ export class WorktreeManager {
       if (!m) continue
       const [, kind, sessionId] = m
       if (this.bySession.has(sessionId)) continue
+      if (await isWorktreeIdle(e.path, base)) {
+        await worktreeRemove(repoRoot, e.path)
+        await branchDelete(repoRoot, e.branch)
+        continue
+      }
       this.bySession.set(sessionId, { sessionId, path: e.path, branch: e.branch, base, kind: kind as WorktreeKind })
     }
+    await worktreePrune(repoRoot) // tidy admin entries for anything just removed
   }
 
   // Add `.dai-trees/` to .git/info/exclude (repo-local, untracked) so worktree

@@ -259,6 +259,29 @@ export async function workingDiff(worktreePath: string, base: string): Promise<s
 }
 
 /**
+ * True if a worktree has nothing to review: no uncommitted/untracked changes AND
+ * no commits since it forked from `base`. Such worktrees (e.g. an idle startup
+ * agent that never wrote) are safe to auto-remove on boot. Errs on the safe side
+ * (returns false / keep) if anything is uncertain.
+ */
+export async function isWorktreeIdle(worktreePath: string, base: string): Promise<boolean> {
+  try {
+    const status = (await runGit(worktreePath, ['status', '--porcelain'])).trim()
+    if (status) return false // uncommitted or untracked changes present
+    let from = base
+    try {
+      from = (await runGit(worktreePath, ['merge-base', base, 'HEAD'])).trim() || base
+    } catch {
+      return false // can't establish the fork point → don't risk removing work
+    }
+    const changed = (await runGit(worktreePath, ['diff', '--name-only', from])).trim()
+    return changed === ''
+  } catch {
+    return false
+  }
+}
+
+/**
  * Stage and commit everything in a worktree (best-effort; no-op when clean).
  * Returns true if a commit was made. Used before a squash-merge so uncommitted
  * agent work is included.
