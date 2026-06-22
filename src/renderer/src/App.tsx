@@ -67,9 +67,16 @@ export default function App(): JSX.Element {
       } else {
         setProjectRoot(await window.api.fs.projectRoot())
       }
-      const { geminiModel, claudeModel, claudeEffort, debateRounds, terminalShell } =
+      const { geminiModel, claudeModel, claudeEffort, debateRounds, terminalShell, isolateAgents } =
         useAppStore.getState()
-      window.api.settings.set({ geminiModel, claudeModel, claudeEffort, debateRounds, terminalShell })
+      window.api.settings.set({
+        geminiModel,
+        claudeModel,
+        claudeEffort,
+        debateRounds,
+        terminalShell,
+        isolateAgents
+      })
       setAgents(await window.api.agent.list())
       setApiProviders(await window.api.api.providers())
       setHasGeminiKey(await window.api.gemini.hasKey())
@@ -166,6 +173,7 @@ export default function App(): JSX.Element {
           debateSideA: s.debateSideA,
           debateSideB: s.debateSideB,
           terminalShell: s.terminalShell,
+          isolateAgents: s.isolateAgents,
           dockLayout: s.dockLayout,
           apiChats: s.apiChats,
           apiModels: s.apiModels,

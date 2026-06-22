@@ -166,6 +166,17 @@ export interface CommandResult {
   exitInferred: boolean
 }
 
+// An isolated git worktree backing an agent session or pipeline run. Surfaced to
+// the renderer so the user can review (diff) and merge/discard a session's work.
+export interface WorktreeInfo {
+  sessionId: string
+  path: string
+  branch: string
+  base: string
+  kind: 'agent' | 'pipeline'
+  label?: string // human label (agent name / pipeline name) when known
+}
+
 // Channel name constants — single source of truth for IPC strings.
 export const CH = {
   // Generic CLI-agent sessions (Claude, Gemini CLI, Aider, Codex, …).
@@ -263,5 +274,11 @@ export const CH = {
   mcpStatus: 'mcp:status',
   mcpReconnect: 'mcp:reconnect',
   mcpConfigPath: 'mcp:config-path',
-  mcpAddServer: 'mcp:add-server'
+  mcpAddServer: 'mcp:add-server',
+
+  // Agent isolation: list active worktrees, review a diff, merge/discard one.
+  worktreeList: 'worktree:list',
+  worktreeDiff: 'worktree:diff',
+  worktreeRemove: 'worktree:remove', // (sessionId, 'merge' | 'discard') -> status
+  worktreeChanged: 'worktree:changed' // event: the set/state of worktrees changed
 } as const

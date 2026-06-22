@@ -49,6 +49,7 @@ export interface PersistedState {
   debateSideA: string
   debateSideB: string
   terminalShell: AppState['terminalShell']
+  isolateAgents: boolean
   dockLayout: unknown | null
   apiChats: Record<string, Message[]>
   apiModels: Record<string, string>
@@ -88,6 +89,7 @@ interface AppState {
   debateSideA: string
   debateSideB: string
   terminalShell: 'default' | 'powershell' | 'pwsh' | 'cmd' | 'bash' | 'zsh'
+  isolateAgents: boolean // each CLI-agent session gets its own git worktree/branch
   // Renderer-only preferences (persisted; not sent to main).
   approvalTimeout: number // seconds before a command/tool card auto-rejects (0 = never)
   pipelineDefaultPermission: 'read-only' | 'edit' | 'full'
@@ -115,6 +117,7 @@ interface AppState {
   setAccentColor: (c: string) => void
   setDebateSides: (a: string, b: string) => void
   setTerminalShell: (s: AppState['terminalShell']) => void
+  setIsolateAgents: (v: boolean) => void
 
   pending: PendingCommand[]
   addPending: (c: PendingCommand) => void
@@ -249,6 +252,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   debateSideA: 'claude',
   debateSideB: 'gemini',
   terminalShell: 'default',
+  isolateAgents: true,
   approvalTimeout: 15,
   pipelineDefaultPermission: 'read-only',
   pipelineDefaultDryRun: false,
@@ -275,6 +279,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setAccentColor: (c) => set({ accentColor: c }),
   setDebateSides: (a, b) => set({ debateSideA: a, debateSideB: b }),
   setTerminalShell: (s) => set({ terminalShell: s }),
+  setIsolateAgents: (v) => set({ isolateAgents: v }),
 
   pending: [],
   addPending: (c) => set((s) => ({ pending: [...s.pending, c] })),
@@ -461,6 +466,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       debateSideA: d.debateSideA ?? 'claude',
       debateSideB: d.debateSideB ?? 'gemini',
       terminalShell: d.terminalShell ?? 'default',
+      isolateAgents: d.isolateAgents ?? true,
       approvalTimeout: d.approvalTimeout ?? 15,
       pipelineDefaultPermission: d.pipelineDefaultPermission ?? 'read-only',
       pipelineDefaultDryRun: d.pipelineDefaultDryRun ?? false,

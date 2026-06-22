@@ -1,0 +1,163 @@
+import { join } from 'path'
+import { existsSync, promises as fsp } from 'fs'
+import {
+  isGitRepo,
+  hasCommits,
+  currentBranch,
+  worktreeAdd,
+  worktreeRemove,
+  worktreePrune,
+  branchDelete,
+  squashMergeBranch
+} from '../fs/git'
+
+// Per-session git worktree isolation. Each CLI/API agent session can run in its
+// own worktree on its own branch, so parallel agents never stomp each other's
+// files and an unsandboxed CLI agent is confined to a branch (it can't corrupt
+// the user's working tree). A pipeline run gets ONE shared worktree for all its
+// steps. The base repo is appState.projectRoot; worktrees live under .dai-trees/.
+
+export const WORKTREE_DIR = '.dai-trees'
+
+export type WorktreeKind = 'agent' | 'pipeline'
+
+export interface Worktree {
+  sessionId: string
+  path: string // absolute worktree path
+  branch: string // the session's branch (e.g. agent/<id>)
+  base: string // the branch it was forked from (merge/diff target)
+  kind: WorktreeKind
+}
+
+// --- pure helpers (unit-tested) ----------------------------------------------
+
+/** Make a session id safe for a branch name / directory segment. */
+export function sanitizeId(id: string): string {
+  return id.replace(/[^A-Za-z0-9._-]/g, '-').replace(/^-+|-+$/g, '') || 'session'
+}
+
+/** Branch name for a session: `agent/<id>` or `pipeline/<id>`. */
+export function branchName(kind: WorktreeKind, id: string): string {
+  return `${kind}/${sanitizeId(id)}`
+}
+
+/** Absolute worktree path for a session under the repo's .dai-trees dir. */
+export function worktreePath(repoRoot: string, kind: WorktreeKind, id: string): string {
+  return join(repoRoot, WORKTREE_DIR, `${kind}-${sanitizeId(id)}`)
+}
+
+// --- manager -----------------------------------------------------------------
+
+export class WorktreeManager {
+  private bySession = new Map<string, Worktree>()
+  private labels = new Map<string, string>() // sessionId -> human label
+  private excludeEnsured = new Set<string>() // repo roots whose exclude we've patched
+
+  /** Attach a human-readable label (agent / pipeline name) to a session. */
+  setLabel(sessionId: string, label: string): void {
+    this.labels.set(sessionId, label)
+  }
+
+  /** Serializable view for the renderer (the review/merge UI). */
+  infos(): import('../../shared/types').WorktreeInfo[] {
+    return [...this.bySession.values()].map((w) => ({
+      sessionId: w.sessionId,
+      path: w.path,
+      branch: w.branch,
+      base: w.base,
+      kind: w.kind,
+      label: this.labels.get(w.sessionId)
+    }))
+  }
+
+  /**
+   * Create an isolated worktree for a session. Returns the worktree, or null if
+   * isolation isn't possible (not a repo, or no commits to branch from) — the
+   * caller then falls back to the shared root. Idempotent per session.
+   */
+  async create(repoRoot: string, sessionId: string, kind: WorktreeKind): Promise<Worktree | null> {
+    const existing = this.bySession.get(sessionId)
+    if (existing) return existing
+    if (!(await isGitRepo(repoRoot))) return null
+    // `worktree add -b` needs a base commit; a fresh repo with no commits can't isolate.
+    if (!(await hasCommits(repoRoot))) return null
+
+    const base = (await currentBranch(repoRoot)) || 'HEAD'
+    const branch = branchName(kind, sessionId)
+    const path = worktreePath(repoRoot, kind, sessionId)
+
+    await this.ensureExcluded(repoRoot)
+    try {
+      await worktreeAdd(repoRoot, path, branch, base)
+    } catch {
+      // Branch/path may be left over from a crash — prune and retry once.
+      await worktreePrune(repoRoot)
+      await worktreeRemove(repoRoot, path)
+      await branchDelete(repoRoot, branch)
+      try {
+        await worktreeAdd(repoRoot, path, branch, base)
+      } catch {
+        return null // give up; caller falls back to the shared root
+      }
+    }
+
+    const wt: Worktree = { sessionId, path, branch, base, kind }
+    this.bySession.set(sessionId, wt)
+    return wt
+  }
+
+  get(sessionId: string): Worktree | undefined {
+    return this.bySession.get(sessionId)
+  }
+
+  list(): Worktree[] {
+    return [...this.bySession.values()]
+  }
+
+  /**
+   * Tear down a session's worktree. 'discard' force-removes the worktree and
+   * deletes its branch (losing uncommitted + committed branch work). 'merge'
+   * squash-merges the branch back into its base first, then removes. Returns a
+   * status string ('' when nothing to do).
+   */
+  async remove(repoRoot: string, sessionId: string, mode: 'merge' | 'discard'): Promise<string> {
+    const wt = this.bySession.get(sessionId)
+    if (!wt) return ''
+    this.bySession.delete(sessionId)
+    this.labels.delete(sessionId)
+
+    let status = ''
+    if (mode === 'merge') {
+      status = await squashMergeBranch(repoRoot, wt.branch, `merge ${wt.branch}`)
+    }
+    await worktreeRemove(repoRoot, wt.path)
+    if (mode === 'discard' || !status.startsWith('[merge failed]')) {
+      await branchDelete(repoRoot, wt.branch)
+    }
+    return status
+  }
+
+  /** On boot: prune stale worktree admin state left by a crash. */
+  async pruneOnBoot(repoRoot: string): Promise<void> {
+    if (await isGitRepo(repoRoot)) await worktreePrune(repoRoot)
+  }
+
+  // Add `.dai-trees/` to .git/info/exclude (repo-local, untracked) so worktree
+  // dirs never show up as changes in the user's tree. Done once per repo root.
+  private async ensureExcluded(repoRoot: string): Promise<void> {
+    if (this.excludeEnsured.has(repoRoot)) return
+    this.excludeEnsured.add(repoRoot)
+    const excludePath = join(repoRoot, '.git', 'info', 'exclude')
+    try {
+      let body = ''
+      if (existsSync(excludePath)) body = await fsp.readFile(excludePath, 'utf8')
+      if (!body.split('\n').some((l) => l.trim() === `${WORKTREE_DIR}/`)) {
+        await fsp.appendFile(excludePath, `${body.endsWith('\n') || !body ? '' : '\n'}${WORKTREE_DIR}/\n`)
+      }
+    } catch {
+      /* .git/info may not exist for a worktree/submodule layout — non-fatal */
+    }
+  }
+}
+
+export const worktreeManager = new WorktreeManager()

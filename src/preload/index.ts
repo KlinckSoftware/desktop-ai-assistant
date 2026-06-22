@@ -14,7 +14,8 @@ import {
   type PendingTool,
   type Checkpoint,
   type AgentDef,
-  type ApiProvider
+  type ApiProvider,
+  type WorktreeInfo
 } from '../shared/types'
 
 interface EditResult {
@@ -185,7 +186,19 @@ const api = {
       claudeEffort?: string
       debateRounds?: number
       terminalShell?: 'default' | 'powershell' | 'pwsh' | 'cmd' | 'bash' | 'zsh'
+      isolateAgents?: boolean
     }): Promise<void> => ipcRenderer.invoke(CH.settingsSet, s)
+  },
+  worktree: {
+    list: (): Promise<WorktreeInfo[]> => ipcRenderer.invoke(CH.worktreeList),
+    diff: (sessionId: string): Promise<string> => ipcRenderer.invoke(CH.worktreeDiff, sessionId),
+    remove: (sessionId: string, mode: 'merge' | 'discard'): Promise<string> =>
+      ipcRenderer.invoke(CH.worktreeRemove, sessionId, mode),
+    onChanged: (cb: () => void): (() => void) => {
+      const h = (): void => cb()
+      ipcRenderer.on(CH.worktreeChanged, h)
+      return () => ipcRenderer.removeListener(CH.worktreeChanged, h)
+    }
   },
   openExternal: (url: string): void => {
     ipcRenderer.invoke(CH.appOpenExternal, url)
