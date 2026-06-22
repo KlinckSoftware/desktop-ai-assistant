@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // state.send broadcasts to a (possibly absent) window — stub it out. rootFor is
 // controllable per-test: when it returns projectRoot, exec() uses the shared pty
 // (executor.run); a different root routes to a one-off executor.execOnce(cwd).
-const state = vi.hoisted(() => ({ rootFor: (_s?: string) => '/root' }))
+const state = vi.hoisted(() => ({ rootFor: (_s?: string): string => '/root' }))
 vi.mock('../state', () => ({
   appState: { send: vi.fn(), projectRoot: '/root', rootFor: (s?: string) => state.rootFor(s) }
 }))

@@ -4,9 +4,9 @@ Status board for the post-0.27 architecture push. Captures the full design from 
 review session. Sections numbered to match the original review (1–6).
 
 Recommended build order:
-1. **§1 isolation** (the spine — unblocks everything, closes the critical gap + the unsandboxed-CLI risk)
-2. **§2 option A** (local review-merge — makes isolation usable)
-3. **§6 cancel** (cheap; OpenAIClient already pre-wired with an optional `signal`)
+1. **§1 isolation** ✅ DONE (0.28.0 + 0.29.0) — branch per CLI agent; pipeline = one shared branch; chat/pipeline tool calls scoped to the session worktree.
+2. **§2 option A** ✅ DONE (0.30.0) — Review & Merge panel (diff per branch, Merge/Discard); boot reconciles surviving worktrees.
+3. **§6 cancel** — NEXT (cheap; OpenAIClient already pre-wired with an optional `signal`)
 4. **§3 DAG + role template**, then **§5 Tier 1/2**
 
 ---
