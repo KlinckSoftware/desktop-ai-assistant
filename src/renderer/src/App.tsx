@@ -184,6 +184,7 @@ export default function App(): JSX.Element {
           apiModels: s.apiModels,
           pipelines: s.pipelines,
           pipelineRuns: s.pipelineRuns,
+          persistRunOutputs: s.persistRunOutputs,
           approvalTimeout: s.approvalTimeout,
           pipelineDefaultPermission: s.pipelineDefaultPermission,
           pipelineDefaultDryRun: s.pipelineDefaultDryRun,
@@ -253,13 +254,16 @@ export default function App(): JSX.Element {
   // is closed (background / scheduled) is still recorded to history and announced.
   useEffect(() => {
     return window.api.pipeline.onComplete((run) => {
+      // Privacy: when output persistence is off, keep run metadata but drop the
+      // step text bodies (which can contain file contents) before saving.
+      const keepText = useAppStore.getState().persistRunOutputs
       addPipelineRun({
         id: run.id,
         ts: run.ts,
         input: run.input,
         dryRun: run.dryRun,
         steps: run.steps,
-        updates: run.updates
+        updates: keepText ? run.updates : run.updates.map((u) => ({ ...u, text: u.text ? '[output not persisted]' : u.text }))
       })
       const id = Date.now() + Math.random()
       const verb = run.status === 'done' ? 'finished' : run.status

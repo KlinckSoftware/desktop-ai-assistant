@@ -85,6 +85,13 @@ export class RunManager {
     return this.runs.get(id)
   }
 
+  /** Drop all recorded runs except any still queued/running (privacy: clear history). */
+  clear(): void {
+    const keep = new Set([this.activeId, ...this.queue].filter(Boolean) as string[])
+    for (const id of [...this.runs.keys()]) if (!keep.has(id)) this.runs.delete(id)
+    this.order = this.order.filter((id) => keep.has(id))
+  }
+
   private async pump(): Promise<void> {
     if (this.activeId || this.queue.length === 0) return
     const id = this.queue.shift()!

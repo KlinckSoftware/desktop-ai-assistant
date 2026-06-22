@@ -265,6 +265,7 @@ export const CH = {
   pipelineUpdate: 'pipeline:update', // runId-tagged step/status updates
   pipelineCancel: 'pipeline:cancel', // (runId)
   pipelineRuns: 'pipeline:runs', // -> RunInfo[] (active + recent), for panel mount
+  pipelineClearRuns: 'pipeline:clear-runs', // wipe recorded runs (privacy)
   runComplete: 'run:complete', // (RunInfo) a run finished — for toast/notify
 
   // Scheduled jobs (in-app scheduler).

@@ -188,6 +188,7 @@ function registerIpc(): void {
   )
   ipcMain.handle(CH.pipelineCancel, (_e, runId: string) => runManager.cancel(runId))
   ipcMain.handle(CH.pipelineRuns, () => runManager.list())
+  ipcMain.handle(CH.pipelineClearRuns, () => runManager.clear())
 
   // --- Scheduled jobs ---
   ipcMain.handle(CH.jobList, () => jobStore.list())

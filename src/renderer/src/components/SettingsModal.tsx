@@ -42,6 +42,9 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
   const setIsolateAgents = useAppStore((s) => s.setIsolateAgents)
   const allowSecretReads = useAppStore((s) => s.allowSecretReads)
   const setAllowSecretReads = useAppStore((s) => s.setAllowSecretReads)
+  const persistRunOutputs = useAppStore((s) => s.persistRunOutputs)
+  const setPersistRunOutputs = useAppStore((s) => s.setPersistRunOutputs)
+  const clearHistory = useAppStore((s) => s.clearHistory)
   const trustedCount = useAppStore((s) => s.trustedSessions.size)
   const clearTrust = useAppStore((s) => s.clearTrust)
   const approvalTimeout = useAppStore((s) => s.approvalTimeout)
@@ -139,6 +142,13 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
   const onAllowSecretReads = (v: boolean): void => {
     setAllowSecretReads(v)
     window.api.settings.set({ allowSecretReads: v })
+  }
+  const clearAllHistory = async (): Promise<void> => {
+    if (!window.confirm('Clear all chat, debate, and run history? This cannot be undone.')) return
+    clearHistory()
+    await window.api.pipeline.clearRuns()
+    setSavedMsg('History cleared.')
+    setTimeout(() => setSavedMsg(''), 2000)
   }
   const [worktrees, setWorktrees] = useState<WorktreeInfo[]>([])
   const loadWorktrees = (): void => {
@@ -665,6 +675,32 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
                 the editor still opens them on your click.
               </span>
             </label>
+          )
+        },
+        {
+          label: 'Privacy & data',
+          kw: 'privacy data clear history persist outputs egress provider local',
+          node: (
+            <div className="space-y-2">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={persistRunOutputs}
+                  onChange={(e) => setPersistRunOutputs(e.target.checked)}
+                />
+                <span className="text-gray-300">Persist run output text in history (off = keep metadata only)</span>
+              </label>
+              <button
+                className="rounded bg-red-600/80 px-2 py-1 text-xs text-white"
+                onClick={clearAllHistory}
+              >
+                Clear chat &amp; run history
+              </button>
+              <p className="text-[10px] text-gray-500">
+                History (chats, debate, run outputs) and jobs are stored unencrypted on this machine. Files you read or
+                @-mention are sent to the selected provider; multi-provider pipelines spread that content across vendors.
+              </p>
+            </div>
           )
         }
       ]
