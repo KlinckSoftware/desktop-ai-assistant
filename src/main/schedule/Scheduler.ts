@@ -42,6 +42,7 @@ export class Scheduler {
   private timer: ReturnType<typeof setInterval> | null = null
   private gitTimer: ReturnType<typeof setTimeout> | null = null
   private offChange: (() => void) | null = null
+  private jobRuns = new Map<string, string>() // jobId -> its latest run id
 
   constructor(
     private runManager: RunManager,
@@ -76,11 +77,21 @@ export class Scheduler {
     this.gitTimer = setTimeout(() => {
       const now = Date.now()
       for (const job of this.store.list()) {
-        if (job.enabled && job.trigger.kind === 'git' && now - (job.lastRun ?? 0) > GIT_MIN_GAP_MS) {
+        if (job.enabled && job.trigger.kind === 'git' && now - (job.lastRun ?? 0) > GIT_MIN_GAP_MS && !this.hasActiveRun(job.id)) {
           void this.fire(job)
         }
       }
     }, GIT_DEBOUNCE_MS)
+  }
+
+  // A git-trigger job must not re-fire while its own run is still queued/running —
+  // otherwise its edits would retrigger it in a loop. (Runs are serialized, so an
+  // unguarded loop would also pile the queue up.)
+  private hasActiveRun(jobId: string): boolean {
+    const rid = this.jobRuns.get(jobId)
+    if (!rid) return false
+    const status = this.runManager.get(rid)?.status
+    return status === 'queued' || status === 'running'
   }
 
   /** Run a job now (also the manual "run now" path). Returns the run id. */
@@ -88,6 +99,8 @@ export class Scheduler {
     job.lastRun = Date.now()
     await this.store.flush()
     appState.send(CH.jobsChanged)
-    return this.runManager.start(job.steps, job.input, false, !!job.allowFull)
+    const runId = this.runManager.start(job.steps, job.input, false, !!job.allowFull)
+    this.jobRuns.set(job.id, runId)
+    return runId
   }
 }

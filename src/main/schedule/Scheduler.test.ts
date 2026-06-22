@@ -1,6 +1,9 @@
-import { describe, it, expect } from 'vitest'
-import { isDue, localHHMM } from './Scheduler'
+import { describe, it, expect, vi } from 'vitest'
+import { isDue, localHHMM, Scheduler } from './Scheduler'
 import type { ScheduledJob } from '../../shared/types'
+import type { RunManager } from '../pipeline/RunManager'
+import type { JobStore } from './JobStore'
+import type { FileSystemManager } from '../fs/FileSystemManager'
 
 const base = (over: Partial<ScheduledJob>): ScheduledJob => ({
   id: 'j',
@@ -57,5 +60,46 @@ describe('localHHMM', () => {
   it('zero-pads hours and minutes', () => {
     expect(localHHMM(new Date(2026, 0, 1, 9, 5))).toBe('09:05')
     expect(localHHMM(new Date(2026, 0, 1, 23, 59))).toBe('23:59')
+  })
+})
+
+describe('git-trigger self-trigger guard', () => {
+  it('does not re-fire a git job while its own run is active; fires once it completes', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(0)
+    const gitJob: ScheduledJob = {
+      id: 'j1',
+      name: 'j',
+      steps: [{ agentId: 'claude' }],
+      input: '',
+      trigger: { kind: 'git' },
+      enabled: true
+    }
+    const status = { v: 'running' as ScheduledJob['trigger']['kind'] | string }
+    const start = vi.fn(() => 'r1')
+    const runManager = { start, get: () => ({ status: status.v }) } as unknown as RunManager
+    let changeCb = (): void => {}
+    const fsm = { onChange: (cb: () => void) => ((changeCb = cb), () => {}) } as unknown as FileSystemManager
+    const store = { load: async () => [gitJob], list: () => [gitJob], flush: async () => {} } as unknown as JobStore
+
+    const s = new Scheduler(runManager, store, fsm)
+    await s.start()
+
+    await s.fire(gitJob) // prime: start #1, jobRuns j1->r1, lastRun=0
+    expect(start).toHaveBeenCalledTimes(1)
+
+    vi.setSystemTime(70_000) // past the 60s git min-gap
+    status.v = 'running' // its run is still active
+    changeCb()
+    await vi.advanceTimersByTimeAsync(5_000)
+    expect(start).toHaveBeenCalledTimes(1) // suppressed — active run
+
+    status.v = 'done' // run finished
+    changeCb()
+    await vi.advanceTimersByTimeAsync(5_000)
+    expect(start).toHaveBeenCalledTimes(2) // now allowed
+
+    s.stop()
+    vi.useRealTimers()
   })
 })
