@@ -27,11 +27,12 @@ let runSeq = 0
 // Map a step preset to Claude Code's own tool names for `--allowedTools`. A
 // dry-run is approximated as read-only (Claude has no true dry-run). 'full'
 // adds Bash (still gated by Claude's own permission checks).
-export function claudeAllowedTools(mode: PermissionMode, dryRun: boolean): string[] {
+export function claudeAllowedTools(mode: PermissionMode, dryRun: boolean, allowFull = false): string[] {
   const READ = ['Read', 'Grep', 'Glob', 'LS']
   if (dryRun || mode === 'read-only') return READ
   const EDIT = [...READ, 'Edit', 'Write', 'MultiEdit']
-  if (mode === 'edit') return EDIT
+  // Bash only when 'full' AND the run opted into shell; else cap at edit tools.
+  if (mode === 'edit' || !allowFull) return EDIT
   return [...EDIT, 'Bash']
 }
 
@@ -59,7 +60,8 @@ export class PipelineRunner {
     input: string,
     dryRun = false,
     emit: (u: PipelineUpdate) => void = (u) => appState.send(CH.pipelineUpdate, u),
-    runIdArg?: string
+    runIdArg?: string,
+    allowFull = false
   ): Promise<void> {
     const send = emit
     this.cancelled = false
@@ -97,7 +99,7 @@ export class PipelineRunner {
       const ordered = topoOrder(normed) // throws on cycle / unknown dep
       const indexById = new Map(normed.map((s, i) => [s.id, i]))
       const outputs = new Map<string, string>()
-      const ctx = { signal, dryRun, runId, workRoot, providers }
+      const ctx = { signal, dryRun, runId, workRoot, providers, allowFull }
 
       for (const step of ordered) {
         if (this.cancelled) {
@@ -155,12 +157,13 @@ export class PipelineRunner {
       runId: string
       workRoot: string
       providers: Awaited<ReturnType<typeof listProviders>>
+      allowFull: boolean
     }
   ): Promise<string> {
     if (agent.kind === 'api') {
       const providerId = agent.id.slice('api:'.length)
       const model = step.model || ctx.providers.find((p) => p.id === providerId)?.defaultModel || ''
-      const policy = policyForStep(step.permission ?? 'read-only', ctx.dryRun)
+      const policy = policyForStep(step.permission ?? 'read-only', ctx.dryRun, ctx.allowFull)
       return apiCompleteAgentic(providerId, model, [{ role: 'user', content: prompt }], policy, ctx.runId, ctx.signal)
     }
     if (agent.kind === 'claude') {
@@ -169,7 +172,7 @@ export class PipelineRunner {
         ctx.workRoot,
         step.model || appState.settings.claudeModel,
         step.effort || appState.settings.claudeEffort,
-        claudeAllowedTools(step.permission ?? 'read-only', ctx.dryRun),
+        claudeAllowedTools(step.permission ?? 'read-only', ctx.dryRun, ctx.allowFull),
         ctx.signal
       )
     }
