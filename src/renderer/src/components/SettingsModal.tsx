@@ -170,6 +170,11 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
   const [jobTrigger, setJobTrigger] = useState<'interval' | 'daily' | 'git'>('interval')
   const [jobInterval, setJobInterval] = useState(60)
   const [jobTime, setJobTime] = useState('09:00')
+  const [jobAllowFull, setJobAllowFull] = useState(false)
+  // Risk of the selected pipeline when run unattended.
+  const jobPipeline = pipelines.find((x) => x.id === jobPipelineId)
+  const jobHasFull = (jobPipeline?.steps ?? []).some((s) => s.permission === 'full')
+  const jobHasWrite = (jobPipeline?.steps ?? []).some((s) => s.permission === 'edit' || s.permission === 'full')
   const loadJobs = (): void => {
     window.api.jobs.list().then(setJobs)
   }
@@ -194,11 +199,13 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
       steps: JSON.parse(JSON.stringify(p.steps)),
       input: jobInput,
       trigger,
-      enabled: true
+      enabled: true,
+      allowFull: jobHasFull ? jobAllowFull : undefined
     }
     setJobs(await window.api.jobs.save(job))
     setJobName('')
     setJobInput('')
+    setJobAllowFull(false)
   }
   const toggleJob = async (job: ScheduledJob): Promise<void> => {
     setJobs(await window.api.jobs.save({ ...job, enabled: !job.enabled }))
@@ -443,11 +450,24 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
                   <button
                     className="ml-auto rounded bg-accent px-3 py-1 font-medium text-black disabled:opacity-40"
                     onClick={addJob}
-                    disabled={!jobName.trim() || !jobPipelineId}
+                    disabled={!jobName.trim() || !jobPipelineId || (jobHasFull && !jobAllowFull)}
                   >
                     Add job
                   </button>
                 </div>
+                {jobHasWrite && (
+                  <div className="rounded border border-yellow-700/50 bg-yellow-900/10 p-1.5 text-[10px] text-yellow-300">
+                    ⚠ This pipeline {jobHasFull ? 'runs shell commands and ' : ''}edits files — unattended, with no
+                    approval prompt.
+                    {jobTrigger === 'git' && ' On a git trigger its own edits can keep retriggering it.'}
+                    {jobHasFull && (
+                      <label className="mt-1 flex items-center gap-1 text-yellow-200">
+                        <input type="checkbox" checked={jobAllowFull} onChange={(e) => setJobAllowFull(e.target.checked)} />
+                        I understand — allow autonomous shell (full)
+                      </label>
+                    )}
+                  </div>
+                )}
                 <p className="text-[10px] text-gray-500">
                   Jobs run unattended through the pipeline&apos;s per-step permissions (autonomous) and only while
                   this app is open. Output appears in the Review panel and run history.
