@@ -245,6 +245,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
   }
 
   const [q, setQ] = useState('')
+  const [activeSection, setActiveSection] = useState('Models')
 
   // Each setting declares a section + keywords so the search box can filter.
   // A field shows if the query is empty, matches its section, or matches its
@@ -978,49 +979,71 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
   const matches = (title: string, label: string, kw: string): boolean =>
     !ql || title.toLowerCase().includes(ql) || label.toLowerCase().includes(ql) || kw.includes(ql)
 
+  // Sections shown in the left nav: all, or (when searching) only those with a
+  // matching field. The visible/active section is the selected one if it still
+  // matches, else the first matching section.
+  const navSections = ql ? sections.filter((sec) => sec.fields.some((f) => matches(sec.title, f.label, f.kw))) : sections
+  const current = navSections.find((s) => s.title === activeSection) ?? navSections[0]
+  const visibleFields = current ? current.fields.filter((f) => matches(current.title, f.label, f.kw)) : []
+
   return (
-    <div
-      style={{ zIndex: Z.dropdown }}
-      className="fixed inset-0 flex items-center justify-center bg-black/60"
-    >
-      <div className="flex max-h-[80vh] w-[32rem] flex-col rounded-lg border border-border bg-panel text-sm">
-        <div className="flex items-center justify-between border-b border-border p-4 pb-3">
+    <div style={{ zIndex: Z.dropdown }} className="fixed inset-0 flex items-center justify-center bg-black/60 p-6">
+      <div className="flex h-[82vh] max-h-[82vh] w-[56rem] max-w-full flex-col rounded-lg border border-border bg-panel text-sm">
+        <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <h2 className="text-lg font-semibold text-accent">Settings</h2>
           <button aria-label="Close settings" className="text-gray-400 hover:text-gray-200" onClick={onClose}>
             ✕
           </button>
         </div>
-        <div className="border-b border-border p-3">
-          <input
-            autoFocus
-            className="w-full rounded border border-border bg-bg px-2 py-1.5 outline-none focus:border-accent"
-            placeholder="Search settings…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-        </div>
 
-        <div className="flex-1 space-y-5 overflow-y-auto p-4">
-          {sections.map((sec) => {
-            const visible = sec.fields.filter((f) => matches(sec.title, f.label, f.kw))
-            if (visible.length === 0) return null
-            return (
-              <div key={sec.title}>
-                <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-accent">{sec.title}</div>
-                <div className="space-y-3">
-                  {visible.map((f) => (
+        <div className="flex min-h-0 flex-1">
+          {/* left: search + section nav */}
+          <div className="flex w-48 shrink-0 flex-col border-r border-border">
+            <div className="p-2">
+              <input
+                autoFocus
+                className="w-full rounded border border-border bg-bg px-2 py-1.5 text-xs outline-none focus:border-accent"
+                placeholder="Search…"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+              />
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto pb-2">
+              {navSections.map((sec) => (
+                <button
+                  key={sec.title}
+                  onClick={() => setActiveSection(sec.title)}
+                  className={`block w-full px-3 py-1.5 text-left text-xs ${
+                    current?.title === sec.title ? 'bg-bg font-medium text-accent' : 'text-gray-300 hover:bg-bg/50'
+                  }`}
+                >
+                  {sec.title}
+                </button>
+              ))}
+              {ql && navSections.length === 0 && (
+                <div className="px-3 py-2 text-xs text-gray-500">No matches.</div>
+              )}
+            </div>
+          </div>
+
+          {/* right: active section's fields */}
+          <div className="min-h-0 flex-1 overflow-y-auto p-4">
+            {current ? (
+              <>
+                <div className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-accent">{current.title}</div>
+                <div className="space-y-4">
+                  {visibleFields.map((f) => (
                     <div key={f.label}>
                       <label className="mb-1 block text-xs uppercase text-gray-500">{f.label}</label>
                       {f.node}
                     </div>
                   ))}
                 </div>
-              </div>
-            )
-          })}
-          {ql && sections.every((sec) => sec.fields.every((f) => !matches(sec.title, f.label, f.kw))) && (
-            <div className="text-gray-500">No settings match “{q}”.</div>
-          )}
+              </>
+            ) : (
+              <div className="text-gray-500">No settings match “{q}”.</div>
+            )}
+          </div>
         </div>
       </div>
       {showAgents && <AgentsModal onClose={() => setShowAgents(false)} />}
