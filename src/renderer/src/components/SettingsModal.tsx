@@ -40,6 +40,8 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
   const setTerminalShell = useAppStore((s) => s.setTerminalShell)
   const isolateAgents = useAppStore((s) => s.isolateAgents)
   const setIsolateAgents = useAppStore((s) => s.setIsolateAgents)
+  const allowSecretReads = useAppStore((s) => s.allowSecretReads)
+  const setAllowSecretReads = useAppStore((s) => s.setAllowSecretReads)
   const trustedCount = useAppStore((s) => s.trustedSessions.size)
   const clearTrust = useAppStore((s) => s.clearTrust)
   const approvalTimeout = useAppStore((s) => s.approvalTimeout)
@@ -133,6 +135,10 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
   const onIsolate = (v: boolean): void => {
     setIsolateAgents(v)
     window.api.settings.set({ isolateAgents: v })
+  }
+  const onAllowSecretReads = (v: boolean): void => {
+    setAllowSecretReads(v)
+    window.api.settings.set({ allowSecretReads: v })
   }
   const [worktrees, setWorktrees] = useState<WorktreeInfo[]>([])
   const loadWorktrees = (): void => {
@@ -646,6 +652,19 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
               value={approvalTimeout}
               onChange={(e) => setApprovalTimeout(Math.max(0, Math.min(600, Number(e.target.value) || 0)))}
             />
+          )
+        },
+        {
+          label: 'Allow tools to read secret files',
+          kw: 'security secret env key credentials read privacy ssh pem',
+          node: (
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={allowSecretReads} onChange={(e) => onAllowSecretReads(e.target.checked)} />
+              <span className="text-gray-300">
+                Let agents read secret-looking files (.env, keys, .ssh) and send them to the model. Off by default —
+                the editor still opens them on your click.
+              </span>
+            </label>
           )
         }
       ]

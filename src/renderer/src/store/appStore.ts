@@ -50,6 +50,7 @@ export interface PersistedState {
   debateSideB: string
   terminalShell: AppState['terminalShell']
   isolateAgents: boolean
+  allowSecretReads: boolean
   dockLayout: unknown | null
   apiChats: Record<string, Message[]>
   apiModels: Record<string, string>
@@ -90,6 +91,7 @@ interface AppState {
   debateSideB: string
   terminalShell: 'default' | 'powershell' | 'pwsh' | 'cmd' | 'bash' | 'zsh'
   isolateAgents: boolean // each CLI-agent session gets its own git worktree/branch
+  allowSecretReads: boolean // let tools read secret-looking files (.env, keys)
   // Renderer-only preferences (persisted; not sent to main).
   approvalTimeout: number // seconds before a command/tool card auto-rejects (0 = never)
   pipelineDefaultPermission: 'read-only' | 'edit' | 'full'
@@ -118,6 +120,7 @@ interface AppState {
   setDebateSides: (a: string, b: string) => void
   setTerminalShell: (s: AppState['terminalShell']) => void
   setIsolateAgents: (v: boolean) => void
+  setAllowSecretReads: (v: boolean) => void
 
   pending: PendingCommand[]
   addPending: (c: PendingCommand) => void
@@ -253,6 +256,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   debateSideB: 'gemini',
   terminalShell: 'default',
   isolateAgents: true,
+  allowSecretReads: false,
   approvalTimeout: 15,
   pipelineDefaultPermission: 'read-only',
   pipelineDefaultDryRun: false,
@@ -280,6 +284,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setDebateSides: (a, b) => set({ debateSideA: a, debateSideB: b }),
   setTerminalShell: (s) => set({ terminalShell: s }),
   setIsolateAgents: (v) => set({ isolateAgents: v }),
+  setAllowSecretReads: (v) => set({ allowSecretReads: v }),
 
   pending: [],
   addPending: (c) => set((s) => ({ pending: [...s.pending, c] })),
@@ -467,6 +472,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       debateSideB: d.debateSideB ?? 'gemini',
       terminalShell: d.terminalShell ?? 'default',
       isolateAgents: d.isolateAgents ?? true,
+      allowSecretReads: d.allowSecretReads ?? false,
       approvalTimeout: d.approvalTimeout ?? 15,
       pipelineDefaultPermission: d.pipelineDefaultPermission ?? 'read-only',
       pipelineDefaultDryRun: d.pipelineDefaultDryRun ?? false,

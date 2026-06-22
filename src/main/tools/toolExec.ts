@@ -4,6 +4,7 @@ import { appState } from '../state'
 import { resolve } from 'path'
 import { gitDiff } from '../fs/git'
 import { buildRepoMap } from '../fs/repoMap'
+import { isSecretPath } from '../../shared/protectedPath'
 import type { ApprovalPolicy } from '../policy/ApprovalPolicy'
 import type { CommandBroker } from '../executor/CommandBroker'
 import type { FileEditBroker } from '../editor/FileEditBroker'
@@ -160,7 +161,13 @@ export async function execTool(
       // --- read-only, auto-execute ---
       case 'read_file': {
         if (!fsm) return '[no fs]'
-        const content = await fsm.readFile(abs(root, String(args.path ?? '')))
+        const rel = String(args.path ?? '')
+        // Don't ship secret-looking files (.env, keys, .ssh) to the model unless
+        // the user explicitly allows it. The editor UI path is unaffected.
+        if (!appState.settings.allowSecretReads && isSecretPath(rel)) {
+          return `[blocked: "${rel}" looks like a secret — enable "allow secret reads" in Settings to override]`
+        }
+        const content = await fsm.readFile(abs(root, rel))
         return content.length > 60000 ? content.slice(0, 60000) + '\n[…truncated]' : content
       }
       case 'list_dir': {
@@ -173,7 +180,9 @@ export async function execTool(
       }
       case 'search_code': {
         if (!fsm) return '[no fs]'
-        const hits = await fsm.search(root, String(args.query ?? ''))
+        let hits = await fsm.search(root, String(args.query ?? ''))
+        // Drop hits from secret files so a search can't exfiltrate their contents.
+        if (!appState.settings.allowSecretReads) hits = hits.filter((h) => !isSecretPath(h.split(':')[0]))
         return hits.length ? hits.join('\n') : '[no matches]'
       }
       case 'git_diff': {

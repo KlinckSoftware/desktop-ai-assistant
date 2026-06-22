@@ -196,6 +196,7 @@ const api = {
       terminalShell?: 'default' | 'powershell' | 'pwsh' | 'cmd' | 'bash' | 'zsh'
       isolateAgents?: boolean
       costCap?: number
+      allowSecretReads?: boolean
     }): Promise<void> => ipcRenderer.invoke(CH.settingsSet, s)
   },
   jobs: {
