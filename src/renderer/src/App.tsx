@@ -69,17 +69,18 @@ export default function App(): JSX.Element {
       } else {
         setProjectRoot(await window.api.fs.projectRoot())
       }
-      const { geminiModel, claudeModel, claudeEffort, debateRounds, terminalShell, isolateAgents, costCap, allowSecretReads } =
-        useAppStore.getState()
+      const s0 = useAppStore.getState()
       window.api.settings.set({
-        geminiModel,
-        claudeModel,
-        claudeEffort,
-        debateRounds,
-        terminalShell,
-        isolateAgents,
-        costCap,
-        allowSecretReads
+        geminiModel: s0.geminiModel,
+        claudeModel: s0.claudeModel,
+        claudeEffort: s0.claudeEffort,
+        debateRounds: s0.debateRounds,
+        terminalShell: s0.terminalShell,
+        isolateAgents: s0.isolateAgents,
+        costCap: s0.costCap,
+        allowSecretReads: s0.allowSecretReads,
+        allowProtectedWrites: s0.allowProtectedWrites,
+        pipelineAllowFullDefault: s0.pipelineAllowFullDefault
       })
       setAgents(await window.api.agent.list())
       setApiProviders(await window.api.api.providers())
@@ -179,6 +180,9 @@ export default function App(): JSX.Element {
           terminalShell: s.terminalShell,
           isolateAgents: s.isolateAgents,
           allowSecretReads: s.allowSecretReads,
+          allowProtectedWrites: s.allowProtectedWrites,
+          pipelineAllowFullDefault: s.pipelineAllowFullDefault,
+          alwaysConfirm: s.alwaysConfirm,
           dockLayout: s.dockLayout,
           apiChats: s.apiChats,
           apiModels: s.apiModels,
@@ -218,7 +222,9 @@ export default function App(): JSX.Element {
   // Command proposals: auto-approve trusted sessions, except dangerous commands.
   useEffect(() => {
     const off = window.api.command.onPending((c) => {
-      if (useAppStore.getState().isTrusted(c.sessionId) && !checkDangerous(c.command).dangerous) {
+      const st = useAppStore.getState()
+      // "Always require approval" (restrict) disables trusted auto-approve entirely.
+      if (!st.alwaysConfirm && st.isTrusted(c.sessionId) && !checkDangerous(c.command).dangerous) {
         window.api.command.approve(c.id)
       } else {
         addPending(c)
@@ -240,7 +246,8 @@ export default function App(): JSX.Element {
   // MCP tool calls: auto-approve trusted tools, else queue an approval card.
   useEffect(() => {
     return window.api.tool.onPending((t) => {
-      if (useAppStore.getState().isToolTrusted(t.tool)) window.api.tool.approve(t.id)
+      const st = useAppStore.getState()
+      if (!st.alwaysConfirm && st.isToolTrusted(t.tool)) window.api.tool.approve(t.id)
       else addPendingTool(t)
     })
   }, [addPendingTool])

@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-vi.mock('../state', () => ({ appState: { projectRoot: process.cwd(), send: vi.fn() } }))
+vi.mock('../state', () => ({
+  appState: { projectRoot: process.cwd(), send: vi.fn(), settings: { allowProtectedWrites: false } }
+}))
 
 import { FileEditBroker } from './FileEditBroker'
 import { policyForStep } from '../policy/ApprovalPolicy'

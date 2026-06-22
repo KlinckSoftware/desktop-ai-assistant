@@ -180,7 +180,7 @@ export class FileSystemManager {
     // Never let a write land in .git/ or node_modules/ — a planted git hook would
     // execute on the next commit/merge, bypassing the shell denylist entirely.
     // This is the single chokepoint for every write (edit broker, undo, fs:write).
-    if (isProtectedPath(relative(appState.projectRoot, abs))) {
+    if (!appState.settings.allowProtectedWrites && isProtectedPath(relative(appState.projectRoot, abs))) {
       throw new Error(`Refusing to write protected path: ${basename(abs)}`)
     }
     if (isBinaryPath(abs)) throw new Error(`Refusing to write binary file: ${basename(abs)}`)

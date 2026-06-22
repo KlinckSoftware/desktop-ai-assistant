@@ -22,6 +22,8 @@ export interface Settings {
   isolateAgents: boolean // run each CLI-agent session in its own git worktree/branch
   costCap: number // USD session spend ceiling enforced in main (0 = no cap)
   allowSecretReads: boolean // let tools read secret-looking files (.env, keys) — default off
+  allowProtectedWrites: boolean // permit writes to .git/ & node_modules/ — default off (LOOSEN)
+  pipelineAllowFullDefault: boolean // default the per-run "allow shell (full)" opt-in — default off
 }
 
 // Mutable app-wide state shared across main-process modules.
@@ -36,7 +38,9 @@ class AppState {
     terminalShell: 'default',
     isolateAgents: true,
     costCap: 0,
-    allowSecretReads: false
+    allowSecretReads: false,
+    allowProtectedWrites: false,
+    pipelineAllowFullDefault: false
   }
 
   // sessionId -> the isolated worktree root that session operates in. Sessions

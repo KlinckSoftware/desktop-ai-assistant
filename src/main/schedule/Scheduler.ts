@@ -99,7 +99,9 @@ export class Scheduler {
     job.lastRun = Date.now()
     await this.store.flush()
     appState.send(CH.jobsChanged)
-    const runId = this.runManager.start(job.steps, job.input, false, !!job.allowFull)
+    // Pass through undefined when the job didn't set it, so RunManager applies the
+    // global pipelineAllowFullDefault fallback.
+    const runId = this.runManager.start(job.steps, job.input, false, job.allowFull)
     this.jobRuns.set(job.id, runId)
     return runId
   }

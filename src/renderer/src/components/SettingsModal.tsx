@@ -45,6 +45,20 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
   const persistRunOutputs = useAppStore((s) => s.persistRunOutputs)
   const setPersistRunOutputs = useAppStore((s) => s.setPersistRunOutputs)
   const clearHistory = useAppStore((s) => s.clearHistory)
+  const allowProtectedWrites = useAppStore((s) => s.allowProtectedWrites)
+  const setAllowProtectedWrites = useAppStore((s) => s.setAllowProtectedWrites)
+  const pipelineAllowFullDefault = useAppStore((s) => s.pipelineAllowFullDefault)
+  const setPipelineAllowFullDefault = useAppStore((s) => s.setPipelineAllowFullDefault)
+  const alwaysConfirm = useAppStore((s) => s.alwaysConfirm)
+  const setAlwaysConfirm = useAppStore((s) => s.setAlwaysConfirm)
+  const onAllowProtectedWrites = (v: boolean): void => {
+    setAllowProtectedWrites(v)
+    window.api.settings.set({ allowProtectedWrites: v })
+  }
+  const onPipelineAllowFullDefault = (v: boolean): void => {
+    setPipelineAllowFullDefault(v)
+    window.api.settings.set({ pipelineAllowFullDefault: v })
+  }
   const trustedCount = useAppStore((s) => s.trustedSessions.size)
   const clearTrust = useAppStore((s) => s.clearTrust)
   const approvalTimeout = useAppStore((s) => s.approvalTimeout)
@@ -186,7 +200,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
   const [jobTrigger, setJobTrigger] = useState<'interval' | 'daily' | 'git'>('interval')
   const [jobInterval, setJobInterval] = useState(60)
   const [jobTime, setJobTime] = useState('09:00')
-  const [jobAllowFull, setJobAllowFull] = useState(false)
+  const [jobAllowFull, setJobAllowFull] = useState(pipelineAllowFullDefault)
   // Risk of the selected pipeline when run unattended.
   const jobPipeline = pipelines.find((x) => x.id === jobPipelineId)
   const jobHasFull = (jobPipeline?.steps ?? []).some((s) => s.permission === 'full')
@@ -701,6 +715,51 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
                 @-mention are sent to the selected provider; multi-provider pipelines spread that content across vendors.
               </p>
             </div>
+          )
+        },
+        {
+          label: 'Always require approval (no trusted auto-approve)',
+          kw: 'security restrict approval always confirm trust auto-approve',
+          node: (
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={alwaysConfirm} onChange={(e) => setAlwaysConfirm(e.target.checked)} />
+              <span className="text-gray-300">
+                Show an approval card for every command/tool, even in a trusted session (restrict).
+              </span>
+            </label>
+          )
+        },
+        {
+          label: 'Default "allow shell (full)" on new pipeline runs',
+          kw: 'security pipeline full shell autonomous default loosen allow',
+          node: (
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={pipelineAllowFullDefault}
+                onChange={(e) => onPipelineAllowFullDefault(e.target.checked)}
+              />
+              <span className="text-gray-300">
+                Pre-tick the per-run shell opt-in for `full` steps (loosen). Off = opt in each run.
+              </span>
+            </label>
+          )
+        },
+        {
+          label: 'Allow writes to .git/ and node_modules/',
+          kw: 'security protected git node_modules write loosen advanced danger',
+          node: (
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={allowProtectedWrites}
+                onChange={(e) => onAllowProtectedWrites(e.target.checked)}
+              />
+              <span className="text-yellow-300">
+                ⚠ Advanced/loosen: lets agents write into .git/ and node_modules/. Re-opens the git-hook execution risk.
+                Leave off unless you know why.
+              </span>
+            </label>
           )
         }
       ]
