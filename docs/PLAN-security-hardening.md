@@ -1,8 +1,12 @@
 # Plan — Security & Privacy Hardening
 
-Addresses every finding from the 0.36.0 security/privacy review. Planning only —
-no code here. Findings keep their review IDs (HIGH-1, HIGH-2, MEDIUM-3…6, plus
-the privacy items P1–P4).
+**Status: ✅ ALL SHIPPED (0.36.1–0.36.8).** HIGH-2 `6a7167c` · HIGH-1/MEDIUM-4 `e5dc56d` ·
+MEDIUM-3 `a67b047` · MEDIUM-5 `627cfad` · B3 warnings `52969dd` · P2 `9ff36c9` ·
+P1 `4bb771c` · P3 `def2daa` · D docs `2168ace`. Deferred (noted): configurable
+autonomous command allowlist; approval/action nonce (future).
+
+Addresses every finding from the 0.36.0 security/privacy review. Findings keep
+their review IDs (HIGH-1, HIGH-2, MEDIUM-3…6, plus the privacy items P1–P4).
 
 Build order (small + highest-risk first):
 1. **Phase A** — HIGH-2 (`.git` write guard) + HIGH-1/MEDIUM-4 (main-side spend cap)
