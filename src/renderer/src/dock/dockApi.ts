@@ -27,7 +27,8 @@ export const PANELS: PanelDef[] = [
   { id: 'checkpoints', title: 'Checkpoints' },
   { id: 'debate', title: 'Debate' },
   { id: 'cockpit', title: 'Cockpit' },
-  { id: 'pipeline', title: 'Pipelines' }
+  { id: 'pipeline', title: 'Pipelines' },
+  { id: 'review', title: 'Review' }
 ]
 
 /** Focus an existing panel; if it was closed, re-add it first. */
@@ -89,7 +90,8 @@ export function buildDefaultLayout(api: DockviewApi): void {
     ['diff', 'Diff Viewer'],
     ['checkpoints', 'Checkpoints'],
     ['cockpit', 'Cockpit'],
-    ['pipeline', 'Pipelines']
+    ['pipeline', 'Pipelines'],
+    ['review', 'Review']
   ] as const) {
     api.addPanel({ id, component: id, title, position: { referencePanel: 'terminal', direction: 'within' } })
   }

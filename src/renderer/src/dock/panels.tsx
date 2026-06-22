@@ -11,6 +11,7 @@ import FileEditor from '../panes/FileEditor'
 import ApiChatPanel from '../panes/ApiChatPanel'
 import CockpitPanel from '../panes/CockpitPanel'
 import PipelinePanel from '../panes/PipelinePanel'
+import ReviewPanel from '../panes/ReviewPanel'
 import { focusPanel } from './dockApi'
 
 // Each dockview panel fills its tab; panes read shared state from the store.
@@ -28,5 +29,6 @@ export const components: Record<string, React.FunctionComponent<IDockviewPanelPr
   checkpoints: wrap(<CheckpointsPanel />),
   debate: wrap(<DebatePanel />),
   cockpit: wrap(<CockpitPanel />),
-  pipeline: wrap(<PipelinePanel />)
+  pipeline: wrap(<PipelinePanel />),
+  review: wrap(<ReviewPanel />)
 }
