@@ -94,11 +94,22 @@ export interface DebateAgent {
 // step's output becoming the next step's input (optionally wrapped by the
 // step's instruction). agentId uses the DebateAgent id form.
 export interface PipelineStep {
+  id?: string // stable ref for deps/${id} interpolation; auto-assigned if missing
   agentId: string
   instruction?: string // optional per-step framing prepended to the carried text
   permission?: 'read-only' | 'edit' | 'full' // tool capability for this step (default read-only)
   model?: string // per-step model override (else the participant's default)
   effort?: string // per-step reasoning effort (Claude steps only)
+  // DAG: ids of steps whose outputs feed this one. Missing/empty => the previous
+  // step (linear back-compat). Outputs are also addressable as ${id} / ${input}
+  // inside `instruction`. Execution stays sequential in topological order.
+  deps?: string[]
+  // Skip this step unless `from` (a dep id; else the combined input) contains
+  // `contains` (case-insensitive). Lets a step run conditionally on a prior result.
+  condition?: { contains: string; from?: string }
+  // Map step: split the resolved input into items (one per non-empty line) and run
+  // the instruction once per item, sequentially; the output is the joined results.
+  map?: boolean
 }
 export interface Pipeline {
   id: string
