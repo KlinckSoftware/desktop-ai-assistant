@@ -2,6 +2,7 @@ import { appState } from '../state'
 import { CH, type Message } from '../../shared/types'
 import { KeychainManager } from '../keychain/KeychainManager'
 import { toolSpecs, execTool } from '../tools/toolExec'
+import { addUsageCost, capReached } from '../budget'
 
 const BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
 
@@ -78,11 +79,16 @@ export class GeminiClient {
     let promptTokens = 0
     let completionTokens = 0
     for (let turn = 0; turn < maxTurns; turn++) {
+      if (capReached()) {
+        appState.send(CH.geminiStream, '\n[blocked: session cost cap reached]')
+        break
+      }
       const { text, calls, usage } = await this.streamOnce(apiKey, contents, { tools })
       full += text
       if (usage) {
         promptTokens += usage.promptTokens
         completionTokens += usage.completionTokens
+        addUsageCost(appState.settings.geminiModel, usage.promptTokens, usage.completionTokens)
       }
       if (calls.length === 0) break
 

@@ -195,6 +195,7 @@ const api = {
       debateRounds?: number
       terminalShell?: 'default' | 'powershell' | 'pwsh' | 'cmd' | 'bash' | 'zsh'
       isolateAgents?: boolean
+      costCap?: number
     }): Promise<void> => ipcRenderer.invoke(CH.settingsSet, s)
   },
   jobs: {

@@ -31,6 +31,7 @@ import {
 } from './api/providers'
 import { apiSend } from './api/OpenAIClient'
 import { fetchLivePricing } from './api/livePricing'
+import { setPriceOverrides } from '../shared/pricing'
 import { setBrokers } from './tools/toolExec'
 import type { ApiProvider } from '../shared/types'
 import { IPCModerator } from './moderator/IPCModerator'
@@ -285,6 +286,11 @@ app.whenReady().then(() => {
   worktreeManager.pruneOnBoot(appState.projectRoot).catch(() => {})
   // Start the in-app job scheduler (runs while the app is open).
   scheduler.start().catch((e) => console.warn('[scheduler] start failed:', e))
+  // Overlay the live price table in MAIN too, so the spend cap (budget.ts) costs
+  // requests with the same rates the renderer shows.
+  fetchLivePricing()
+    .then((t) => t && Object.keys(t).length && setPriceOverrides(t))
+    .catch(() => {})
   ensureAgentConfig().catch(() => {})
   ensureApiConfig().catch(() => {})
   // Connect MCP servers in the background (non-blocking).

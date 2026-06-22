@@ -20,6 +20,7 @@ export interface Settings {
   debateRounds: number
   terminalShell: 'default' | 'powershell' | 'pwsh' | 'cmd' | 'bash' | 'zsh'
   isolateAgents: boolean // run each CLI-agent session in its own git worktree/branch
+  costCap: number // USD session spend ceiling enforced in main (0 = no cap)
 }
 
 // Mutable app-wide state shared across main-process modules.
@@ -32,7 +33,8 @@ class AppState {
     claudeEffort: '',
     debateRounds: 3,
     terminalShell: 'default',
-    isolateAgents: true
+    isolateAgents: true,
+    costCap: 0
   }
 
   // sessionId -> the isolated worktree root that session operates in. Sessions

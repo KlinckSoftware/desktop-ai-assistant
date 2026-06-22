@@ -3,6 +3,7 @@ import { CH, type Message } from '../../shared/types'
 import { getProvider, getKey } from './providers'
 import { toolSpecs, execTool } from '../tools/toolExec'
 import { parseChatPayload } from './sseParse'
+import { addUsageCost, capReached } from '../budget'
 import type { ApprovalPolicy } from '../policy/ApprovalPolicy'
 
 const DONE = '[[api:done]]'
@@ -221,11 +222,20 @@ async function runToolLoop(opts: ToolLoopOpts): Promise<{ promptTokens: number; 
   let completionTokens = 0
 
   for (let turn = 0; turn < MAX_TOOL_TURNS; turn++) {
+    // Main-side cost ceiling: stop the loop once the session cap is reached, so
+    // unattended (pipeline/scheduled) runs can't blow past the budget.
+    if (capReached()) {
+      const note = '\n[blocked: session cost cap reached]'
+      emit(note)
+      opts.onText?.(note)
+      break
+    }
     const { text, calls, usage } = await streamOnce(url, key, model, messages, tools, emit, signal)
     if (text) opts.onText?.(text)
     if (usage) {
       promptTokens += usage.promptTokens
       completionTokens += usage.completionTokens
+      addUsageCost(model, usage.promptTokens, usage.completionTokens)
     }
     if (calls.length === 0) break
 

@@ -1,5 +1,6 @@
 import { appState } from '../state'
 import { CH, type PipelineStep, type PipelineUpdate, type RunInfo } from '../../shared/types'
+import { capReached } from '../budget'
 import type { PipelineRunner } from './PipelineRunner'
 
 // Main-side authority for pipeline runs. Runs are serialized (one at a time):
@@ -41,6 +42,14 @@ export class RunManager {
     this.runs.set(id, rec)
     this.order.unshift(id)
     this.prune()
+    // Refuse to even start when the session cost cap is already reached — the
+    // main-side backstop for unattended (scheduled/background) runs.
+    if (capReached()) {
+      rec.status = 'error'
+      this.onUpdate(id, { type: 'error', text: '[blocked: session cost cap reached — raise it in Settings]' })
+      appState.send(CH.runComplete, rec)
+      return id
+    }
     this.broadcast({ type: 'queued', runId: id })
     this.queue.push(id)
     void this.pump()
