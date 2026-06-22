@@ -585,7 +585,11 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
               step={0.5}
               className="w-full rounded border border-border bg-bg px-2 py-1.5 outline-none focus:border-accent"
               value={costCap}
-              onChange={(e) => setCostCap(Math.max(0, Number(e.target.value) || 0))}
+              onChange={(e) => {
+                const v = Math.max(0, Number(e.target.value) || 0)
+                setCostCap(v)
+                window.api.settings.set({ costCap: v }) // main enforces the cap too
+              }}
             />
           )
         }
