@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { WorktreeInfo } from '@shared/types'
+import type { WorktreeInfo, ScheduledJob, JobTrigger } from '@shared/types'
 import { useAppStore } from '../store/appStore'
 import { Z } from '../zIndex'
 import AgentsModal from './AgentsModal'
@@ -161,6 +161,52 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
     setTimeout(() => setSavedMsg(''), 2000)
   }
 
+  // --- Scheduled jobs ---
+  const pipelines = useAppStore((s) => s.pipelines)
+  const [jobs, setJobs] = useState<ScheduledJob[]>([])
+  const [jobName, setJobName] = useState('')
+  const [jobPipelineId, setJobPipelineId] = useState('')
+  const [jobInput, setJobInput] = useState('')
+  const [jobTrigger, setJobTrigger] = useState<'interval' | 'daily' | 'git'>('interval')
+  const [jobInterval, setJobInterval] = useState(60)
+  const [jobTime, setJobTime] = useState('09:00')
+  const loadJobs = (): void => {
+    window.api.jobs.list().then(setJobs)
+  }
+  useEffect(() => {
+    loadJobs()
+    return window.api.jobs.onChanged(loadJobs)
+  }, [])
+  const triggerLabel = (t: JobTrigger): string =>
+    t.kind === 'interval' ? `every ${t.minutes}m` : t.kind === 'daily' ? `daily ${t.time}` : 'on git change'
+  const addJob = async (): Promise<void> => {
+    const p = pipelines.find((x) => x.id === jobPipelineId)
+    if (!jobName.trim() || !p || p.steps.length === 0) return
+    const trigger: JobTrigger =
+      jobTrigger === 'interval'
+        ? { kind: 'interval', minutes: Math.max(1, jobInterval) }
+        : jobTrigger === 'daily'
+          ? { kind: 'daily', time: jobTime }
+          : { kind: 'git' }
+    const job: ScheduledJob = {
+      id: globalThis.crypto?.randomUUID?.() ?? `job_${Date.now()}`,
+      name: jobName.trim(),
+      steps: JSON.parse(JSON.stringify(p.steps)),
+      input: jobInput,
+      trigger,
+      enabled: true
+    }
+    setJobs(await window.api.jobs.save(job))
+    setJobName('')
+    setJobInput('')
+  }
+  const toggleJob = async (job: ScheduledJob): Promise<void> => {
+    setJobs(await window.api.jobs.save({ ...job, enabled: !job.enabled }))
+  }
+  const removeJob = async (id: string): Promise<void> => {
+    setJobs(await window.api.jobs.remove(id))
+  }
+
   const [q, setQ] = useState('')
 
   // Each setting declares a section + keywords so the search box can filter.
@@ -295,6 +341,118 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
                   </div>
                 ))
               )}
+            </div>
+          )
+        }
+      ]
+    },
+    {
+      title: 'Schedules',
+      fields: [
+        {
+          label: 'Scheduled pipeline jobs (run while the app is open)',
+          kw: 'schedule scheduled job cron interval daily git automate background pipeline',
+          node: (
+            <div className="space-y-3">
+              {jobs.length > 0 && (
+                <div className="space-y-1">
+                  {jobs.map((j) => (
+                    <div
+                      key={j.id}
+                      className="flex items-center gap-2 rounded border border-border bg-bg px-2 py-1.5"
+                    >
+                      <input type="checkbox" checked={j.enabled} onChange={() => toggleJob(j)} title="Enable/disable" />
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-gray-200">{j.name}</div>
+                        <div className="truncate text-[10px] text-gray-500">
+                          {triggerLabel(j.trigger)}
+                          {j.lastRun ? ` · last ${new Date(j.lastRun).toLocaleString()}` : ' · never run'}
+                        </div>
+                      </div>
+                      <button
+                        className="shrink-0 rounded border border-border px-2 py-0.5 text-gray-300 hover:bg-panel"
+                        onClick={() => window.api.jobs.runNow(j.id)}
+                        title="Run this job now"
+                      >
+                        Run
+                      </button>
+                      <button
+                        className="shrink-0 rounded border border-red-700/60 px-2 py-0.5 text-red-300 hover:bg-red-900/30"
+                        onClick={() => removeJob(j.id)}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* add-job form */}
+              <div className="space-y-1.5 rounded border border-border/60 p-2">
+                <input
+                  className="w-full rounded border border-border bg-bg px-2 py-1 outline-none focus:border-accent"
+                  placeholder="Job name"
+                  value={jobName}
+                  onChange={(e) => setJobName(e.target.value)}
+                />
+                <select
+                  className="w-full rounded border border-border bg-bg px-2 py-1 outline-none focus:border-accent"
+                  value={jobPipelineId}
+                  onChange={(e) => setJobPipelineId(e.target.value)}
+                >
+                  <option value="">Pick a saved pipeline…</option>
+                  {pipelines.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  className="w-full rounded border border-border bg-bg px-2 py-1 outline-none focus:border-accent"
+                  placeholder="Starting input (optional)"
+                  value={jobInput}
+                  onChange={(e) => setJobInput(e.target.value)}
+                />
+                <div className="flex items-center gap-1.5">
+                  <select
+                    className="rounded border border-border bg-bg px-1.5 py-1 outline-none focus:border-accent"
+                    value={jobTrigger}
+                    onChange={(e) => setJobTrigger(e.target.value as 'interval' | 'daily' | 'git')}
+                  >
+                    <option value="interval">every N min</option>
+                    <option value="daily">daily at</option>
+                    <option value="git">on git change</option>
+                  </select>
+                  {jobTrigger === 'interval' && (
+                    <input
+                      type="number"
+                      min={1}
+                      className="w-20 rounded border border-border bg-bg px-2 py-1 outline-none focus:border-accent"
+                      value={jobInterval}
+                      onChange={(e) => setJobInterval(Math.max(1, Number(e.target.value) || 60))}
+                    />
+                  )}
+                  {jobTrigger === 'daily' && (
+                    <input
+                      type="time"
+                      className="rounded border border-border bg-bg px-2 py-1 outline-none focus:border-accent"
+                      value={jobTime}
+                      onChange={(e) => setJobTime(e.target.value)}
+                    />
+                  )}
+                  <button
+                    className="ml-auto rounded bg-accent px-3 py-1 font-medium text-black disabled:opacity-40"
+                    onClick={addJob}
+                    disabled={!jobName.trim() || !jobPipelineId}
+                  >
+                    Add job
+                  </button>
+                </div>
+                <p className="text-[10px] text-gray-500">
+                  Jobs run unattended through the pipeline&apos;s per-step permissions (autonomous) and only while
+                  this app is open. Output appears in the Review panel and run history.
+                </p>
+              </div>
             </div>
           )
         }
