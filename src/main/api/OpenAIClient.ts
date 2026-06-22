@@ -4,12 +4,10 @@ import { getProvider, getKey } from './providers'
 import { toolSpecs, execTool } from '../tools/toolExec'
 import { parseChatPayload } from './sseParse'
 import { addUsageCost, capReached } from '../budget'
+import { AGENT_SYSTEM, MAX_TOOL_TURNS } from '../agents/systemPrompt'
 import type { ApprovalPolicy } from '../policy/ApprovalPolicy'
 
 const DONE = '[[api:done]]'
-
-// Max number of model<->tool round-trips before we stop feeding results back.
-const MAX_TOOL_TURNS = 8
 
 // Retry transient transport failures with a short exponential backoff. We retry
 // only on conditions that are plausibly recoverable: a thrown network error, or
@@ -85,9 +83,12 @@ export async function apiSend(
 
   const url = `${provider.baseUrl.replace(/\/$/, '')}/chat/completions`
   const tools = toolSpecs().map((s) => ({ type: 'function', function: s }))
-  const messages: OAMessage[] = history
-    .filter((m) => m.content)
-    .map((m) => ({ role: m.role === 'model' ? 'assistant' : m.role, content: m.content }))
+  const messages: OAMessage[] = [
+    { role: 'system', content: AGENT_SYSTEM },
+    ...history
+      .filter((m) => m.content)
+      .map((m) => ({ role: m.role === 'model' ? 'assistant' : m.role, content: m.content }))
+  ]
 
   try {
     const { promptTokens, completionTokens } = await runToolLoop({
@@ -129,9 +130,12 @@ export async function apiCompleteAgentic(
 
   const url = `${provider.baseUrl.replace(/\/$/, '')}/chat/completions`
   const tools = toolSpecs().map((s) => ({ type: 'function', function: s }))
-  const messages: OAMessage[] = history
-    .filter((m) => m.content)
-    .map((m) => ({ role: m.role === 'model' ? 'assistant' : m.role, content: m.content }))
+  const messages: OAMessage[] = [
+    { role: 'system', content: AGENT_SYSTEM },
+    ...history
+      .filter((m) => m.content)
+      .map((m) => ({ role: m.role === 'model' ? 'assistant' : m.role, content: m.content }))
+  ]
 
   // No streaming to a panel — accumulate a text transcript instead. The loop
   // appends model text via onText and inline tool markers via onToolResult.
