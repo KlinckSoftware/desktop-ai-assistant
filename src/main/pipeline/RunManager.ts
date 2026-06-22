@@ -81,6 +81,10 @@ export class RunManager {
     return this.order.map((id) => this.runs.get(id)!).filter(Boolean)
   }
 
+  get(id: string): RunInfo | undefined {
+    return this.runs.get(id)
+  }
+
   private async pump(): Promise<void> {
     if (this.activeId || this.queue.length === 0) return
     const id = this.queue.shift()!
