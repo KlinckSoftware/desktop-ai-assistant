@@ -19,10 +19,13 @@ export class IPCModerator {
   private pendingPrompt = ''
   private pendingA: DebateAgent | null = null
   private cancelled = false
+  private controller: AbortController | null = null
 
-  /** Request cancellation; the debate stops at the next round boundary. */
+  /** Request cancellation: aborts the in-flight model call AND stops at the next
+   *  round boundary. */
   cancel(): void {
     this.cancelled = true
+    this.controller?.abort()
   }
 
   constructor(
@@ -55,7 +58,7 @@ export class IPCModerator {
   /** One-shot completion from any participant. `prompt` is the new turn; history
    *  is prior context (used by chat-style participants). */
   private complete(agent: DebateAgent, prompt: string, history: Message[]): Promise<string> {
-    return completeParticipant(agent, prompt, history, this.gemini)
+    return completeParticipant(agent, prompt, history, this.gemini, this.controller?.signal)
   }
 
   async runDebate(userPrompt: string, aId = 'claude', bId = 'gemini', roundsArg?: number): Promise<void> {
@@ -63,6 +66,7 @@ export class IPCModerator {
     const transcript: DebateRound[] = []
     const status = (s: string): void => appState.send(CH.debateStatus, s)
     this.cancelled = false
+    this.controller = new AbortController()
 
     try {
       const a = await this.resolve(aId)
@@ -124,9 +128,13 @@ export class IPCModerator {
           : `Discussion complete. Approve to have ${a.name} write up the final implementation plan (it will NOT edit files directly — ${a.name} is API-only), or decline.`
       })
     } catch (err) {
+      status('')
+      if (this.cancelled || (err instanceof Error && err.name === 'AbortError')) {
+        appState.send(CH.debateUpdate, { type: 'error', text: 'Debate cancelled.' })
+        return
+      }
       const msg = err instanceof Error ? err.message : String(err)
       console.error('[debate] failed:', msg)
-      status('')
       appState.send(CH.debateUpdate, { type: 'error', text: `Debate failed: ${msg}` })
     }
   }
@@ -139,6 +147,8 @@ export class IPCModerator {
     if (!transcript || !a) return
     this.pendingTranscript = null
     const status = (s: string): void => appState.send(CH.debateStatus, s)
+    this.cancelled = false
+    this.controller = new AbortController()
     try {
       status(`${a.name} synthesizing…`)
       const prompt = `Original task: ${this.pendingPrompt}\n\nDebate transcript:\n${JSON.stringify(transcript, null, 2)}\n\n${
@@ -150,8 +160,12 @@ export class IPCModerator {
       appState.send(CH.debateUpdate, { type: 'synthesis', name: a.name, text: synthesis })
       status('')
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
       status('')
+      if (this.cancelled || (err instanceof Error && err.name === 'AbortError')) {
+        appState.send(CH.debateUpdate, { type: 'error', text: 'Synthesis cancelled.' })
+        return
+      }
+      const msg = err instanceof Error ? err.message : String(err)
       appState.send(CH.debateUpdate, { type: 'error', text: `Synthesis failed: ${msg}` })
     }
   }

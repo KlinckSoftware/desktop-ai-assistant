@@ -111,14 +111,14 @@ export class GeminiClient {
   }
 
   /** One-shot text completion — no tools, no chat streaming. For the debate moderator. */
-  async complete(prompt: string, history: Message[]): Promise<string> {
+  async complete(prompt: string, history: Message[], signal?: AbortSignal): Promise<string> {
     const apiKey = await KeychainManager.getKey()
     if (!apiKey) return '[Gemini: no API key set]'
     const contents: GeminiContent[] = history
       .filter((m) => m.content)
       .map((m) => ({ role: m.role === 'assistant' ? 'model' : m.role, parts: [{ text: m.content }] }))
     contents.push({ role: 'user', parts: [{ text: prompt }] })
-    return (await this.streamOnce(apiKey, contents, { emit: false })).text
+    return (await this.streamOnce(apiKey, contents, { emit: false, signal })).text
   }
 
   /** Isolated single-turn call for the SideChat overlay — no tools, no main stream. */
@@ -136,9 +136,13 @@ export class GeminiClient {
   private async streamOnce(
     apiKey: string,
     contents: GeminiContent[],
-    opts: { emit?: boolean; tools?: { functionDeclarations: FunctionDeclaration[] } } = {}
+    opts: {
+      emit?: boolean
+      tools?: { functionDeclarations: FunctionDeclaration[] }
+      signal?: AbortSignal
+    } = {}
   ): Promise<{ text: string; calls: ToolCall[]; usage: { promptTokens: number; completionTokens: number } | null }> {
-    const { emit = true, tools } = opts
+    const { emit = true, tools, signal } = opts
     const model = appState.settings.geminiModel
     const url = `${BASE}/${model}:streamGenerateContent?alt=sse`
     const body: Record<string, unknown> = {
@@ -150,7 +154,8 @@ export class GeminiClient {
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
+      signal
     })
 
     if (!res.ok || !res.body) {

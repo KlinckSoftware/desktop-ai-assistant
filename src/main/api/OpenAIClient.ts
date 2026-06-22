@@ -118,7 +118,8 @@ export async function apiCompleteAgentic(
   model: string,
   history: Message[],
   policy: ApprovalPolicy,
-  sessionId?: string
+  sessionId?: string,
+  signal?: AbortSignal
 ): Promise<string> {
   const provider = await getProvider(providerId)
   if (!provider) throw new Error(`unknown provider ${providerId}`)
@@ -143,6 +144,7 @@ export async function apiCompleteAgentic(
     tools,
     emit: noEmit,
     sessionId: sessionId || `pipeline:${providerId}`,
+    signal,
     policy, // autonomous/dry-run: route tools through the policy, not a card
     onText: (text) => {
       transcript += text
@@ -203,6 +205,7 @@ interface ToolLoopOpts {
   emit: (c: string) => void
   sessionId: string
   policy?: ApprovalPolicy
+  signal?: AbortSignal
   onText?: (text: string) => void
   onCalls?: (calls: OAToolCall[]) => void
   onToolResult?: (name: string, result: string) => void
@@ -213,12 +216,12 @@ interface ToolLoopOpts {
 // streams one completion, and if the model requested tools it executes them and
 // feeds the results back. Returns the summed provider-reported usage.
 async function runToolLoop(opts: ToolLoopOpts): Promise<{ promptTokens: number; completionTokens: number }> {
-  const { url, key, model, messages, tools, emit, sessionId, policy } = opts
+  const { url, key, model, messages, tools, emit, sessionId, policy, signal } = opts
   let promptTokens = 0
   let completionTokens = 0
 
   for (let turn = 0; turn < MAX_TOOL_TURNS; turn++) {
-    const { text, calls, usage } = await streamOnce(url, key, model, messages, tools, emit)
+    const { text, calls, usage } = await streamOnce(url, key, model, messages, tools, emit, signal)
     if (text) opts.onText?.(text)
     if (usage) {
       promptTokens += usage.promptTokens
@@ -276,6 +279,9 @@ async function streamOnce(
       })
     )
   } catch (err) {
+    // A cancellation must propagate (so the pipeline/debate reports "cancelled"),
+    // not be swallowed as an empty turn.
+    if (err instanceof Error && err.name === 'AbortError') throw err
     // Network error survived all retries — surface it like a non-ok response.
     emit(`\n[API error: ${err instanceof Error ? err.message : String(err)}]`)
     return { text: '', calls: [], usage: null }

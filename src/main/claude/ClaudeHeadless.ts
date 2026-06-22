@@ -11,9 +11,11 @@ export function claudeOneShot(
   cwd: string,
   model?: string,
   effort?: string,
-  allowedTools?: string[]
+  allowedTools?: string[],
+  signal?: AbortSignal
 ): Promise<string> {
   return new Promise((resolve, reject) => {
+    if (signal?.aborted) return reject(abortError())
     const args = ['-p', prompt]
     if (model) args.push('--model', model)
     if (effort) args.push('--effort', effort)
@@ -31,14 +33,38 @@ export function claudeOneShot(
     })
     let out = ''
     let err = ''
+    let aborted = false
+    const onAbort = (): void => {
+      aborted = true
+      try {
+        proc.kill()
+      } catch {
+        /* already gone */
+      }
+    }
+    signal?.addEventListener('abort', onAbort, { once: true })
+
     proc.stdout.on('data', (d) => (out += d.toString()))
     proc.stderr.on('data', (d) => (err += d.toString()))
-    proc.on('error', reject)
+    proc.on('error', (e) => {
+      signal?.removeEventListener('abort', onAbort)
+      reject(e)
+    })
     proc.on('close', (code) => {
+      signal?.removeEventListener('abort', onAbort)
+      if (aborted) return reject(abortError())
       if (code === 0) resolve(out.trim())
       // Claude writes some failures (e.g. auth 401) to stdout, not stderr —
       // include both so the reason isn't blank.
       else reject(new Error(`claude -p exited ${code}: ${(err || out).slice(0, 500).trim()}`))
     })
   })
+}
+
+// A DOMException-shaped AbortError, matching what fetch throws on abort, so all
+// cancel paths can be detected uniformly via `err.name === 'AbortError'`.
+function abortError(): Error {
+  const e = new Error('Aborted')
+  e.name = 'AbortError'
+  return e
 }

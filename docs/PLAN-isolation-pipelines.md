@@ -6,8 +6,8 @@ review session. Sections numbered to match the original review (1–6).
 Recommended build order:
 1. **§1 isolation** ✅ DONE (0.28.0 + 0.29.0) — branch per CLI agent; pipeline = one shared branch; chat/pipeline tool calls scoped to the session worktree.
 2. **§2 option A** ✅ DONE (0.30.0) — Review & Merge panel (diff per branch, Merge/Discard); boot reconciles surviving worktrees.
-3. **§6 cancel** — NEXT (cheap; OpenAIClient already pre-wired with an optional `signal`)
-4. **§3 DAG + role template**, then **§5 Tier 1/2**
+3. **§6 cancel** ✅ DONE (0.31.0) — cancel aborts the in-flight model call (fetch signal + child kill), not just at the step boundary.
+4. **§3 DAG + role template**, then **§5 Tier 1/2** — remaining
 
 ---
 
@@ -135,7 +135,15 @@ Plan: **Tier 1** now, **Tier 2** next (leverages the autonomous policy already s
 
 ---
 
-## §6 — In-flight cancel (fix plan)
+## ✅ §6 — In-flight cancel — **DONE (0.31.0)**
+
+> **As built:** PipelineRunner and IPCModerator each hold an `AbortController`;
+> `cancel()` aborts it (and keeps the boundary flag). The signal threads through
+> `completeParticipant` → `claudeOneShot` (child `proc.kill()` on abort),
+> `gemini.complete`/`streamOnce` (fetch signal), and `apiCompleteAgentic` →
+> `runToolLoop` → `streamOnce` (fetch signal; `fetchWithRetry` treats AbortError as
+> non-retryable and the fetch-catch re-throws it). Abort maps to a clean
+> "Cancelled." / "Debate cancelled." status, not a red error.
 
 **Problem:** `cancel()` only checks at the step boundary (`src/main/pipeline/PipelineRunner.ts:49`);
 no `AbortController` on the fetch → mid-call cancel is a no-op.
