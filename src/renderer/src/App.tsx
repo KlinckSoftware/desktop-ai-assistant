@@ -7,6 +7,7 @@ import { focusPanel, closeActivePanel, toggleSidebar } from './dock/dockApi'
 import CommandToast from './components/CommandToast'
 import EditReview from './components/EditReview'
 import SettingsModal from './components/SettingsModal'
+import GuideModal from './components/GuideModal'
 import FileMenu from './components/FileMenu'
 import AgentMenu from './components/AgentMenu'
 import ApiMenu from './components/ApiMenu'
@@ -35,6 +36,7 @@ export default function App(): JSX.Element {
   const addPipelineRun = useAppStore((s) => s.addPipelineRun)
   const [notices, setNotices] = useState<{ id: number; msg: string }[]>([])
   const [showSettings, setShowSettings] = useState(false)
+  const [showGuide, setShowGuide] = useState(false)
   const [showSideChat, setShowSideChat] = useState(false)
   const [showQuickOpen, setShowQuickOpen] = useState(false)
   // Gate the dock layout until persisted state (incl. saved layout) is hydrated,
@@ -86,6 +88,11 @@ export default function App(): JSX.Element {
       setApiProviders(await window.api.api.providers())
       setHasGeminiKey(await window.api.gemini.hasKey())
       setReady(true)
+      // First launch: show the Guide once, then remember.
+      if (!useAppStore.getState().seenGuide) {
+        setShowGuide(true)
+        useAppStore.getState().setSeenGuide(true)
+      }
     })()
 
     const handleKeyDown = (e: KeyboardEvent): void => {
@@ -183,6 +190,7 @@ export default function App(): JSX.Element {
           allowProtectedWrites: s.allowProtectedWrites,
           pipelineAllowFullDefault: s.pipelineAllowFullDefault,
           alwaysConfirm: s.alwaysConfirm,
+          seenGuide: s.seenGuide,
           dockLayout: s.dockLayout,
           apiChats: s.apiChats,
           apiModels: s.apiModels,
@@ -306,6 +314,12 @@ export default function App(): JSX.Element {
         </button>
         <button
           className="ml-auto rounded border border-border px-2 py-0.5 text-xs hover:bg-bg"
+          onClick={() => setShowGuide(true)}
+        >
+          ? Guide
+        </button>
+        <button
+          className="rounded border border-border px-2 py-0.5 text-xs hover:bg-bg"
           onClick={() => setShowSettings(true)}
         >
           {hasGeminiKey ? '⚙ Settings' : '⚙ Settings · set key'}
@@ -357,6 +371,7 @@ export default function App(): JSX.Element {
           ))}
         </div>
       )}
+      {showGuide && <GuideModal onClose={() => setShowGuide(false)} />}
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       {showSideChat && <SideChat onClose={() => setShowSideChat(false)} />}
       {showQuickOpen && <QuickOpen onClose={() => setShowQuickOpen(false)} />}
