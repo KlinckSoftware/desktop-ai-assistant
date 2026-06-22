@@ -28,14 +28,16 @@ export class RunManager {
 
   /** Queue a run; returns its id immediately. Executes when the queue reaches it.
    *  `allowFull` opts the run into autonomous shell for `full` steps. */
-  start(steps: PipelineStep[], input: string, dryRun = false, allowFull = false): string {
+  start(steps: PipelineStep[], input: string, dryRun = false, allowFull?: boolean): string {
+    // Undefined → fall back to the global default (a loosen-only knob, off by default).
+    const effectiveAllowFull = allowFull ?? appState.settings.pipelineAllowFullDefault ?? false
     const id = `run-${Date.now().toString(36)}-${++this.seq}`
     const rec: RunInfo = {
       id,
       ts: Date.now(),
       input,
       dryRun,
-      allowFull,
+      allowFull: effectiveAllowFull,
       label: label(input, steps),
       status: 'queued',
       steps,

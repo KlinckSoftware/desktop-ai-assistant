@@ -198,6 +198,8 @@ const api = {
       isolateAgents?: boolean
       costCap?: number
       allowSecretReads?: boolean
+      allowProtectedWrites?: boolean
+      pipelineAllowFullDefault?: boolean
     }): Promise<void> => ipcRenderer.invoke(CH.settingsSet, s)
   },
   jobs: {

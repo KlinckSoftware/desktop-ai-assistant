@@ -43,8 +43,11 @@ export class FileEditBroker {
       return `[edit rejected: path outside project root: ${agentPath}]`
     }
     const rel = relative(root, abs).split(sep).join('/')
-    // Block .git/ and node_modules/ writes (git-hook RCE / dependency tampering).
-    if (isProtectedPath(rel)) return `[edit rejected: protected path: ${rel}]`
+    // Block .git/ and node_modules/ writes (git-hook RCE / dependency tampering)
+    // unless the user explicitly loosened this in Settings.
+    if (!appState.settings.allowProtectedWrites && isProtectedPath(rel)) {
+      return `[edit rejected: protected path: ${rel}]`
+    }
     let oldContent = ''
     let isNew = false
     try {

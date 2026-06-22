@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-vi.mock('../state', () => ({ appState: { send: vi.fn(), settings: { costCap: 0 } } }))
+vi.mock('../state', () => ({
+  appState: { send: vi.fn(), settings: { costCap: 0, pipelineAllowFullDefault: false } }
+}))
 
 import { RunManager } from './RunManager'
 import type { PipelineRunner } from './PipelineRunner'

@@ -52,6 +52,7 @@ export default function PipelinePanel(): JSX.Element {
   const apiProviders = useAppStore((s) => s.apiProviders)
   const defaultPermission = useAppStore((s) => s.pipelineDefaultPermission)
   const defaultDryRun = useAppStore((s) => s.pipelineDefaultDryRun)
+  const allowFullDefault = useAppStore((s) => s.pipelineAllowFullDefault)
   const pipelineRuns = useAppStore((s) => s.pipelineRuns)
 
   const [participants, setParticipants] = useState<DebateAgent[]>([])
@@ -59,7 +60,7 @@ export default function PipelinePanel(): JSX.Element {
   const [input, setInput] = useState('')
   const [running, setRunning] = useState(false)
   const [dryRun, setDryRun] = useState(defaultDryRun)
-  const [allowFull, setAllowFull] = useState(false)
+  const [allowFull, setAllowFull] = useState(allowFullDefault)
   const [updates, setUpdates] = useState<PipelineUpdate[]>([])
   // The run this panel is currently showing (set on Run, or adopted on mount if
   // a background run is in flight). Updates for other runs are ignored here.
