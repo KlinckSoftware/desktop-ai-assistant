@@ -19,6 +19,7 @@ export interface Settings {
   claudeEffort: string // '' = default; else passed via --effort (low/medium/high)
   debateRounds: number
   terminalShell: 'default' | 'powershell' | 'pwsh' | 'cmd' | 'bash' | 'zsh'
+  isolateAgents: boolean // run each CLI-agent session in its own git worktree/branch
 }
 
 // Mutable app-wide state shared across main-process modules.
@@ -30,7 +31,23 @@ class AppState {
     claudeModel: '',
     claudeEffort: '',
     debateRounds: 3,
-    terminalShell: 'default'
+    terminalShell: 'default',
+    isolateAgents: true
+  }
+
+  // sessionId -> the isolated worktree root that session operates in. Sessions
+  // without an entry fall back to the shared projectRoot.
+  private sessionRoots = new Map<string, string>()
+
+  setSessionRoot(sessionId: string, root: string): void {
+    this.sessionRoots.set(sessionId, root)
+  }
+  clearSessionRoot(sessionId: string): void {
+    this.sessionRoots.delete(sessionId)
+  }
+  /** The working root for a session: its isolated worktree, else the shared root. */
+  rootFor(sessionId?: string): string {
+    return (sessionId && this.sessionRoots.get(sessionId)) || this.projectRoot
   }
 
   send(channel: string, ...args: unknown[]): void {

@@ -35,7 +35,9 @@ import { setBrokers } from './tools/toolExec'
 import type { ApiProvider } from '../shared/types'
 import { IPCModerator } from './moderator/IPCModerator'
 import { PipelineRunner } from './pipeline/PipelineRunner'
-import type { PipelineStep } from '../shared/types'
+import type { PipelineStep, WorktreeInfo } from '../shared/types'
+import { worktreeManager } from './worktree/WorktreeManager'
+import { diffBranch } from './fs/git'
 
 let executor: CommandExecutor
 let broker: CommandBroker
@@ -99,8 +101,21 @@ function registerIpc(): void {
   ipcMain.handle(CH.agentNewSession, async (_e, sessionId: string, agentId: string, cwd?: string) => {
     const def = await getAgent(agentId)
     if (!def) throw new Error(`Unknown agent: ${agentId}`)
+    // Isolation: when enabled and the caller didn't pin an explicit cwd, run the
+    // agent in its own git worktree/branch so it can't stomp the shared tree or
+    // other agents. Falls back to the shared root when the project isn't a repo.
+    let runCwd = cwd || appState.projectRoot
+    if (!cwd && appState.settings.isolateAgents) {
+      const wt = await worktreeManager.create(appState.projectRoot, sessionId, 'agent').catch(() => null)
+      if (wt) {
+        runCwd = wt.path
+        appState.setSessionRoot(sessionId, wt.path)
+        worktreeManager.setLabel(sessionId, def.name)
+        appState.send(CH.worktreeChanged)
+      }
+    }
     try {
-      agents.spawn(sessionId, def, cwd || appState.projectRoot)
+      agents.spawn(sessionId, def, runCwd)
     } catch (e) {
       appState.send(CH.appError, `Failed to start ${def.name}: ${e instanceof Error ? e.message : String(e)}`)
       throw e
@@ -113,6 +128,20 @@ function registerIpc(): void {
     agents.resize(sessionId, cols, rows)
   )
   ipcMain.handle(CH.agentKillSession, (_e, sessionId: string) => agents.kill(sessionId))
+
+  // --- Agent isolation (worktrees) ---
+  ipcMain.handle(CH.worktreeList, (): WorktreeInfo[] => worktreeManager.infos())
+  ipcMain.handle(CH.worktreeDiff, (_e, sessionId: string) => {
+    const wt = worktreeManager.get(sessionId)
+    if (!wt) return ''
+    return diffBranch(appState.projectRoot, wt.base, wt.branch)
+  })
+  ipcMain.handle(CH.worktreeRemove, async (_e, sessionId: string, mode: 'merge' | 'discard') => {
+    const status = await worktreeManager.remove(appState.projectRoot, sessionId, mode)
+    appState.clearSessionRoot(sessionId)
+    appState.send(CH.worktreeChanged)
+    return status
+  })
 
   // --- Gemini ---
   ipcMain.handle(
@@ -233,6 +262,8 @@ app.whenReady().then(() => {
   initServices()
   registerIpc()
   createWindow()
+  // Clean up worktree admin state orphaned by a previous crash.
+  worktreeManager.pruneOnBoot(appState.projectRoot).catch(() => {})
   ensureAgentConfig().catch(() => {})
   ensureApiConfig().catch(() => {})
   // Connect MCP servers in the background (non-blocking).

@@ -131,3 +131,132 @@ export async function gitCommit(root: string, message: string): Promise<string> 
     return `[commit failed] ${(e.stdout || e.stderr || e.message || '').trim()}`
   }
 }
+
+// --- Worktree support (agent isolation) ---------------------------------------
+// These are NOT best-effort: worktree ops either succeed or throw, so the
+// WorktreeManager can fall back (e.g. to the shared root) on failure instead of
+// silently proceeding with a half-created worktree.
+
+/** True if `root` is inside a git work tree. */
+export async function isGitRepo(root: string): Promise<boolean> {
+  try {
+    return (await runGit(root, ['rev-parse', '--is-inside-work-tree'])).trim() === 'true'
+  } catch {
+    return false
+  }
+}
+
+/** `git init` a fresh repo at `root` (best-effort). */
+export async function gitInit(root: string): Promise<void> {
+  await runGit(root, ['init'])
+}
+
+/** The current branch name, or '' outside a repo / detached HEAD. */
+export async function currentBranch(root: string): Promise<string> {
+  try {
+    return (await runGit(root, ['rev-parse', '--abbrev-ref', 'HEAD'])).trim()
+  } catch {
+    return ''
+  }
+}
+
+/** True if the repo has at least one commit (worktree -b needs a base commit). */
+export async function hasCommits(root: string): Promise<boolean> {
+  try {
+    await runGit(root, ['rev-parse', 'HEAD'])
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** Add a worktree at `path` on a new branch `branch` based on `base`. Throws on failure. */
+export async function worktreeAdd(root: string, path: string, branch: string, base: string): Promise<void> {
+  await runGit(root, ['worktree', 'add', '-b', branch, path, base])
+}
+
+/** Remove a worktree (force, to drop uncommitted changes on discard). Best-effort. */
+export async function worktreeRemove(root: string, path: string): Promise<void> {
+  try {
+    await runGit(root, ['worktree', 'remove', '--force', path])
+  } catch {
+    /* already gone / never created */
+  }
+}
+
+/** Delete a branch (force). Best-effort — used when discarding a worktree. */
+export async function branchDelete(root: string, branch: string): Promise<void> {
+  try {
+    await runGit(root, ['branch', '-D', branch])
+  } catch {
+    /* no such branch */
+  }
+}
+
+/** Prune stale worktree admin entries (e.g. after a crash). Best-effort. */
+export async function worktreePrune(root: string): Promise<void> {
+  try {
+    await runGit(root, ['worktree', 'prune'])
+  } catch {
+    /* ignore */
+  }
+}
+
+export interface WorktreeEntry {
+  path: string // absolute worktree path
+  branch: string // branch name (refs/heads/… stripped), or '' if detached
+}
+
+/** Parse `git worktree list --porcelain` output (exported for tests). */
+export function parseWorktreeList(out: string): WorktreeEntry[] {
+  const entries: WorktreeEntry[] = []
+  let cur: Partial<WorktreeEntry> = {}
+  for (const line of out.split('\n')) {
+    if (line.startsWith('worktree ')) {
+      if (cur.path) entries.push({ path: cur.path, branch: cur.branch ?? '' })
+      cur = { path: line.slice('worktree '.length).trim() }
+    } else if (line.startsWith('branch ')) {
+      cur.branch = line.slice('branch '.length).trim().replace(/^refs\/heads\//, '')
+    }
+  }
+  if (cur.path) entries.push({ path: cur.path, branch: cur.branch ?? '' })
+  return entries
+}
+
+/** List all worktrees of the repo at `root`. Empty on error/no-repo. */
+export async function worktreeList(root: string): Promise<WorktreeEntry[]> {
+  try {
+    return parseWorktreeList(await runGit(root, ['worktree', 'list', '--porcelain']))
+  } catch {
+    return []
+  }
+}
+
+/** Diff of a branch against `base` (merge-base ...), capped. For review UIs. */
+export async function diffBranch(root: string, base: string, branch: string): Promise<string> {
+  try {
+    const out = await runGit(root, ['diff', '--no-color', `${base}...${branch}`])
+    return out.length > 200000 ? out.slice(0, 200000) + '\n[…diff truncated]' : out
+  } catch {
+    return ''
+  }
+}
+
+/**
+ * Squash-merge `branch` into the current branch of `root` and commit. Returns a
+ * status string. On conflict the merge is aborted and the working tree restored,
+ * so the caller can fall back to manual review. Used by the review-merge flow.
+ */
+export async function squashMergeBranch(root: string, branch: string, message: string): Promise<string> {
+  try {
+    await runGit(root, ['merge', '--squash', branch])
+    const out = await runGit(root, ['commit', '-m', message])
+    return out.trim()
+  } catch (err) {
+    // Abort a partial/conflicted merge so the base worktree is left clean.
+    await runGit(root, ['merge', '--abort']).catch(() => {})
+    await runGit(root, ['reset', '--hard']).catch(() => {})
+    const e = err as { stdout?: string; stderr?: string; message?: string }
+    return `[merge failed] ${(e.stdout || e.stderr || e.message || '').trim()}`
+  }
+}

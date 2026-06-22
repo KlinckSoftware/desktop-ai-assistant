@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { WorktreeInfo } from '@shared/types'
 import { useAppStore } from '../store/appStore'
 import { Z } from '../zIndex'
 import AgentsModal from './AgentsModal'
@@ -37,6 +38,8 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
   const setClaudeEffort = useAppStore((s) => s.setClaudeEffort)
   const setDebateRounds = useAppStore((s) => s.setDebateRounds)
   const setTerminalShell = useAppStore((s) => s.setTerminalShell)
+  const isolateAgents = useAppStore((s) => s.isolateAgents)
+  const setIsolateAgents = useAppStore((s) => s.setIsolateAgents)
   const trustedCount = useAppStore((s) => s.trustedSessions.size)
   const clearTrust = useAppStore((s) => s.clearTrust)
   const approvalTimeout = useAppStore((s) => s.approvalTimeout)
@@ -127,6 +130,27 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
     setTerminalShell(s)
     window.api.settings.set({ terminalShell: s }) // main respawns the terminal shell
   }
+  const onIsolate = (v: boolean): void => {
+    setIsolateAgents(v)
+    window.api.settings.set({ isolateAgents: v })
+  }
+  const [worktrees, setWorktrees] = useState<WorktreeInfo[]>([])
+  const loadWorktrees = (): void => {
+    window.api.worktree.list().then(setWorktrees)
+  }
+  useEffect(() => {
+    loadWorktrees()
+    return window.api.worktree.onChanged(loadWorktrees)
+  }, [])
+  const removeWorktree = async (sessionId: string, mode: 'merge' | 'discard'): Promise<void> => {
+    if (mode === 'discard' && !window.confirm('Discard this branch and all its work? This cannot be undone.')) return
+    const status = await window.api.worktree.remove(sessionId, mode)
+    if (status && status.startsWith('[merge failed]')) {
+      setSavedMsg(status)
+      setTimeout(() => setSavedMsg(''), 6000)
+    }
+    loadWorktrees()
+  }
   const SHELLS: typeof terminalShell[] = ['default', 'powershell', 'pwsh', 'cmd', 'bash', 'zsh']
   const saveKey = async (): Promise<void> => {
     if (!key.trim()) return
@@ -213,6 +237,65 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
               onChange={(e) => onRounds(Number(e.target.value))}
               className="w-full accent-accent"
             />
+          )
+        }
+      ]
+    },
+    {
+      title: 'Isolation',
+      fields: [
+        {
+          label: 'Run each CLI agent in its own git worktree/branch',
+          kw: 'isolation worktree branch agent sandbox parallel git',
+          node: (
+            <div className="space-y-2">
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={isolateAgents} onChange={(e) => onIsolate(e.target.checked)} />
+                <span className="text-gray-300">
+                  Isolate agents (needs a git repo with at least one commit; falls back to the shared
+                  folder otherwise)
+                </span>
+              </label>
+            </div>
+          )
+        },
+        {
+          label: 'Active worktrees',
+          kw: 'worktree branch merge discard review isolation active',
+          node: (
+            <div className="space-y-2">
+              {worktrees.length === 0 ? (
+                <p className="text-xs text-gray-500">No isolated worktrees. Start a CLI agent to create one.</p>
+              ) : (
+                worktrees.map((w) => (
+                  <div
+                    key={w.sessionId}
+                    className="flex items-center gap-2 rounded border border-border bg-bg px-2 py-1.5"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-gray-200">{w.label || w.kind}</div>
+                      <div className="truncate font-mono text-[11px] text-gray-500">
+                        {w.branch} → {w.base}
+                      </div>
+                    </div>
+                    <button
+                      className="shrink-0 rounded border border-green-700/60 px-2 py-0.5 text-xs text-green-300 hover:bg-green-900/30"
+                      onClick={() => removeWorktree(w.sessionId, 'merge')}
+                      title="Squash-merge this branch into its base, then remove the worktree"
+                    >
+                      Merge
+                    </button>
+                    <button
+                      className="shrink-0 rounded border border-red-700/60 px-2 py-0.5 text-xs text-red-300 hover:bg-red-900/30"
+                      onClick={() => removeWorktree(w.sessionId, 'discard')}
+                      title="Delete the branch and its work, remove the worktree"
+                    >
+                      Discard
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
           )
         }
       ]
