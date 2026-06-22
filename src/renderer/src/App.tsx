@@ -69,7 +69,7 @@ export default function App(): JSX.Element {
       } else {
         setProjectRoot(await window.api.fs.projectRoot())
       }
-      const { geminiModel, claudeModel, claudeEffort, debateRounds, terminalShell, isolateAgents, costCap } =
+      const { geminiModel, claudeModel, claudeEffort, debateRounds, terminalShell, isolateAgents, costCap, allowSecretReads } =
         useAppStore.getState()
       window.api.settings.set({
         geminiModel,
@@ -78,7 +78,8 @@ export default function App(): JSX.Element {
         debateRounds,
         terminalShell,
         isolateAgents,
-        costCap
+        costCap,
+        allowSecretReads
       })
       setAgents(await window.api.agent.list())
       setApiProviders(await window.api.api.providers())
@@ -177,6 +178,7 @@ export default function App(): JSX.Element {
           debateSideB: s.debateSideB,
           terminalShell: s.terminalShell,
           isolateAgents: s.isolateAgents,
+          allowSecretReads: s.allowSecretReads,
           dockLayout: s.dockLayout,
           apiChats: s.apiChats,
           apiModels: s.apiModels,

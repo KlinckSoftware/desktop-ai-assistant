@@ -21,6 +21,7 @@ export interface Settings {
   terminalShell: 'default' | 'powershell' | 'pwsh' | 'cmd' | 'bash' | 'zsh'
   isolateAgents: boolean // run each CLI-agent session in its own git worktree/branch
   costCap: number // USD session spend ceiling enforced in main (0 = no cap)
+  allowSecretReads: boolean // let tools read secret-looking files (.env, keys) — default off
 }
 
 // Mutable app-wide state shared across main-process modules.
@@ -34,7 +35,8 @@ class AppState {
     debateRounds: 3,
     terminalShell: 'default',
     isolateAgents: true,
-    costCap: 0
+    costCap: 0,
+    allowSecretReads: false
   }
 
   // sessionId -> the isolated worktree root that session operates in. Sessions
