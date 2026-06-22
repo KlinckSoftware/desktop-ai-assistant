@@ -32,6 +32,8 @@ export default function App(): JSX.Element {
   const setAgents = useAppStore((s) => s.setAgents)
   const setApiProviders = useAppStore((s) => s.setApiProviders)
   const addAttachment = useAppStore((s) => s.addAttachment)
+  const addPipelineRun = useAppStore((s) => s.addPipelineRun)
+  const [notices, setNotices] = useState<{ id: number; msg: string }[]>([])
   const [showSettings, setShowSettings] = useState(false)
   const [showSideChat, setShowSideChat] = useState(false)
   const [showQuickOpen, setShowQuickOpen] = useState(false)
@@ -244,6 +246,25 @@ export default function App(): JSX.Element {
     return window.api.onUsage((id, u) => useAppStore.getState().addUsage(id, u.promptTokens, u.completionTokens))
   }, [])
 
+  // Pipeline completion — always mounted, so a run that finishes while its panel
+  // is closed (background / scheduled) is still recorded to history and announced.
+  useEffect(() => {
+    return window.api.pipeline.onComplete((run) => {
+      addPipelineRun({
+        id: run.id,
+        ts: run.ts,
+        input: run.input,
+        dryRun: run.dryRun,
+        steps: run.steps,
+        updates: run.updates
+      })
+      const id = Date.now() + Math.random()
+      const verb = run.status === 'done' ? 'finished' : run.status
+      setNotices((n) => [...n, { id, msg: `Pipeline "${run.label}" ${verb}` }])
+      setTimeout(() => setNotices((n) => n.filter((x) => x.id !== id)), 7000)
+    })
+  }, [addPipelineRun])
+
   // Overlay the live (LiteLLM) price table over the static snapshot, once.
   useEffect(() => {
     window.api
@@ -296,6 +317,25 @@ export default function App(): JSX.Element {
                 className="shrink-0 text-gray-500 hover:text-gray-300"
                 onClick={() => setErrors((cur) => cur.filter((x) => x.id !== e.id))}
                 aria-label="Dismiss error"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      {notices.length > 0 && (
+        <div style={{ zIndex: Z.dropdown }} className="fixed bottom-4 right-4 flex flex-col gap-2">
+          {notices.map((n) => (
+            <div
+              key={n.id}
+              className="flex max-w-sm items-start gap-2 rounded-lg border border-accent/50 bg-panel px-3 py-2 text-xs text-gray-200 shadow-xl"
+            >
+              <span className="flex-1">{n.msg}</span>
+              <button
+                className="shrink-0 text-gray-500 hover:text-gray-300"
+                onClick={() => setNotices((cur) => cur.filter((x) => x.id !== n.id))}
+                aria-label="Dismiss"
               >
                 ✕
               </button>

@@ -15,7 +15,8 @@ import {
   type Checkpoint,
   type AgentDef,
   type ApiProvider,
-  type WorktreeInfo
+  type WorktreeInfo,
+  type RunInfo
 } from '../shared/types'
 
 interface EditResult {
@@ -80,13 +81,19 @@ const api = {
     }
   },
   pipeline: {
-    run: (steps: PipelineStep[], input: string, dryRun?: boolean): Promise<void> =>
+    run: (steps: PipelineStep[], input: string, dryRun?: boolean): Promise<string> =>
       ipcRenderer.invoke(CH.pipelineRun, steps, input, dryRun),
-    cancel: (): Promise<void> => ipcRenderer.invoke(CH.pipelineCancel),
+    cancel: (runId: string): Promise<void> => ipcRenderer.invoke(CH.pipelineCancel, runId),
+    runs: (): Promise<RunInfo[]> => ipcRenderer.invoke(CH.pipelineRuns),
     onUpdate: (cb: (u: PipelineUpdate) => void): (() => void) => {
       const h = (_e: unknown, u: PipelineUpdate): void => cb(u)
       ipcRenderer.on(CH.pipelineUpdate, h)
       return () => ipcRenderer.removeListener(CH.pipelineUpdate, h)
+    },
+    onComplete: (cb: (run: RunInfo) => void): (() => void) => {
+      const h = (_e: unknown, run: RunInfo): void => cb(run)
+      ipcRenderer.on(CH.runComplete, h)
+      return () => ipcRenderer.removeListener(CH.runComplete, h)
     }
   },
   terminal: {
