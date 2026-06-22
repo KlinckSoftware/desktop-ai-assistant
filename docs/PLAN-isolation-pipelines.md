@@ -11,7 +11,19 @@ Recommended build order:
 
 ---
 
-## §1 — Branch-per-agent isolation (CRITICAL — in progress)
+## ✅ §1 — Branch-per-agent isolation — ~~CRITICAL — in progress~~ **DONE (0.28.0 + 0.29.0)**
+
+> **As built** (deviations from the design below):
+> - `CommandExecutor` was **not** split into one pty per session. The shared pty
+>   stays on the project root (terminal pane); worktree commands run via a one-off
+>   `CommandExecutor.execOnce(command, cwd)`. Simpler, same isolation.
+> - `FileSystemManager` is **unchanged** — worktrees live inside the project root,
+>   so its existing `assertInRoot` confinement still holds; only `toolExec.abs` and
+>   `FileEditBroker.buildEdit` take the session root.
+> - Per-session root = `appState.rootFor(sessionId)` (map + fallback to projectRoot).
+> - Pipeline branch = `pipeline/run-N` (one per run); agent branch = `agent/<id>`.
+> - Crash cleanup implemented as `WorktreeManager.pruneOnBoot` (prunes + re-adopts
+>   surviving `.dai-trees` worktrees). Non-git / no-commit → falls back to shared root.
 
 **Rule:** each CLI/API **agent session** gets its own git worktree + branch.
 A **pipeline** gets **ONE shared branch** for all its steps (NOT one per step/agent).
@@ -56,7 +68,14 @@ Phase it: (a) WorktreeManager + per-session CommandExecutor; (b) thread sessionR
 
 ---
 
-## §2 — PR / review-merge flow (design options)
+## ✅ §2 — PR / review-merge flow — ~~design options~~ **DONE (0.30.0 — option A)**
+
+> **As built:** a dockable **Review** panel lists each isolated worktree (agent /
+> pipeline), shows its total change vs base as a side-by-side diff (`workingDiff` =
+> `git diff <base>` run *inside* the worktree, so uncommitted agent work shows),
+> and offers **Merge** (commitAll → squash-merge into base → remove) or **Discard**
+> (delete branch + worktree). Registered in panels, default layout, and View menu.
+> Options B (GitHub PR), C (cockpit board), D (per-hunk) remain future work.
 
 - **A — Local "Review & Merge" panel (RECOMMENDED default).** No GitHub. Per session show
   `git diff <base>...agent/<id>`, changed-file tree; accept → squash-merge to base; reject →
@@ -137,11 +156,16 @@ no `AbortController` on the fetch → mid-call cancel is a no-op.
 
 ---
 
-## Done this session (code nits, via subagent + review)
-- `src/main/api/OpenAIClient.ts`: deduped the agentic tool loop into one `runToolLoop`; hoisted
-  `MAX_TOOL_TURNS`; added `fetchWithRetry` (2 retries, 429/5xx + network only, `AbortError`
-  non-retryable); pre-wired optional `signal?: AbortSignal` on `streamOnce`/`apiComplete`.
-  120 tests green, typecheck clean.
+## Shipped this session
+- **0.27.2** code nits — `OpenAIClient.ts`: deduped the tool loop into `runToolLoop`; hoisted
+  `MAX_TOOL_TURNS`; `fetchWithRetry` (2 retries, 429/5xx + network only, `AbortError` non-retryable);
+  pre-wired optional `signal?: AbortSignal` on `streamOnce`/`apiComplete`.
+- **0.28.0** §1a — WorktreeManager + git helpers; per-session root; isolate CLI agents; Settings → Isolation.
+- **0.29.0** §1b — tool calls scoped to session worktree (`execOnce` cwd, `rootFor` in toolExec/FileEditBroker);
+  pipeline = one shared branch.
+- **0.30.0** §2 — Review & Merge panel; boot reconcile of surviving worktrees.
+
+Latest: **131 tests green, typecheck clean, build OK.** §6 (in-flight cancel) is the next step.
 
 ### Deferred / not chasing
 - MCP tool-argument denylist screening (known limitation; security design, not a mechanical nit).
