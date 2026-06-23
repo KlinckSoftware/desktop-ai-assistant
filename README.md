@@ -67,6 +67,36 @@ process orchestrator: no web scraping, no browser automation. There's an in-app
   always-confirm, default-allow-shell, allow-protected-writes), isolation,
   schedules, per-provider keys, MCP servers, and links to manage agents/providers.
 
+## Install & run
+
+### From the installer (Windows)
+1. Get `Desktop AI Assistant-<version>-setup.exe` (and `SHA256SUMS.txt`) from the
+   private release.
+2. **Verify it first** (the build is unsigned):
+   ```powershell
+   Get-FileHash "Desktop AI Assistant-<version>-setup.exe" -Algorithm SHA256
+   ```
+   The hash must match the line in `SHA256SUMS.txt` (which you got over a separate
+   channel). If it doesn't match, don't run it.
+3. Run the installer. Windows SmartScreen may warn (unsigned): **More info →
+   Run anyway**. It installs per-user; choose the install dir if prompted.
+4. Launch **Desktop AI Assistant**. On first run the **Guide** opens — start there.
+5. Open **⚙ Settings → Keys** and add an API key (stored in the OS keychain), or
+   make sure a CLI agent (e.g. `claude`) is on your `PATH`. Set a **cost cap**
+   (Settings → Budget) if you'll use API providers.
+
+### From source (any platform with Node 20+)
+```
+git clone <repo-url> && cd desktopAI
+npm install          # postinstall rebuilds native modules for Electron
+npm run dev          # run with HMR
+# or build an installer:
+npm run dist:win     # NSIS installer + SHA256SUMS.txt in release/
+```
+
+See **[docs/DISTRIBUTING.md](docs/DISTRIBUTING.md)** for sharing/verification, and
+**[SECURITY.md](SECURITY.md)** for the trust model.
+
 ## Architecture
 
 ```
