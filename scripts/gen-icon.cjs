@@ -44,23 +44,44 @@ function bgAlpha(x, y) {
   return d <= R ? 1 : d <= R + 1 ? R + 1 - d : 0
 }
 
-// Stroke segments for ">_" : a right-pointing chevron + an underscore bar.
-const STROKE = 24
-const segs = [
-  [86, 78, 150, 128],
-  [150, 128, 86, 178],
-  [150, 188, 214, 188] // underscore
+// Mark: a hub-and-spoke "orchestrator" — a central node routing to several agent
+// nodes. On-brand for a multi-agent cockpit (and not the generic terminal ">_").
+const FG2 = [163, 113, 247] // #a371f7 secondary accent (satellites), adds depth
+const C = [128, 128]
+const sats = [
+  [128, 58], // top
+  [62, 178], // lower-left
+  [194, 178] // lower-right
 ]
+const SPOKE = 11 // spoke stroke width
+const RC = 30 // center node radius
+const RS = 18 // satellite radius
+
+function coverSeg(x, y, x0, y0, x1, y1, w) {
+  const d = distSeg(x, y, x0, y0, x1, y1)
+  return d <= w / 2 ? 1 : d <= w / 2 + 1.5 ? w / 2 + 1.5 - d : 0
+}
+function coverDisc(x, y, cx, cy, r) {
+  const d = Math.hypot(x - cx, y - cy)
+  return d <= r ? 1 : d <= r + 1.5 ? r + 1.5 - d : 0
+}
 
 for (let y = 0; y < S; y++) {
   for (let x = 0; x < S; x++) {
     const ba = bgAlpha(x, y)
     if (ba <= 0) continue
     set(x, y, BG, Math.round(255 * ba))
-    let dmin = Infinity
-    for (const s of segs) dmin = Math.min(dmin, distSeg(x, y, s[0], s[1], s[2], s[3]))
-    const cover = dmin <= STROKE / 2 ? 1 : dmin <= STROKE / 2 + 1.5 ? STROKE / 2 + 1.5 - dmin : 0
-    if (cover > 0) set(x, y, FG, Math.round(255 * cover * ba))
+    // spokes (under everything)
+    let spoke = 0
+    for (const s of sats) spoke = Math.max(spoke, coverSeg(x, y, C[0], C[1], s[0], s[1], SPOKE))
+    if (spoke > 0) set(x, y, FG, Math.round(255 * spoke * ba))
+    // satellite nodes (secondary accent)
+    let satc = 0
+    for (const s of sats) satc = Math.max(satc, coverDisc(x, y, s[0], s[1], RS))
+    if (satc > 0) set(x, y, FG2, Math.round(255 * satc * ba))
+    // center node (primary accent) on top
+    const cc = coverDisc(x, y, C[0], C[1], RC)
+    if (cc > 0) set(x, y, FG, Math.round(255 * cc * ba))
   }
 }
 
