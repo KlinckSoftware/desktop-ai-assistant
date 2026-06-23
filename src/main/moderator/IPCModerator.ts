@@ -4,6 +4,7 @@ import { extractBashBlocks } from '../executor/parser'
 import { listAgents } from '../agents/registry'
 import { listProviders } from '../api/providers'
 import { completeParticipant } from '../agents/complete'
+import { CLAUDE_READ_TOOLS, CLAUDE_EDIT_TOOLS } from '../agents/systemPrompt'
 import type { GeminiClient } from '../gemini/GeminiClient'
 import type { CommandBroker } from '../executor/CommandBroker'
 
@@ -60,8 +61,8 @@ export class IPCModerator {
   // Claude tool sets per debate phase: rounds are analysis-only (read tools),
   // synthesis may edit. API/Gemini participants have no tools either way, so this
   // keeps the participants as homogeneous as their backends allow.
-  private static ROUND_TOOLS = ['Read', 'Grep', 'Glob', 'LS']
-  private static SYNTH_TOOLS = ['Read', 'Grep', 'Glob', 'LS', 'Edit', 'Write', 'MultiEdit']
+  private static ROUND_TOOLS = CLAUDE_READ_TOOLS
+  private static SYNTH_TOOLS = CLAUDE_EDIT_TOOLS
 
   private complete(agent: DebateAgent, prompt: string, history: Message[], claudeTools?: string[]): Promise<string> {
     return completeParticipant(agent, prompt, history, this.gemini, this.controller?.signal, claudeTools)

@@ -52,8 +52,6 @@ export function decide(policy: ApprovalPolicy, kind: string, command?: string): 
   return { action: 'run' }
 }
 
-export const INTERACTIVE: ApprovalPolicy = { mode: 'interactive' }
-
 // Per-step permission presets (pipeline UI). Map to an autonomous allowlist.
 export type PermissionMode = 'read-only' | 'edit' | 'full'
 

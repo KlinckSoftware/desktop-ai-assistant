@@ -241,6 +241,7 @@ interface AppState {
   // and a single always-mounted listener accumulates updates.
   debateRunning: boolean
   debateAwaiting: boolean
+  debateAwaitText: string // the moderator's await prompt (names the actual synthesizer)
   debateStatus: string
   debateUpdates: DebateUpdate[]
   debatePrompt: string
@@ -454,6 +455,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   debateRunning: false,
   debateAwaiting: false,
+  debateAwaitText: '',
   debateStatus: '',
   debateUpdates: [],
   debatePrompt: '',
@@ -474,6 +476,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         // 'await' pauses for approval; synthesis/error ends the run.
         debateRunning: ended || awaiting ? false : s.debateRunning,
         debateAwaiting: awaiting ? true : ended ? false : s.debateAwaiting,
+        debateAwaitText: awaiting ? u.text ?? '' : ended ? '' : s.debateAwaitText,
         debateStatus: ended || awaiting ? '' : s.debateStatus
       }
     }),

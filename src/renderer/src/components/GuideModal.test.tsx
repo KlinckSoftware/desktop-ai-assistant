@@ -5,17 +5,26 @@ import GuideModal from './GuideModal'
 afterEach(cleanup)
 
 describe('GuideModal', () => {
-  it('renders the sections', () => {
+  it('lists topics and opens one by default', () => {
     render(<GuideModal onClose={() => {}} />)
-    expect(screen.getByText('What this is')).toBeTruthy()
-    expect(screen.getByText('Pipelines')).toBeTruthy()
+    // "Getting started" is a nav button (no body cross-link points to it)
+    expect(screen.getByRole('button', { name: 'Getting started' })).toBeTruthy()
+    // "Pipelines" appears in the nav and as a cross-link on the default page
+    expect(screen.getAllByRole('button', { name: 'Pipelines' }).length).toBeGreaterThan(0)
   })
 
-  it('filters sections by the search box', () => {
+  it('switches the page when the nav topic is clicked', () => {
     render(<GuideModal onClose={() => {}} />)
-    fireEvent.change(screen.getByPlaceholderText('Search the guide…'), { target: { value: 'schedule' } })
-    expect(screen.getByText('Runs & Schedules')).toBeTruthy()
-    expect(screen.queryByText('What this is')).toBeNull() // non-matching section hidden
+    // nav button is the first match (rendered before the right-hand page)
+    fireEvent.click(screen.getAllByRole('button', { name: 'Pipelines' })[0])
+    expect(screen.getByText(/topological order/i)).toBeTruthy()
+  })
+
+  it('filters the topic nav by search', () => {
+    render(<GuideModal onClose={() => {}} />)
+    fireEvent.change(screen.getByPlaceholderText('Search…'), { target: { value: 'schedule' } })
+    expect(screen.getByRole('button', { name: 'Runs & Schedules' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Getting started' })).toBeNull()
   })
 
   it('calls onClose from the Close button', () => {

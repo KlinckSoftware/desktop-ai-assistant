@@ -14,3 +14,9 @@ write_file for small changes. Tool results are returned to you.`
 // Max model<->tool round-trips for an agentic chat before results stop being fed
 // back. Shared so every agentic loop uses the same bound.
 export const MAX_TOOL_TURNS = 8
+
+// Claude Code (`-p`) tool names per permission tier — shared by the pipeline
+// Claude step (--allowedTools) and the debate moderator, so the read/edit grants
+// stay defined in one place. ('full' adds Bash on top of EDIT.)
+export const CLAUDE_READ_TOOLS = ['Read', 'Grep', 'Glob', 'LS']
+export const CLAUDE_EDIT_TOOLS = [...CLAUDE_READ_TOOLS, 'Edit', 'Write', 'MultiEdit']

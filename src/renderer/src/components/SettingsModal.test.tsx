@@ -7,6 +7,7 @@ beforeEach(() => {
     mcp: { status: vi.fn(async () => []), configPath: vi.fn(async () => ''), reconnect: vi.fn(async () => []) },
     worktree: { list: vi.fn(async () => []), onChanged: vi.fn(() => () => {}) },
     jobs: { list: vi.fn(async () => []), onChanged: vi.fn(() => () => {}) },
+    debate: { agents: vi.fn(async () => []) },
     settings: { set: vi.fn(async () => {}) }
   }
 })
