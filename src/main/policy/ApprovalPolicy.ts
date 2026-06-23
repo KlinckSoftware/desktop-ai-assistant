@@ -16,6 +16,7 @@ export type ApprovalMode = 'interactive' | 'autonomous' | 'dryrun'
 export interface ApprovalPolicy {
   mode: ApprovalMode
   allow?: string[] // capability/tool names permitted in autonomous mode
+  cmdAllow?: string[] // optional: autonomous run_command must start with one of these heads
 }
 
 export type Decision =
@@ -35,6 +36,14 @@ export function decide(policy: ApprovalPolicy, kind: string, command?: string): 
   if (command) {
     const d = checkDangerous(command)
     if (d.dangerous) return { action: 'block', reason: `dangerous command (${d.reason})` }
+    // Optional allowlist: the command's head (first token) must be listed.
+    const cmdAllow = policy.cmdAllow ?? []
+    if (cmdAllow.length) {
+      const head = command.trim().split(/\s+/)[0]?.toLowerCase() ?? ''
+      if (!cmdAllow.includes(head)) {
+        return { action: 'block', reason: `command "${head}" is not in the autonomous allowlist` }
+      }
+    }
   }
   const allow = policy.allow ?? []
   if (!allow.includes('*') && !allow.includes(kind)) {
@@ -62,8 +71,13 @@ const ALLOW: Record<PermissionMode, string[]> = {
  * was explicitly opted into it (`allowFull`); otherwise it is downgraded to `edit`
  * so an unattended run can't run arbitrary commands without a human deciding to.
  */
-export function policyForStep(mode: PermissionMode, dryRun: boolean, allowFull = false): ApprovalPolicy {
+export function policyForStep(
+  mode: PermissionMode,
+  dryRun: boolean,
+  allowFull = false,
+  cmdAllow: string[] = []
+): ApprovalPolicy {
   if (dryRun) return { mode: 'dryrun' }
   const effective: PermissionMode = mode === 'full' && !allowFull ? 'edit' : mode
-  return { mode: 'autonomous', allow: ALLOW[effective] }
+  return { mode: 'autonomous', allow: ALLOW[effective], cmdAllow }
 }

@@ -34,6 +34,18 @@ describe('ApprovalPolicy.decide', () => {
     expect(decide({ mode: 'autonomous', allow: [] }, 'read_file').action).toBe('block')
   })
 
+  it('cmdAllow: blocks a safe command whose head is not allowlisted', () => {
+    const p = { mode: 'autonomous' as const, allow: ['*'], cmdAllow: ['npm', 'pytest'] }
+    expect(decide(p, 'run_command', 'ls -la').action).toBe('block')
+    expect(decide(p, 'run_command', 'npm test').action).toBe('run')
+    expect(decide(p, 'run_command', 'NPM test').action).toBe('run') // case-insensitive head
+  })
+
+  it('cmdAllow still blocks dangerous commands even if the head is allowlisted', () => {
+    const p = { mode: 'autonomous' as const, allow: ['*'], cmdAllow: ['git'] }
+    expect(decide(p, 'run_command', 'git push').action).toBe('block') // dangerous wins
+  })
+
   it("wildcard '*' allows any capability but still blocks dangerous commands", () => {
     expect(decide({ mode: 'autonomous', allow: ['*'] }, 'some__mcp_tool').action).toBe('run')
     expect(decide({ mode: 'autonomous', allow: ['*'] }, 'run_command', 'ls').action).toBe('run')

@@ -163,7 +163,11 @@ export class PipelineRunner {
     if (agent.kind === 'api') {
       const providerId = agent.id.slice('api:'.length)
       const model = step.model || ctx.providers.find((p) => p.id === providerId)?.defaultModel || ''
-      const policy = policyForStep(step.permission ?? 'read-only', ctx.dryRun, ctx.allowFull)
+      const cmdAllow = (appState.settings.autonomousAllow || '')
+        .split(/[\s,]+/)
+        .map((s) => s.toLowerCase())
+        .filter(Boolean)
+      const policy = policyForStep(step.permission ?? 'read-only', ctx.dryRun, ctx.allowFull, cmdAllow)
       return apiCompleteAgentic(providerId, model, [{ role: 'user', content: prompt }], policy, ctx.runId, ctx.signal)
     }
     if (agent.kind === 'claude') {

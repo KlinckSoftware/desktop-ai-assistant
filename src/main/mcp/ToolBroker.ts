@@ -1,6 +1,7 @@
 import { appState } from '../state'
 import { CH, type PendingTool } from '../../shared/types'
 import { decide, type ApprovalPolicy } from '../policy/ApprovalPolicy'
+import { checkDangerous } from '../../shared/dangerousCommand'
 import { mcpManager } from './MCPClientManager'
 
 // Default-deny gate for MCP tool calls (parallel to CommandBroker). The model's
@@ -33,8 +34,17 @@ export class ToolBroker {
       case 'block':
         console.warn(`[policy] blocked MCP tool ${tool} — ${d.reason}`)
         return `[blocked by policy: ${d.reason}]`
-      case 'run':
+      case 'run': {
+        // MCP args aren't otherwise pattern-screened; for an UNATTENDED call,
+        // refuse if the serialized arguments match the dangerous denylist (e.g. a
+        // tool taking a shell/command/url arg with `rm -rf`, a remote transfer, …).
+        const danger = checkDangerous(JSON.stringify(args))
+        if (danger.dangerous) {
+          console.warn(`[policy] blocked MCP tool ${tool} — dangerous argument (${danger.reason})`)
+          return `[blocked: dangerous MCP argument (${danger.reason})]`
+        }
         return this.exec(`tool_auto_${++this.seq}`, tool, args)
+      }
     }
   }
 

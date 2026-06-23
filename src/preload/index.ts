@@ -200,6 +200,7 @@ const api = {
       allowSecretReads?: boolean
       allowProtectedWrites?: boolean
       pipelineAllowFullDefault?: boolean
+      autonomousAllow?: string
     }): Promise<void> => ipcRenderer.invoke(CH.settingsSet, s)
   },
   jobs: {

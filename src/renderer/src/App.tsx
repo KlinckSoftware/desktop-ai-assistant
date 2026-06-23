@@ -82,7 +82,8 @@ export default function App(): JSX.Element {
         costCap: s0.costCap,
         allowSecretReads: s0.allowSecretReads,
         allowProtectedWrites: s0.allowProtectedWrites,
-        pipelineAllowFullDefault: s0.pipelineAllowFullDefault
+        pipelineAllowFullDefault: s0.pipelineAllowFullDefault,
+        autonomousAllow: s0.autonomousAllow
       })
       setAgents(await window.api.agent.list())
       setApiProviders(await window.api.api.providers())
@@ -190,6 +191,7 @@ export default function App(): JSX.Element {
           allowProtectedWrites: s.allowProtectedWrites,
           pipelineAllowFullDefault: s.pipelineAllowFullDefault,
           alwaysConfirm: s.alwaysConfirm,
+          autonomousAllow: s.autonomousAllow,
           seenGuide: s.seenGuide,
           dockLayout: s.dockLayout,
           apiChats: s.apiChats,

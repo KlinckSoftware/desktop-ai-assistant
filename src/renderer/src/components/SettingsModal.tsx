@@ -51,6 +51,12 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
   const setPipelineAllowFullDefault = useAppStore((s) => s.setPipelineAllowFullDefault)
   const alwaysConfirm = useAppStore((s) => s.alwaysConfirm)
   const setAlwaysConfirm = useAppStore((s) => s.setAlwaysConfirm)
+  const autonomousAllow = useAppStore((s) => s.autonomousAllow)
+  const setAutonomousAllow = useAppStore((s) => s.setAutonomousAllow)
+  const onAutonomousAllow = (v: string): void => {
+    setAutonomousAllow(v)
+    window.api.settings.set({ autonomousAllow: v })
+  }
   const onAllowProtectedWrites = (v: boolean): void => {
     setAllowProtectedWrites(v)
     window.api.settings.set({ allowProtectedWrites: v })
@@ -744,6 +750,24 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
                 Pre-tick the per-run shell opt-in for `full` steps (loosen). Off = opt in each run.
               </span>
             </label>
+          )
+        },
+        {
+          label: 'Autonomous command allowlist (restrict)',
+          kw: 'security autonomous command allowlist restrict shell pipeline heads',
+          node: (
+            <div className="space-y-1">
+              <input
+                className="w-full rounded border border-border bg-bg px-2 py-1.5 outline-none focus:border-accent"
+                placeholder="e.g. npm, pytest, git, ls  (blank = no extra restriction)"
+                value={autonomousAllow}
+                onChange={(e) => onAutonomousAllow(e.target.value)}
+              />
+              <p className="text-[10px] text-gray-500">
+                When set, an autonomous (pipeline/scheduled) shell command only runs if its first word is in this
+                list — on top of the always-on dangerous-command block. Blank = allow any non-dangerous command.
+              </p>
+            </div>
           )
         },
         {
