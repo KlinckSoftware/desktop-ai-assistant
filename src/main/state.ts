@@ -24,6 +24,7 @@ export interface Settings {
   allowSecretReads: boolean // let tools read secret-looking files (.env, keys) — default off
   allowProtectedWrites: boolean // permit writes to .git/ & node_modules/ — default off (LOOSEN)
   pipelineAllowFullDefault: boolean // default the per-run "allow shell (full)" opt-in — default off
+  autonomousAllow: string // optional allowlist of command heads for autonomous run_command ('' = no extra restriction)
 }
 
 // Mutable app-wide state shared across main-process modules.
@@ -40,7 +41,8 @@ class AppState {
     costCap: 0,
     allowSecretReads: false,
     allowProtectedWrites: false,
-    pipelineAllowFullDefault: false
+    pipelineAllowFullDefault: false,
+    autonomousAllow: ''
   }
 
   // sessionId -> the isolated worktree root that session operates in. Sessions

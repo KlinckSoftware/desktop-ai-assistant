@@ -54,6 +54,7 @@ export interface PersistedState {
   allowProtectedWrites: boolean
   pipelineAllowFullDefault: boolean
   alwaysConfirm: boolean
+  autonomousAllow: string
   seenGuide: boolean
   dockLayout: unknown | null
   apiChats: Record<string, Message[]>
@@ -100,10 +101,12 @@ interface AppState {
   allowProtectedWrites: boolean // permit writes to .git/ & node_modules/ (loosen)
   pipelineAllowFullDefault: boolean // default the per-run "allow shell" opt-in (loosen)
   alwaysConfirm: boolean // never auto-approve a trusted session — always show a card (restrict)
+  autonomousAllow: string // allowlist of command heads for autonomous run_command ('' = off)
   seenGuide: boolean // the in-app Guide has been shown once (first-run)
   setAllowProtectedWrites: (v: boolean) => void
   setPipelineAllowFullDefault: (v: boolean) => void
   setAlwaysConfirm: (v: boolean) => void
+  setAutonomousAllow: (v: string) => void
   setSeenGuide: (v: boolean) => void
   // Renderer-only preferences (persisted; not sent to main).
   approvalTimeout: number // seconds before a command/tool card auto-rejects (0 = never)
@@ -276,10 +279,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   allowProtectedWrites: false,
   pipelineAllowFullDefault: false,
   alwaysConfirm: false,
+  autonomousAllow: '',
   seenGuide: false,
   setAllowProtectedWrites: (v) => set({ allowProtectedWrites: v }),
   setPipelineAllowFullDefault: (v) => set({ pipelineAllowFullDefault: v }),
   setAlwaysConfirm: (v) => set({ alwaysConfirm: v }),
+  setAutonomousAllow: (v) => set({ autonomousAllow: v }),
   setSeenGuide: (v) => set({ seenGuide: v }),
   approvalTimeout: 15,
   pipelineDefaultPermission: 'read-only',
@@ -503,6 +508,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       allowProtectedWrites: d.allowProtectedWrites ?? false,
       pipelineAllowFullDefault: d.pipelineAllowFullDefault ?? false,
       alwaysConfirm: d.alwaysConfirm ?? false,
+      autonomousAllow: d.autonomousAllow ?? '',
       seenGuide: d.seenGuide ?? false,
       approvalTimeout: d.approvalTimeout ?? 15,
       pipelineDefaultPermission: d.pipelineDefaultPermission ?? 'read-only',
