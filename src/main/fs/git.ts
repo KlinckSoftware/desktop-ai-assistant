@@ -240,6 +240,10 @@ export async function worktreeList(root: string): Promise<WorktreeEntry[]> {
  */
 export async function workingDiff(worktreePath: string, base: string): Promise<string> {
   try {
+    // Mark untracked files intent-to-add so brand-new files (an agent creating a
+    // file is common) show as additions — plain `git diff` omits untracked files.
+    // Intent-to-add stages no content; a later commit/merge (git add -A) overrides it.
+    await runGit(worktreePath, ['add', '-A', '-N']).catch(() => {})
     // Diff against the MERGE-BASE (the commit the branch forked from), not the
     // live `base` ref — `base` (e.g. "main") keeps moving as the user commits, and
     // diffing a stale worktree against the moved tip would show those unrelated
