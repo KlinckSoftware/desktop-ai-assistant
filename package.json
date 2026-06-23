@@ -1,6 +1,6 @@
 {
   "name": "desktop-ai-assistant",
-  "version": "0.45.0",
+  "version": "0.45.1",
   "description": "Desktop AI coding assistant — Claude Code CLI + Gemini API, Electron shell",
   "main": "./out/main/index.js",
   "author": "wbucci14",
@@ -18,8 +18,9 @@
     "test:watch": "vitest",
     "rebuild": "electron-rebuild -f -w node-pty",
     "postinstall": "electron-builder install-app-deps",
-    "dist": "electron-vite build && electron-builder",
-    "dist:win": "electron-vite build && electron-builder --win"
+    "dist": "electron-vite build && electron-builder && node scripts/checksums.cjs",
+    "dist:win": "electron-vite build && electron-builder --win && node scripts/checksums.cjs",
+    "checksums": "node scripts/checksums.cjs"
   },
   "dependencies": {
     "@codemirror/lang-css": "^6.3.1",
