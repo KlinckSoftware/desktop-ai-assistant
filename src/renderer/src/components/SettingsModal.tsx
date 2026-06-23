@@ -250,6 +250,15 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
     setJobs(await window.api.jobs.remove(id))
   }
 
+  // Debate is pairwise (A proposes / B critiques); these are the default sides.
+  const debateSideA = useAppStore((s) => s.debateSideA)
+  const debateSideB = useAppStore((s) => s.debateSideB)
+  const setDebateSides = useAppStore((s) => s.setDebateSides)
+  const [debateParticipants, setDebateParticipants] = useState<{ id: string; name: string }[]>([])
+  useEffect(() => {
+    window.api.debate.agents().then(setDebateParticipants)
+  }, [])
+
   const [q, setQ] = useState('')
   const [activeSection, setActiveSection] = useState('Models')
 
@@ -327,6 +336,47 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
               onChange={(e) => onRounds(Number(e.target.value))}
               className="w-full accent-accent"
             />
+          )
+        },
+        {
+          label: 'Default participants (1 v 1)',
+          kw: 'debate participants sides default models a b vs pairwise',
+          node: (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <select
+                  className="min-w-0 flex-1 rounded border border-border bg-bg px-2 py-1.5 outline-none focus:border-accent"
+                  value={debateSideA}
+                  onChange={(e) => setDebateSides(e.target.value, debateSideB)}
+                >
+                  {debateParticipants.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+                <span className="shrink-0 text-gray-500">vs</span>
+                <select
+                  className="min-w-0 flex-1 rounded border border-border bg-bg px-2 py-1.5 outline-none focus:border-accent"
+                  value={debateSideB}
+                  onChange={(e) => setDebateSides(debateSideA, e.target.value)}
+                >
+                  {debateParticipants.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <p className="text-[10px] text-gray-500">
+                Debate is a 1-v-1: <b>A</b> proposes, <b>B</b> critiques over N rounds, then A synthesizes (gated
+                by your approval). Only models/APIs you have working appear here; change sides per-run in the Debate
+                panel. For more than two models, chain them in a Pipeline instead.
+              </p>
+              {debateParticipants.length < 2 && (
+                <p className="text-[10px] text-yellow-400">Need ≥2 usable models — add an API key or install a CLI.</p>
+              )}
+            </div>
           )
         }
       ]

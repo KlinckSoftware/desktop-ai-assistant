@@ -15,6 +15,7 @@ import {
   mapItems,
   type NormStep
 } from './graph'
+import { CLAUDE_READ_TOOLS, CLAUDE_EDIT_TOOLS } from '../agents/systemPrompt'
 import type { GeminiClient } from '../gemini/GeminiClient'
 import type { IPCModerator } from '../moderator/IPCModerator'
 
@@ -28,12 +29,10 @@ let runSeq = 0
 // dry-run is approximated as read-only (Claude has no true dry-run). 'full'
 // adds Bash (still gated by Claude's own permission checks).
 export function claudeAllowedTools(mode: PermissionMode, dryRun: boolean, allowFull = false): string[] {
-  const READ = ['Read', 'Grep', 'Glob', 'LS']
-  if (dryRun || mode === 'read-only') return READ
-  const EDIT = [...READ, 'Edit', 'Write', 'MultiEdit']
+  if (dryRun || mode === 'read-only') return CLAUDE_READ_TOOLS
   // Bash only when 'full' AND the run opted into shell; else cap at edit tools.
-  if (mode === 'edit' || !allowFull) return EDIT
-  return [...EDIT, 'Bash']
+  if (mode === 'edit' || !allowFull) return CLAUDE_EDIT_TOOLS
+  return [...CLAUDE_EDIT_TOOLS, 'Bash']
 }
 
 export class PipelineRunner {
