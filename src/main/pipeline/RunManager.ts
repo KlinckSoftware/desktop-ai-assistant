@@ -63,6 +63,11 @@ export class RunManager {
   /** Cancel an active run (aborts the in-flight model call) or drop a queued one. */
   cancel(id: string): void {
     if (id === this.activeId) {
+      // Mark cancelled first so the resulting terminal 'error' update (the runner
+      // reports an aborted run as an error with text "Cancelled.") is recorded as
+      // 'cancelled', not a failure.
+      const rec = this.runs.get(id)
+      if (rec) rec.status = 'cancelled'
       this.runner.cancel()
       return
     }
