@@ -77,6 +77,13 @@ loop, three extra guards bound them:
 - **git-trigger self-trigger guard** (`Scheduler`). A git-triggered job can't
   re-fire while its own run is queued or running, plus a 60s minimum gap between
   fires — so an editing job can't loop on its own output.
+- **Optional command allowlist** (Settings → Security, `autonomousAllow`). When
+  set, an autonomous `run_command` only runs if its first word is in the list —
+  on top of the always-on dangerous denylist. Blank = allow any non-dangerous
+  command.
+- **MCP argument screening.** Autonomous MCP calls refuse when their serialized
+  arguments match the dangerous denylist (e.g. a tool taking a shell/url arg with
+  `rm -rf` or a remote transfer), in `ToolBroker`.
 
 Autonomous steps that fall outside the step's allowlist (or hit the dangerous
 denylist) are **blocked and logged**, and the run continues. Edits still snapshot
@@ -143,8 +150,11 @@ to checkpoints, so autonomous edits remain undoable.
    `Edit/Write/MultiEdit`; full → adds `Bash` **only when the run opted into
    `allowFull`**, else capped at edit tools), so a pipeline step can't exceed its
    grant. (Claude still applies its own permission checks within that set.)
-3. **MCP tool arguments are not pattern-screened.** MCP calls are gated by
-   approval/allowlist but there is no dangerous-argument denylist for them.
+3. **MCP argument screening is denylist-only and autonomous-only.** Autonomous
+   MCP calls now refuse arguments matching the dangerous denylist (`ToolBroker`),
+   but that's a heuristic on the serialized args, not per-schema validation;
+   *interactive* MCP calls rely on the approval card / trusted-tool flag rather
+   than argument screening.
 4. **`sandbox: false`** is required for the ESM preload. Context isolation is
    still enforced; the preload exposes only the bounded `window.api`.
 
