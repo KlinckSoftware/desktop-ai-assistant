@@ -79,10 +79,19 @@ export default function CockpitPanel(): JSX.Element {
                   <span className={`ml-1.5 text-[10px] ${k.cls}`}>{k.label}</span>
                   {a.model && <span className="ml-1 truncate text-[10px] text-gray-500">{a.model}</span>}
                 </span>
-                {cost != null && (
+                {cost != null ? (
                   <span className="shrink-0 text-[10px] text-green-400" title="estimated cost (static price table)">
                     ${cost < 0.01 ? cost.toFixed(4) : cost.toFixed(2)}
                   </span>
+                ) : (
+                  a.kind === 'cli' && (
+                    <span
+                      className="shrink-0 text-[10px] text-gray-600"
+                      title="billed to this tool's own login — not metered by the cost cap"
+                    >
+                      own login
+                    </span>
+                  )
                 )}
                 <span className="shrink-0 text-[10px] text-gray-500" title={tokenTitle}>
                   {tokenLabel} tok
