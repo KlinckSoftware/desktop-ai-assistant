@@ -160,6 +160,7 @@ const api = {
   },
   tool: {
     approve: (id: string): Promise<void> => ipcRenderer.invoke(CH.toolApprove, id),
+    confirmDangerous: (id: string): Promise<void> => ipcRenderer.invoke(CH.toolConfirmDangerous, id),
     reject: (id: string): Promise<void> => ipcRenderer.invoke(CH.toolReject, id),
     onPending: (cb: (t: PendingTool) => void): (() => void) => {
       const h = (_e: unknown, t: PendingTool): void => cb(t)

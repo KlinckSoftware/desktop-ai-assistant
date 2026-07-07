@@ -33,3 +33,39 @@ describe('ToolBroker.runWithPolicy — autonomous MCP arg screening', () => {
     expect(call).not.toHaveBeenCalled()
   })
 })
+
+describe('ToolBroker — interactive dangerous-arg screening', () => {
+  let broker: ToolBroker
+  beforeEach(() => {
+    call.mockClear()
+    broker = new ToolBroker()
+  })
+
+  it('flags dangerous args on the pending card', async () => {
+    const { appState } = await import('../state')
+    void broker.propose('srv__run', { command: 'rm -rf /' })
+    const sent = (appState.send as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1]
+    expect(sent.dangerous).toBe(true)
+    expect(sent.dangerReason).toBeTruthy()
+  })
+
+  it('plain approve() refuses a dangerous call (main-authoritative)', async () => {
+    const p = broker.propose('srv__run', { command: 'rm -rf /' })
+    await broker.approve('tool_1')
+    expect(await p).toMatch(/needs explicit confirmation/i)
+    expect(call).not.toHaveBeenCalled()
+  })
+
+  it('confirmDangerous() executes it', async () => {
+    const p = broker.propose('srv__run', { command: 'rm -rf /' })
+    await broker.confirmDangerous('tool_1')
+    expect(await p).toBe('ok')
+    expect(call).toHaveBeenCalledOnce()
+  })
+
+  it('safe args stay un-flagged and approve normally', async () => {
+    const p = broker.propose('srv__search', { query: 'hello' })
+    await broker.approve('tool_1')
+    expect(await p).toBe('ok')
+  })
+})

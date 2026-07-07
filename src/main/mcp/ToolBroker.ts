@@ -9,6 +9,7 @@ import { mcpManager } from './MCPClientManager'
 interface Pending {
   tool: string
   args: Record<string, unknown>
+  dangerous: boolean
   resolve: (output: string) => void
 }
 
@@ -18,9 +19,18 @@ export class ToolBroker {
 
   propose(tool: string, args: Record<string, unknown>): Promise<string> {
     const id = `tool_${++this.seq}`
-    const msg: PendingTool = { id, tool, argsPreview: JSON.stringify(args, null, 2) }
+    // Screen interactive calls too: a dangerous argument forces the explicit
+    // confirm path — trusted-tool auto-approve must not skip the human.
+    const danger = checkDangerous(JSON.stringify(args))
+    const msg: PendingTool = {
+      id,
+      tool,
+      argsPreview: JSON.stringify(args, null, 2),
+      dangerous: danger.dangerous,
+      dangerReason: danger.dangerous ? danger.reason : undefined
+    }
     appState.send(CH.toolPending, msg)
-    return new Promise((resolve) => this.pending.set(id, { tool, args, resolve }))
+    return new Promise((resolve) => this.pending.set(id, { tool, args, dangerous: danger.dangerous, resolve }))
   }
 
   /** Call an MCP tool under an ApprovalPolicy (autonomous/dry-run pipeline path). */
@@ -49,6 +59,25 @@ export class ToolBroker {
   }
 
   async approve(id: string): Promise<void> {
+    const p = this.pending.get(id)
+    if (!p) return
+    // Defense in depth (mirrors CommandBroker.approve): the plain approve path —
+    // which trusted-tool auto-approve can hit without a human — never executes a
+    // dangerous call. Those require the explicit confirmDangerous() the warning
+    // card invokes, so main stays authoritative even against a buggy renderer.
+    if (p.dangerous) {
+      this.pending.delete(id)
+      console.warn(`[security] approve() blocked dangerous MCP call ${p.tool} (needs explicit confirm)`)
+      appState.send(CH.toolResult, { id, tool: p.tool, output: '[blocked: dangerous argument needs explicit confirmation]' })
+      p.resolve(`[blocked: dangerous MCP argument needs explicit confirmation]`)
+      return
+    }
+    this.pending.delete(id)
+    p.resolve(await this.exec(id, p.tool, p.args))
+  }
+
+  /** Explicit run of a dangerous MCP call — only the human warning card invokes this. */
+  async confirmDangerous(id: string): Promise<void> {
     const p = this.pending.get(id)
     if (!p) return
     this.pending.delete(id)
