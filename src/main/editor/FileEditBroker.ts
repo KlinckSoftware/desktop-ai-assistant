@@ -145,9 +145,13 @@ export class FileEditBroker {
     if (idx < 0) return
     const c = this.checkpoints[idx]
     try {
-      // Restore prior content. (If the file was newly created, this writes it
-      // back to empty — a future enhancement could delete it instead.)
-      await this.fsm.writeFile(c.meta.path, c.oldContent)
+      if (c.existed) {
+        await this.fsm.writeFile(c.meta.path, c.oldContent)
+      } else {
+        // The checkpoint was a file creation — undo removes the file entirely
+        // instead of leaving an empty husk behind.
+        await this.fsm.deleteFile(c.meta.path)
+      }
     } catch {
       /* ignore */
     }
