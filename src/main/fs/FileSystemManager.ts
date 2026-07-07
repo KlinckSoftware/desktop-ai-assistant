@@ -187,6 +187,16 @@ export class FileSystemManager {
     await fs.writeFile(abs, content, 'utf-8')
   }
 
+  // Root-confined delete with the same protected-path guard as writeFile.
+  // Used by checkpoint undo to remove a file whose checkpoint was a creation.
+  async deleteFile(path: string): Promise<void> {
+    const abs = assertInRoot(path)
+    if (!appState.settings.allowProtectedWrites && isProtectedPath(relative(appState.projectRoot, abs))) {
+      throw new Error(`Refusing to delete protected path: ${basename(abs)}`)
+    }
+    await fs.unlink(abs)
+  }
+
   watch(root: string): void {
     this.watcher?.close()
     this.watcher = chokidar.watch(root, {
