@@ -8,6 +8,7 @@ beforeEach(() => {
     worktree: { list: vi.fn(async () => []), onChanged: vi.fn(() => () => {}) },
     jobs: { list: vi.fn(async () => []), onChanged: vi.fn(() => () => {}) },
     debate: { agents: vi.fn(async () => []) },
+    gemini: { listModels: vi.fn(async () => ['gemini-2.5-pro', 'gemini-2.5-flash']) },
     settings: { set: vi.fn(async () => {}) }
   }
 })

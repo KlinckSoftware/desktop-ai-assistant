@@ -252,6 +252,7 @@ export const CH = {
   geminiStream: 'gemini:stream',
   geminiHasKey: 'gemini:has-key',
   geminiSaveKey: 'gemini:save-key',
+  geminiListModels: 'gemini:list-models',
 
   debateStart: 'debate:start',
   debateAgents: 'debate:agents',

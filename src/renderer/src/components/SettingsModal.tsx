@@ -12,19 +12,28 @@ interface McpStatus {
   error?: string
 }
 
-const MODELS = [
-  'gemini-2.5-flash',
-  'gemini-2.5-pro',
-  'gemini-2.5-flash-lite',
-  'gemini-2.0-flash'
-]
+const GEMINI_FALLBACK = ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash']
 
-// '' = use the claude CLI's own default; aliases map to latest of each tier.
+// '' = use the claude CLI's own default; tier aliases resolve to the latest model of that family.
 const CLAUDE_MODELS = [
   { value: '', label: 'CLI default' },
-  { value: 'sonnet', label: 'Sonnet' },
-  { value: 'opus', label: 'Opus' },
-  { value: 'haiku', label: 'Haiku' }
+  { value: 'claude-sonnet-4-5', label: 'Sonnet 4.5' },
+  { value: 'claude-opus-4-5', label: 'Opus 4.5' },
+  { value: 'claude-haiku-4-5', label: 'Haiku 4.5' },
+  { value: 'claude-sonnet-4-0', label: 'Sonnet 4' },
+  { value: 'claude-opus-4-0', label: 'Opus 4' },
+  { value: 'sonnet', label: 'Sonnet (alias → latest)' },
+  { value: 'opus', label: 'Opus (alias → latest)' },
+  { value: 'haiku', label: 'Haiku (alias → latest)' }
+]
+
+const CLAUDE_EFFORT = [
+  { value: '', label: 'default' },
+  { value: 'low', label: 'low' },
+  { value: 'medium', label: 'medium' },
+  { value: 'high', label: 'high' },
+  { value: 'xhigh', label: 'xhigh (extended thinking)' },
+  { value: 'max', label: 'max (maximum thinking)' }
 ]
 
 export default function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element {
@@ -122,10 +131,12 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
   const [mcp, setMcp] = useState<McpStatus[]>([])
   const [mcpPath, setMcpPath] = useState('')
   const [mcpBusy, setMcpBusy] = useState(false)
+  const [geminiModels, setGeminiModels] = useState<string[]>(GEMINI_FALLBACK)
 
   useEffect(() => {
     window.api.mcp.status().then(setMcp)
     window.api.mcp.configPath().then(setMcpPath)
+    window.api.gemini.listModels().then(setGeminiModels).catch(() => {})
   }, [])
 
   const reconnectMcp = async (): Promise<void> => {
@@ -278,7 +289,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
               value={geminiModel}
               onChange={(e) => onModel(e.target.value)}
             >
-              {MODELS.map((m) => (
+              {geminiModels.map((m) => (
                 <option key={m} value={m}>
                   {m}
                 </option>
@@ -305,17 +316,16 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
         },
         {
           label: 'Claude effort (debate)',
-          kw: 'claude effort reasoning low medium high debate',
+          kw: 'claude effort reasoning low medium high xhigh max debate',
           node: (
             <select
               className="w-full rounded border border-border bg-bg px-2 py-1.5 outline-none focus:border-accent"
               value={claudeEffort}
               onChange={(e) => onClaudeEffort(e.target.value)}
             >
-              <option value="">default</option>
-              <option value="low">low</option>
-              <option value="medium">medium</option>
-              <option value="high">high</option>
+              {CLAUDE_EFFORT.map((e) => (
+                <option key={e.value} value={e.value}>{e.label}</option>
+              ))}
             </select>
           )
         }

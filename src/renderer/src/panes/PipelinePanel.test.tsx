@@ -11,6 +11,7 @@ beforeEach(() => {
         { id: 'api:openai', name: 'OpenAI', kind: 'api' }
       ])
     },
+    gemini: { listModels: vi.fn(async () => ['gemini-2.5-pro', 'gemini-2.5-flash']) },
     pipeline: {
       runs: vi.fn(async () => []),
       run,
