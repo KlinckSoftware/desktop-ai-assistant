@@ -254,6 +254,11 @@ const api = {
     ipcRenderer.on(CH.appError, h)
     return () => ipcRenderer.removeListener(CH.appError, h)
   },
+  onWorktreeStale: (cb: (notice: import('@shared/types').WorktreeStaleNotice) => void): (() => void) => {
+    const h = (_e: unknown, notice: import('@shared/types').WorktreeStaleNotice): void => cb(notice)
+    ipcRenderer.on(CH.worktreeStale, h)
+    return () => ipcRenderer.removeListener(CH.worktreeStale, h)
+  },
   onUsage: (cb: (id: string, usage: { promptTokens: number; completionTokens: number }) => void): (() => void) => {
     const h = (_e: unknown, id: string, usage: { promptTokens: number; completionTokens: number }): void =>
       cb(id, usage)

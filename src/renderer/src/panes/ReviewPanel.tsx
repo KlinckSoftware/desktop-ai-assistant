@@ -4,6 +4,16 @@ import { ColorSchemeType } from 'diff2html/lib/types'
 import 'diff2html/bundles/css/diff2html.min.css'
 import type { WorktreeInfo } from '@shared/types'
 
+// Compact age label from an mtime (epoch ms): "3d", "5h", "just now".
+function ageLabel(mtime: number): string {
+  const ms = Date.now() - mtime
+  const d = Math.floor(ms / 86_400_000)
+  if (d >= 1) return `${d}d`
+  const h = Math.floor(ms / 3_600_000)
+  if (h >= 1) return `${h}h`
+  return 'new'
+}
+
 // Review & merge the work an isolated agent/pipeline did on its own branch.
 // Each worktree's total change (committed + uncommitted, vs its base) is shown
 // as a diff; Merge squash-merges the branch into its base, Discard throws it away.
@@ -98,9 +108,12 @@ export default function ReviewPanel(): JSX.Element {
                 w.sessionId === selected ? 'bg-panel' : ''
               }`}
             >
-              <div className="truncate text-gray-200">
-                <span className="mr-1 text-gray-500">{w.kind === 'pipeline' ? '⛓' : '◆'}</span>
-                {w.label || w.kind}
+              <div className="flex items-center justify-between gap-1">
+                <span className="truncate text-gray-200">
+                  <span className="mr-1 text-gray-500">{w.kind === 'pipeline' ? '⛓' : '◆'}</span>
+                  {w.label || w.kind}
+                </span>
+                {w.mtime !== undefined && <span className="shrink-0 text-[10px] text-gray-600">{ageLabel(w.mtime)}</span>}
               </div>
               <div className="truncate font-mono text-[10px] text-gray-500">{w.branch}</div>
             </button>
