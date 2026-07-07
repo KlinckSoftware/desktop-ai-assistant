@@ -223,6 +223,14 @@ export interface WorktreeInfo {
   base: string
   kind: 'agent' | 'pipeline'
   label?: string // human label (agent name / pipeline name) when known
+  mtime?: number // epoch ms of the worktree dir's last modification (staleness)
+}
+
+// Boot notice: adopted worktrees older than the threshold carry unmerged work.
+export interface WorktreeStaleNotice {
+  count: number
+  oldestDays: number
+  thresholdDays: number
 }
 
 // Channel name constants — single source of truth for IPC strings.
@@ -340,5 +348,6 @@ export const CH = {
   worktreeList: 'worktree:list',
   worktreeDiff: 'worktree:diff',
   worktreeRemove: 'worktree:remove', // (sessionId, 'merge' | 'discard') -> status
-  worktreeChanged: 'worktree:changed' // event: the set/state of worktrees changed
+  worktreeChanged: 'worktree:changed', // event: the set/state of worktrees changed
+  worktreeStale: 'worktree:stale' // (WorktreeStaleNotice) boot notice for old unmerged worktrees
 } as const

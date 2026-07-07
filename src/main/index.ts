@@ -288,8 +288,15 @@ app.whenReady().then(() => {
   initServices()
   registerIpc()
   createWindow()
-  // Clean up worktree admin state orphaned by a previous crash.
-  worktreeManager.pruneOnBoot(appState.projectRoot).catch(() => {})
+  // Clean up worktree admin state orphaned by a previous crash, then notify the
+  // renderer if any *adopted* (unmerged) worktrees are old enough to review.
+  worktreeManager
+    .pruneOnBoot(appState.projectRoot)
+    .then(() => {
+      const notice = worktreeManager.staleNotice()
+      if (notice) appState.send(CH.worktreeStale, notice)
+    })
+    .catch(() => {})
   // Start the in-app job scheduler (runs while the app is open).
   scheduler.start().catch((e) => console.warn('[scheduler] start failed:', e))
   // Overlay the live price table in MAIN too, so the spend cap (budget.ts) costs

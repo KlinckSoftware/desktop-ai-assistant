@@ -59,6 +59,18 @@ export default function App(): JSX.Element {
     })
   }, [])
 
+  // On boot, if old unmerged worktrees were re-adopted, nudge toward the Review
+  // panel. Sticky (no auto-dismiss) since it's an actionable prompt.
+  useEffect(() => {
+    return window.api.onWorktreeStale((n) => {
+      const id = Date.now() + Math.random()
+      const msg =
+        `${n.count} isolated worktree${n.count === 1 ? '' : 's'} with unmerged work ` +
+        `(oldest ${n.oldestDays}d). Open the Review panel to merge or discard.`
+      setNotices((cur) => [...cur, { id, msg }])
+    })
+  }, [])
+
   useEffect(() => {
     ;(async () => {
       const persisted = (await window.api.state.load()) as

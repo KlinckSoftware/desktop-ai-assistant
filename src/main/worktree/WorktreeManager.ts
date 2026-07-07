@@ -1,5 +1,5 @@
 import { join } from 'path'
-import { existsSync, promises as fsp } from 'fs'
+import { existsSync, promises as fsp, statSync } from 'fs'
 import {
   isGitRepo,
   hasCommits,
@@ -69,8 +69,40 @@ export class WorktreeManager {
       branch: w.branch,
       base: w.base,
       kind: w.kind,
-      label: this.labels.get(w.sessionId)
+      label: this.labels.get(w.sessionId),
+      mtime: this.mtimeOf(w.path)
     }))
+  }
+
+  private mtimeOf(path: string): number | undefined {
+    try {
+      return statSync(path).mtimeMs
+    } catch {
+      return undefined
+    }
+  }
+
+  /**
+   * Summary of adopted worktrees older than `thresholdDays` (by dir mtime).
+   * These carry unmerged work — surfaced on boot so stale branches don't pile
+   * up unnoticed. Returns null when nothing is stale.
+   */
+  staleNotice(thresholdDays = 7): import('../../shared/types').WorktreeStaleNotice | null {
+    const now = Date.now()
+    const cutoff = thresholdDays * 86_400_000
+    let count = 0
+    let oldest = 0
+    for (const w of this.bySession.values()) {
+      const m = this.mtimeOf(w.path)
+      if (m === undefined) continue
+      const age = now - m
+      if (age >= cutoff) {
+        count++
+        oldest = Math.max(oldest, age)
+      }
+    }
+    if (count === 0) return null
+    return { count, oldestDays: Math.floor(oldest / 86_400_000), thresholdDays }
   }
 
   /**
