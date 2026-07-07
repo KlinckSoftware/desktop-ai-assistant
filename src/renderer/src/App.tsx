@@ -254,10 +254,12 @@ export default function App(): JSX.Element {
   }, [addPendingEdit, removePendingEdit])
 
   // MCP tool calls: auto-approve trusted tools, else queue an approval card.
+  // Dangerous arguments always get a card — trust never skips the human (and
+  // main blocks the plain approve path for them regardless).
   useEffect(() => {
     return window.api.tool.onPending((t) => {
       const st = useAppStore.getState()
-      if (!st.alwaysConfirm && st.isToolTrusted(t.tool)) window.api.tool.approve(t.id)
+      if (!t.dangerous && !st.alwaysConfirm && st.isToolTrusted(t.tool)) window.api.tool.approve(t.id)
       else addPendingTool(t)
     })
   }, [addPendingTool])

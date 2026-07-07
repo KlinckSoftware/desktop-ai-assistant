@@ -221,6 +221,7 @@ function registerIpc(): void {
 
   // --- MCP tool approval ---
   ipcMain.handle(CH.toolApprove, (_e, id: string) => toolBroker.approve(id))
+  ipcMain.handle(CH.toolConfirmDangerous, (_e, id: string) => toolBroker.confirmDangerous(id))
   ipcMain.handle(CH.toolReject, (_e, id: string) => toolBroker.reject(id))
 
   // --- Filesystem ---

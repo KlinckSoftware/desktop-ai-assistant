@@ -9,8 +9,8 @@ import { policyForStep } from '../policy/ApprovalPolicy'
 import type { FileSystemManager } from '../fs/FileSystemManager'
 
 function makeBroker(existingContent?: string) {
-  const writeFile = vi.fn(async () => {})
-  const deleteFile = vi.fn(async () => {})
+  const writeFile = vi.fn(async (_path: string, _content: string) => {})
+  const deleteFile = vi.fn(async (_path: string) => {})
   const readFile = vi.fn(async () => {
     if (existingContent !== undefined) return existingContent
     throw new Error('new file')

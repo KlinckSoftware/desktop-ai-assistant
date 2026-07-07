@@ -99,7 +99,10 @@ function ToolCard({ tool }: { tool: import('@shared/types').PendingTool }): JSX.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [left, timeout])
   const approve = (): void => {
-    window.api.tool.approve(tool.id)
+    // Dangerous calls go through the explicit confirm channel — the plain
+    // approve path is blocked for them in main.
+    if (tool.dangerous) window.api.tool.confirmDangerous(tool.id)
+    else window.api.tool.approve(tool.id)
     remove(tool.id)
   }
   const trustAndApprove = (): void => {
@@ -108,28 +111,38 @@ function ToolCard({ tool }: { tool: import('@shared/types').PendingTool }): JSX.
   }
 
   return (
-    <div className="w-96 rounded-lg border border-accent bg-panel p-3 shadow-xl">
+    <div className={`w-96 rounded-lg border ${tool.dangerous ? 'border-red-500' : 'border-accent'} bg-panel p-3 shadow-xl`}>
       <div className="mb-1 flex items-center justify-between text-xs">
-        <span className="text-accent">MCP tool: {tool.tool}</span>
+        <span className={tool.dangerous ? 'text-red-400' : 'text-accent'}>MCP tool: {tool.tool}</span>
         <span className="text-gray-500">{timeout > 0 ? `auto-reject in ${left}s` : 'awaiting decision'}</span>
       </div>
+      {tool.dangerous && (
+        <div className="mb-1 rounded bg-red-950/60 px-2 py-1 text-xs text-red-300">
+          ⚠ Dangerous argument detected{tool.dangerReason ? ` — ${tool.dangerReason}` : ''}. Review carefully.
+        </div>
+      )}
       <pre className="mb-2 max-h-32 overflow-auto rounded bg-bg p-2 text-xs text-gray-200">
         {tool.argsPreview}
       </pre>
       <div className="flex gap-2 text-xs">
-        <button className="flex-1 rounded bg-green-600 py-1 font-medium text-white" onClick={approve}>
-          Run
+        <button
+          className={`flex-1 rounded py-1 font-medium text-white ${tool.dangerous ? 'bg-red-700' : 'bg-green-600'}`}
+          onClick={approve}
+        >
+          {tool.dangerous ? 'Run anyway' : 'Run'}
         </button>
         <button className="flex-1 rounded bg-red-600 py-1 font-medium text-white" onClick={reject}>
           Reject
         </button>
-        <button
-          className="rounded border border-border px-2 py-1 text-gray-300"
-          onClick={trustAndApprove}
-          title="Run and auto-approve this tool from now on"
-        >
-          Trust
-        </button>
+        {!tool.dangerous && (
+          <button
+            className="rounded border border-border px-2 py-1 text-gray-300"
+            onClick={trustAndApprove}
+            title="Run and auto-approve this tool from now on"
+          >
+            Trust
+          </button>
+        )}
       </div>
     </div>
   )

@@ -195,6 +195,8 @@ export interface PendingTool {
   id: string
   tool: string // qualified server__tool
   argsPreview: string // pretty JSON of arguments
+  dangerous?: boolean // serialized args matched the dangerous denylist
+  dangerReason?: string
 }
 
 export interface Checkpoint {
@@ -293,6 +295,7 @@ export const CH = {
 
   toolPending: 'tool:pending',
   toolApprove: 'tool:approve',
+  toolConfirmDangerous: 'tool:confirm-dangerous',
   toolReject: 'tool:reject',
   toolResult: 'tool:result',
 
