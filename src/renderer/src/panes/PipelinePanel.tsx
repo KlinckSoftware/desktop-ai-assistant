@@ -29,16 +29,16 @@ const PRESETS: { name: string; steps: PipelineStep[] }[] = [
   {
     name: 'Plan → Implement → Review',
     steps: [
-      { id: 'plan', agentId: 'claude', instruction: 'Write a concise step-by-step implementation plan.', permission: 'read-only', model: 'opus' },
-      { id: 'impl', agentId: 'claude', instruction: 'Implement this plan now — make the edits.', permission: 'edit', model: 'opus', deps: ['plan'] },
-      { id: 'review', agentId: 'claude', instruction: 'Review the changes for bugs/style; list issues.', permission: 'read-only', model: 'haiku', deps: ['impl'] }
+      { id: 'plan', agentId: 'claude', instruction: 'Write a concise step-by-step implementation plan.', permission: 'read-only', model: 'claude-opus-4-5' },
+      { id: 'impl', agentId: 'claude', instruction: 'Implement this plan now — make the edits.', permission: 'edit', model: 'claude-sonnet-4-5', deps: ['plan'] },
+      { id: 'review', agentId: 'claude', instruction: 'Review the changes for bugs/style; list issues.', permission: 'read-only', model: 'claude-haiku-4-5', deps: ['impl'] }
     ]
   },
   {
     name: 'Implement → Docs',
     steps: [
-      { id: 'impl', agentId: 'claude', instruction: 'Implement the task.', permission: 'edit', model: 'opus' },
-      { id: 'docs', agentId: 'claude', instruction: 'Update the README/docs to reflect these changes.', permission: 'edit', model: 'haiku', deps: ['impl'] }
+      { id: 'impl', agentId: 'claude', instruction: 'Implement the task.', permission: 'edit', model: 'claude-sonnet-4-5' },
+      { id: 'docs', agentId: 'claude', instruction: 'Update the README/docs to reflect these changes.', permission: 'edit', model: 'claude-haiku-4-5', deps: ['impl'] }
     ]
   }
 ]
@@ -62,12 +62,14 @@ export default function PipelinePanel(): JSX.Element {
   const [dryRun, setDryRun] = useState(defaultDryRun)
   const [allowFull, setAllowFull] = useState(allowFullDefault)
   const [updates, setUpdates] = useState<PipelineUpdate[]>([])
+  const [geminiModels, setGeminiModels] = useState<string[]>([])
   // The run this panel is currently showing (set on Run, or adopted on mount if
   // a background run is in flight). Updates for other runs are ignored here.
   const activeRunId = useRef<string | null>(null)
 
   useEffect(() => {
     window.api.debate.agents().then(setParticipants)
+    window.api.gemini.listModels().then(setGeminiModels).catch(() => {})
     // Adopt an in-flight run (e.g. started before this panel was opened/reopened).
     window.api.pipeline.runs().then((runs) => {
       const live = runs.find((r) => r.status === 'running' || r.status === 'queued')
@@ -223,7 +225,12 @@ export default function PipelinePanel(): JSX.Element {
           const part = participants.find((p) => p.id === step.agentId)
           const isClaude = part?.kind === 'claude'
           const provider = part?.kind === 'api' ? apiProviders.find((p) => p.id === step.agentId.slice(4)) : undefined
-          const modelHints = isClaude ? ['sonnet', 'opus', 'haiku'] : (provider?.models ?? [])
+          const isGemini = part?.kind === 'gemini'
+          const modelHints = isClaude
+            ? ['claude-sonnet-4-5', 'claude-opus-4-5', 'claude-haiku-4-5', 'claude-sonnet-4-0', 'claude-opus-4-0', 'sonnet', 'opus', 'haiku']
+            : isGemini
+            ? geminiModels
+            : (provider?.models ?? [])
           return (
             <div key={i} className="rounded border border-border/60 p-1.5">
               <div className="flex items-center gap-1.5">
@@ -288,6 +295,8 @@ export default function PipelinePanel(): JSX.Element {
                     <option value="low">low</option>
                     <option value="medium">medium</option>
                     <option value="high">high</option>
+                    <option value="xhigh">xhigh</option>
+                    <option value="max">max</option>
                   </select>
                 )}
               </div>

@@ -175,6 +175,7 @@ function registerIpc(): void {
 
   ipcMain.handle(CH.geminiHasKey, () => gemini.hasKey())
   ipcMain.handle(CH.geminiSaveKey, (_e, key: string) => gemini.saveKey(key))
+  ipcMain.handle(CH.geminiListModels, () => gemini.listModels())
 
   // --- Debate ---
   ipcMain.handle(CH.debateAgents, () => moderator.listDebateAgents())

@@ -57,6 +57,7 @@ const api = {
       ipcRenderer.invoke(CH.geminiSideSend, prompt),
     hasKey: (): Promise<boolean> => ipcRenderer.invoke(CH.geminiHasKey),
     saveKey: (key: string): Promise<void> => ipcRenderer.invoke(CH.geminiSaveKey, key),
+    listModels: (): Promise<string[]> => ipcRenderer.invoke(CH.geminiListModels),
     onStream: (cb: (chunk: string) => void): (() => void) => {
       const h = (_e: unknown, chunk: string): void => cb(chunk)
       ipcRenderer.on(CH.geminiStream, h)

@@ -42,6 +42,33 @@ export class GeminiClient {
     await KeychainManager.setKey(key.trim())
   }
 
+  // Returns available generative text models from the Gemini API, sorted with
+  // flagship models first. Falls back to a hardcoded list if no key or fetch fails.
+  async listModels(): Promise<string[]> {
+    const FALLBACK = ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash']
+    const apiKey = await KeychainManager.getKey()
+    if (!apiKey) return FALLBACK
+    try {
+      const res = await fetch(`${BASE}?key=${apiKey}`)
+      if (!res.ok) return FALLBACK
+      const json = await res.json() as { models?: { name: string; supportedGenerationMethods?: string[] }[] }
+      const models = (json.models ?? [])
+        .filter((m) => (m.supportedGenerationMethods ?? []).includes('generateContent'))
+        .map((m) => m.name.replace('models/', ''))
+        .filter((n) => n.startsWith('gemini-') && !n.includes('embed') && !n.includes('aqa'))
+        .sort((a, b) => {
+          // flagship order: 2.5-pro > 2.5-flash > 2.0-flash > experimental > everything else
+          const rank = (n: string): number =>
+            n.includes('2.5-pro') ? 0 : n.includes('2.5-flash-lite') ? 2 : n.includes('2.5-flash') ? 1 :
+            n.includes('2.0-flash') ? 3 : n.includes('exp') ? 4 : 5
+          return rank(a) - rank(b) || a.localeCompare(b)
+        })
+      return models.length ? models : FALLBACK
+    } catch {
+      return FALLBACK
+    }
+  }
+
   // Built-in (read-only + gated) + MCP tools as Gemini function declarations —
   // shared with the API chats via toolSpecs() so both agents expose the same set.
   private buildTools(): { functionDeclarations: FunctionDeclaration[] } {
