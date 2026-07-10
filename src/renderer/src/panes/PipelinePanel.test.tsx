@@ -12,6 +12,7 @@ beforeEach(() => {
       ])
     },
     gemini: { listModels: vi.fn(async () => ['gemini-2.5-pro', 'gemini-2.5-flash']) },
+    claude: { listModels: vi.fn(async () => ({ models: [{ value: 'claude-sonnet-4-5', label: 'Sonnet 4.5' }], effort: [{ value: '', label: 'default' }] })) },
     pipeline: {
       runs: vi.fn(async () => []),
       run,

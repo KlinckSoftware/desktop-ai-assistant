@@ -9,6 +9,7 @@ beforeEach(() => {
     jobs: { list: vi.fn(async () => []), onChanged: vi.fn(() => () => {}) },
     debate: { agents: vi.fn(async () => []) },
     gemini: { listModels: vi.fn(async () => ['gemini-2.5-pro', 'gemini-2.5-flash']) },
+    claude: { listModels: vi.fn(async () => ({ models: [{ value: '', label: 'CLI default' }], effort: [{ value: '', label: 'default' }] })) },
     settings: { set: vi.fn(async () => {}) }
   }
 })
