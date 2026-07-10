@@ -23,6 +23,8 @@ export default function ReviewPanel(): JSX.Element {
   const [diff, setDiff] = useState('')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
+  const [prUrl, setPrUrl] = useState('')
+  const [prError, setPrError] = useState('')
 
   const refresh = useCallback(() => {
     window.api.worktree.list().then((list) => {
@@ -47,6 +49,8 @@ export default function ReviewPanel(): JSX.Element {
 
   useEffect(() => {
     loadDiff(selected)
+    setPrUrl('')
+    setPrError('')
   }, [selected, loadDiff, worktrees])
 
   const diffHtml = useMemo(() => {
@@ -64,6 +68,19 @@ export default function ReviewPanel(): JSX.Element {
     setMsg(status || (mode === 'merge' ? 'Merged.' : 'Discarded.'))
     setTimeout(() => setMsg(''), 6000)
     refresh()
+  }
+
+  // Opt-in, user-clicked only: push the branch to origin and open a GitHub PR.
+  // Never invoked automatically.
+  const createPr = async (): Promise<void> => {
+    if (!selected) return
+    setBusy(true)
+    setPrUrl('')
+    setPrError('')
+    const result = await window.api.worktree.createPr(selected)
+    setBusy(false)
+    if (result.url) setPrUrl(result.url)
+    else setPrError(result.error || 'PR creation failed')
   }
 
   const discardAll = async (): Promise<void> => {
@@ -130,10 +147,33 @@ export default function ReviewPanel(): JSX.Element {
                 {cur.branch} → {cur.base}
               </span>
               {msg && <span className="truncate text-gray-300">{msg}</span>}
+              {prUrl && (
+                <a
+                  href={prUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    window.api.openExternal(prUrl)
+                  }}
+                  className="truncate text-blue-400 underline hover:text-blue-300"
+                >
+                  {prUrl}
+                </a>
+              )}
+              {prError && <span className="truncate text-red-400">{prError}</span>}
+              <button
+                disabled={busy}
+                onClick={createPr}
+                className="ml-auto shrink-0 rounded border border-blue-700/60 px-2 py-0.5 text-blue-300 hover:bg-blue-900/30 disabled:opacity-50"
+                title="Push this branch to origin and open a GitHub PR"
+              >
+                PR
+              </button>
               <button
                 disabled={busy}
                 onClick={() => act('merge')}
-                className="ml-auto shrink-0 rounded border border-green-700/60 px-2 py-0.5 text-green-300 hover:bg-green-900/30 disabled:opacity-50"
+                className="shrink-0 rounded border border-green-700/60 px-2 py-0.5 text-green-300 hover:bg-green-900/30 disabled:opacity-50"
                 title="Squash-merge this branch into its base, then remove the worktree"
               >
                 Merge

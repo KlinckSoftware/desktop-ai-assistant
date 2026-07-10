@@ -233,6 +233,12 @@ export interface WorktreeStaleNotice {
   thresholdDays: number
 }
 
+// Result of an opt-in "push branch + open GitHub PR" action from the Review panel.
+export interface WorktreePrResult {
+  url?: string
+  error?: string
+}
+
 // Channel name constants — single source of truth for IPC strings.
 export const CH = {
   // Generic CLI-agent sessions (Claude, Gemini CLI, Aider, Codex, …).
@@ -351,5 +357,6 @@ export const CH = {
   worktreeDiff: 'worktree:diff',
   worktreeRemove: 'worktree:remove', // (sessionId, 'merge' | 'discard') -> status
   worktreeChanged: 'worktree:changed', // event: the set/state of worktrees changed
-  worktreeStale: 'worktree:stale' // (WorktreeStaleNotice) boot notice for old unmerged worktrees
+  worktreeStale: 'worktree:stale', // (WorktreeStaleNotice) boot notice for old unmerged worktrees
+  worktreeCreatePr: 'worktree:create-pr' // (sessionId) -> { url?, error? } opt-in GitHub PR creation
 } as const

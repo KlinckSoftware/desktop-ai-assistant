@@ -11,7 +11,11 @@ import {
   branchDelete,
   commitAll,
   isWorktreeIdle,
-  squashMergeBranch
+  squashMergeBranch,
+  hasOriginRemote,
+  ghAvailable,
+  pushBranch,
+  ghPrCreate
 } from '../fs/git'
 
 // Per-session git worktree isolation. Each CLI/API agent session can run in its
@@ -173,6 +177,41 @@ export class WorktreeManager {
       await branchDelete(repoRoot, wt.branch)
     }
     return status
+  }
+
+  /**
+   * Opt-in, user-clicked: push a session's branch to origin and open a GitHub
+   * PR for it via the `gh` CLI. Never invoked automatically. Preflights the
+   * origin remote and `gh` CLI before touching anything; on success returns the
+   * PR URL, on any failure returns a human-readable error instead of throwing.
+   */
+  async createPr(repoRoot: string, sessionId: string): Promise<{ url?: string; error?: string }> {
+    const wt = this.bySession.get(sessionId)
+    if (!wt) return { error: 'unknown session' }
+
+    if (!(await hasOriginRemote(repoRoot))) return { error: 'no origin remote' }
+    if (!(await ghAvailable())) return { error: 'gh CLI not found' }
+
+    // Agents/pipelines write files but may not commit — capture any working
+    // changes first so the PR reflects the full state of the worktree.
+    await commitAll(wt.path, `work on ${wt.branch}`)
+
+    try {
+      await pushBranch(wt.path, wt.branch)
+    } catch (err) {
+      const e = err as { stdout?: string; stderr?: string; message?: string }
+      return { error: `push failed: ${(e.stderr || e.stdout || e.message || '').trim()}` }
+    }
+
+    const title = this.labels.get(sessionId) || wt.branch
+    const body = `Agent worktree ${wt.branch} from Desktop AI Assistant.`
+    try {
+      const url = await ghPrCreate(wt.path, wt.branch, title, body)
+      return { url }
+    } catch (err) {
+      const e = err as { message?: string }
+      return { error: e.message || 'gh pr create failed' }
+    }
   }
 
   /**
