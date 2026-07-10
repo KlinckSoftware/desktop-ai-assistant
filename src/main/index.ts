@@ -184,8 +184,8 @@ function registerIpc(): void {
 
   // --- Debate ---
   ipcMain.handle(CH.debateAgents, () => moderator.listDebateAgents())
-  ipcMain.handle(CH.debateStart, (_e, prompt: string, aId?: string, bId?: string) =>
-    moderator.runDebate(prompt, aId, bId)
+  ipcMain.handle(CH.debateStart, (_e, prompt: string, participantIds?: string[], synthesizerId?: string) =>
+    moderator.runDebate(prompt, participantIds, synthesizerId)
   )
   ipcMain.handle(CH.debateSynthesize, () => moderator.synthesize())
   ipcMain.handle(CH.debateDecline, () => moderator.decline())

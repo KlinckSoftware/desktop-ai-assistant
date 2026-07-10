@@ -8,17 +8,23 @@ import { CLAUDE_READ_TOOLS, CLAUDE_EDIT_TOOLS } from '../agents/systemPrompt'
 import type { GeminiClient } from '../gemini/GeminiClient'
 import type { CommandBroker } from '../executor/CommandBroker'
 
-// Orchestrates a structured two-participant debate. Participants are chosen by
-// the user from whatever models/APIs are currently usable (CLI binary present
-// or API key set). Neither side talks to the other directly — everything routes
-// through main. Rounds are analysis only; editing happens in the synthesis step,
-// gated behind explicit user approval.
+// Orchestrates a structured N-way (2-4 participant) debate. Participants are
+// chosen by the user from whatever models/APIs are currently usable (CLI binary
+// present or API key set). No participant talks to another directly —
+// everything routes through main, sequentially. Round 1 is every participant
+// proposing; later rounds are a round-robin critique pass (each participant, in
+// seat order, critiques the OTHER participants' latest turns). Rounds are
+// analysis only; editing happens in the synthesis step, run by the chosen
+// synthesizer and gated behind explicit user approval.
 const NO_EDIT = '\n\nThis is analysis/discussion only — do NOT modify files or run mutating commands.'
+const MIN_PARTICIPANTS = 2
+const MAX_PARTICIPANTS = 4
 
 export class IPCModerator {
   private pendingTranscript: DebateRound[] | null = null
   private pendingPrompt = ''
-  private pendingA: DebateAgent | null = null
+  private pendingParticipants: DebateAgent[] | null = null
+  private pendingSynthesizer: DebateAgent | null = null
   private cancelled = false
   private controller: AbortController | null = null
 
@@ -68,7 +74,12 @@ export class IPCModerator {
     return completeParticipant(agent, prompt, history, this.gemini, this.controller?.signal, claudeTools)
   }
 
-  async runDebate(userPrompt: string, aId = 'claude', bId = 'gemini', roundsArg?: number): Promise<void> {
+  async runDebate(
+    userPrompt: string,
+    participantIds: string[] = ['claude', 'gemini'],
+    synthesizerId?: string,
+    roundsArg?: number
+  ): Promise<void> {
     const rounds = roundsArg ?? appState.settings.debateRounds
     const transcript: DebateRound[] = []
     const status = (s: string): void => appState.send(CH.debateStatus, s)
@@ -76,63 +87,92 @@ export class IPCModerator {
     this.controller = new AbortController()
 
     try {
-      const a = await this.resolve(aId)
-      const b = await this.resolve(bId)
+      if (participantIds.length < MIN_PARTICIPANTS || participantIds.length > MAX_PARTICIPANTS) {
+        appState.send(CH.debateUpdate, {
+          type: 'error',
+          text: `Debate needs ${MIN_PARTICIPANTS}-${MAX_PARTICIPANTS} participants (got ${participantIds.length}).`
+        })
+        return
+      }
+
+      const participants = await Promise.all(participantIds.map((id) => this.resolve(id)))
+      const synthesizer = synthesizerId
+        ? participants.find((p) => p.id === synthesizerId)
+        : participants[0]
+      if (!synthesizer) {
+        appState.send(CH.debateUpdate, {
+          type: 'error',
+          text: `synthesizer "${synthesizerId}" is not among the debate participants.`
+        })
+        return
+      }
 
       for (let i = 0; i < rounds; i++) {
-        if (this.cancelled) {
-          status('')
-          appState.send(CH.debateUpdate, { type: 'error', text: 'Debate cancelled.' })
-          return
+        const round: DebateRound = { round: i, turns: {} }
+        transcript.push(round)
+
+        for (let seat = 0; seat < participants.length; seat++) {
+          if (this.cancelled) {
+            status('')
+            appState.send(CH.debateUpdate, { type: 'error', text: 'Debate cancelled.' })
+            return
+          }
+          const p = participants[seat]
+          const otherSeats = participants.map((_, idx) => idx).filter((idx) => idx !== seat)
+
+          let prompt: string
+          if (i === 0) {
+            status(`${p.name} thinking… (round ${i + 1}/${rounds})`)
+            prompt = userPrompt + NO_EDIT
+          } else {
+            status(`${p.name} critiquing… (round ${i + 1}/${rounds})`)
+            const priorTurns = otherSeats
+              .map((idx) => `${participants[idx].name} proposed:\n${transcript[i - 1].turns[idx]}`)
+              .join('\n\n')
+            prompt = `Original task: ${userPrompt}\n\n${priorTurns}\n\nCritique and improve on the above.${NO_EDIT}`
+          }
+
+          // Chat-style participants get the running transcript as history
+          // (their own prior turns as assistant, others' as user).
+          const history: Message[] = transcript
+            .slice(0, i)
+            .flatMap((r) =>
+              participants.map((_, idx) => ({
+                role: (idx === seat ? 'assistant' : 'user') as 'assistant' | 'user',
+                content: r.turns[idx] ?? ''
+              }))
+            )
+            .filter((m) => m.content)
+
+          const text = await this.complete(p, prompt, history, IPCModerator.ROUND_TOOLS)
+          round.turns[seat] = text
+          appState.send(CH.debateUpdate, { type: 'turn', seat, agentId: p.id, name: p.name, text, round: i })
+
+          // Round 1 proposals may include commands — run them through the
+          // approval gate so later critiques see real terminal output.
+          if (i === 0) {
+            const cmds = extractBashBlocks(text)
+            if (cmds.length) {
+              status(`Awaiting approval for ${cmds.length} command(s)…`)
+              const results = await Promise.all(cmds.map((cmd) => this.broker.propose(cmd, 'claude', 'debate')))
+              round.turns[seat] = `${text}\n\nTerminal output:\n${results.join('\n')}`
+            }
+          }
         }
-        status(`${a.name} thinking… (round ${i + 1}/${rounds})`)
-        const aPrompt =
-          (i === 0
-            ? userPrompt
-            : `Original task: ${userPrompt}\n\n${b.name} responded: "${transcript[i - 1].b}"\n\nRevise or defend your approach.`) +
-          NO_EDIT
-
-        // Chat-style A participants get the running transcript as history.
-        const aHistory: Message[] = transcript
-          .flatMap((r) => [
-            { role: 'assistant' as const, content: r.a },
-            { role: 'user' as const, content: r.b }
-          ])
-          .filter((m) => m.content)
-        const aText = await this.complete(a, aPrompt, aHistory, IPCModerator.ROUND_TOOLS)
-        transcript.push({ round: i, a: aText, b: '' })
-        appState.send(CH.debateUpdate, { type: 'turn', side: 'a', name: a.name, text: aText, round: i })
-
-        // Run any commands A proposed (through the approval gate).
-        const cmds = extractBashBlocks(aText)
-        if (cmds.length) status(`Awaiting approval for ${cmds.length} command(s)…`)
-        const results = await Promise.all(cmds.map((cmd) => this.broker.propose(cmd, 'claude', 'debate')))
-
-        const bHistory: Message[] = transcript
-          .flatMap((r) => [
-            { role: 'user' as const, content: r.a },
-            { role: 'assistant' as const, content: r.b }
-          ])
-          .filter((m) => m.content)
-
-        status(`${b.name} critiquing… (round ${i + 1}/${rounds})`)
-        const bPrompt = `${a.name} proposed:\n${aText}\n\nTerminal output:\n${results.join('\n')}\n\nCritique and improve.${NO_EDIT}`
-        const bText = await this.complete(b, bPrompt, bHistory, IPCModerator.ROUND_TOOLS)
-        transcript[i].b = bText
-        appState.send(CH.debateUpdate, { type: 'turn', side: 'b', name: b.name, text: bText, round: i })
       }
 
       // Rounds done — pause for approval before the synthesis step.
       this.pendingTranscript = transcript
       this.pendingPrompt = userPrompt
-      this.pendingA = a
+      this.pendingParticipants = participants
+      this.pendingSynthesizer = synthesizer
       status('')
-      const edits = a.kind === 'claude'
+      const edits = synthesizer.kind === 'claude'
       appState.send(CH.debateUpdate, {
         type: 'await',
         text: edits
-          ? `Discussion complete. Approve to let ${a.name} implement the agreed changes (this WILL edit files), or decline to keep the discussion only.`
-          : `Discussion complete. Approve to have ${a.name} write up the final implementation plan (it will NOT edit files directly — ${a.name} is API-only), or decline.`
+          ? `Discussion complete. Approve to let ${synthesizer.name} implement the agreed changes (this WILL edit files), or decline to keep the discussion only.`
+          : `Discussion complete. Approve to have ${synthesizer.name} write up the final implementation plan (it will NOT edit files directly — ${synthesizer.name} is API-only), or decline.`
       })
     } catch (err) {
       status('')
@@ -150,21 +190,21 @@ export class IPCModerator {
    *  API/Gemini participants produce a final plan (no autonomous edits). */
   async synthesize(): Promise<void> {
     const transcript = this.pendingTranscript
-    const a = this.pendingA
-    if (!transcript || !a) return
+    const synthesizer = this.pendingSynthesizer
+    if (!transcript || !synthesizer) return
     this.pendingTranscript = null
     const status = (s: string): void => appState.send(CH.debateStatus, s)
     this.cancelled = false
     this.controller = new AbortController()
     try {
-      status(`${a.name} synthesizing…`)
+      status(`${synthesizer.name} synthesizing…`)
       const prompt = `Original task: ${this.pendingPrompt}\n\nDebate transcript:\n${JSON.stringify(transcript, null, 2)}\n\n${
-        a.kind === 'claude'
+        synthesizer.kind === 'claude'
           ? 'Implement the final agreed changes now.'
           : 'Write the final, agreed implementation as a concrete plan with full code.'
       }`
-      const synthesis = await this.complete(a, prompt, [], IPCModerator.SYNTH_TOOLS)
-      appState.send(CH.debateUpdate, { type: 'synthesis', name: a.name, text: synthesis })
+      const synthesis = await this.complete(synthesizer, prompt, [], IPCModerator.SYNTH_TOOLS)
+      appState.send(CH.debateUpdate, { type: 'synthesis', name: synthesizer.name, text: synthesis })
       status('')
     } catch (err) {
       status('')
@@ -179,7 +219,8 @@ export class IPCModerator {
 
   decline(): void {
     this.pendingTranscript = null
-    this.pendingA = null
+    this.pendingParticipants = null
+    this.pendingSynthesizer = null
     appState.send(CH.debateUpdate, { type: 'synthesis', text: '(declined — discussion kept, no changes made)' })
   }
 }

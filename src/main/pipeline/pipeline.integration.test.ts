@@ -377,15 +377,15 @@ describe('pipeline end-to-end (headless)', () => {
       jsonReply('A: proposal text'), // round 1, side a
       jsonReply('B: critique text') // round 1, side b
     ]
-    await mod.runDebate('build a widget', 'api:mock', 'api:mock', 1)
+    await mod.runDebate('build a widget', ['api:mock', 'api:mock'], undefined, 1)
 
     const debateUpdates = st.appState.events
       .filter((e) => e[0] === CH.debateUpdate)
       .map((e) => e[1] as DebateUpdate)
     const turns = debateUpdates.filter((u) => u.type === 'turn')
     expect(turns).toHaveLength(2)
-    expect(turns[0]).toMatchObject({ side: 'a', round: 0, text: 'A: proposal text' })
-    expect(turns[1]).toMatchObject({ side: 'b', round: 0, text: 'B: critique text' })
+    expect(turns[0]).toMatchObject({ seat: 0, round: 0, text: 'A: proposal text' })
+    expect(turns[1]).toMatchObject({ seat: 1, round: 0, text: 'B: critique text' })
     expect(debateUpdates.at(-1)?.type).toBe('await') // paused for synthesis approval
     expect(callCount).toBe(2)
 

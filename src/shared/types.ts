@@ -71,14 +71,19 @@ export interface DebateUpdate {
   type: 'turn' | 'synthesis' | 'error' | 'await'
   text: string
   round?: number
-  side?: 'a' | 'b' // which participant produced this turn
+  seat?: number // 0-based index of the speaking participant within `participants`
+  agentId?: string // the speaking participant's DebateAgent id
   name?: string // participant display name
 }
 
+// One round of an N-way debate: each participant's latest turn, keyed by seat
+// index (0-based position in the `participants` array — NOT agent id, since
+// the same underlying model/API can occupy more than one seat). Round 0 is
+// every participant's proposal; later rounds are each participant's
+// round-robin critique of the others' latest turns.
 export interface DebateRound {
   round: number
-  a: string
-  b: string
+  turns: Record<number, string>
 }
 
 // A model/agent that can act as a debate participant — only those currently

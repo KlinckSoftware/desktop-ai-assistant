@@ -73,8 +73,8 @@ const api = {
   },
   debate: {
     agents: (): Promise<DebateAgent[]> => ipcRenderer.invoke(CH.debateAgents),
-    start: (prompt: string, aId?: string, bId?: string): Promise<void> =>
-      ipcRenderer.invoke(CH.debateStart, prompt, aId, bId),
+    start: (prompt: string, participantIds?: string[], synthesizerId?: string): Promise<void> =>
+      ipcRenderer.invoke(CH.debateStart, prompt, participantIds, synthesizerId),
     synthesize: (): Promise<void> => ipcRenderer.invoke(CH.debateSynthesize),
     decline: (): Promise<void> => ipcRenderer.invoke(CH.debateDecline),
     cancel: (): Promise<void> => ipcRenderer.invoke(CH.debateCancel),

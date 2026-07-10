@@ -337,8 +337,8 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
           )
         },
         {
-          label: 'Default participants (1 v 1)',
-          kw: 'debate participants sides default models a b vs pairwise',
+          label: 'Default seats 1 & 2',
+          kw: 'debate participants sides default models a b vs pairwise seats',
           node: (
             <div className="space-y-1.5">
               <div className="flex items-center gap-2">
@@ -367,9 +367,10 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
                 </select>
               </div>
               <p className="text-[10px] text-gray-500">
-                Debate is a 1-v-1: <b>A</b> proposes, <b>B</b> critiques over N rounds, then A synthesizes (gated
-                by your approval). Only models/APIs you have working appear here; change sides per-run in the Debate
-                panel. For more than two models, chain them in a Pipeline instead.
+                Debates seat 2-4 participants: round 1 everyone proposes, later rounds each critiques the
+                others in turn, then the chosen synthesizer writes up the final result (gated by your
+                approval). These two seed the first two seats each time you open the Debate panel — add up
+                to two more, and change synthesizer, per-run there.
               </p>
               {debateParticipants.length < 2 && (
                 <p className="text-[10px] text-yellow-400">Need ≥2 usable models — add an API key or install a CLI.</p>
