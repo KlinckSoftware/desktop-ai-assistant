@@ -16,6 +16,7 @@ import {
   type AgentDef,
   type ApiProvider,
   type WorktreeInfo,
+  type WorktreePrResult,
   type RunInfo,
   type ScheduledJob
 } from '../shared/types'
@@ -227,6 +228,7 @@ const api = {
     diff: (sessionId: string): Promise<string> => ipcRenderer.invoke(CH.worktreeDiff, sessionId),
     remove: (sessionId: string, mode: 'merge' | 'discard'): Promise<string> =>
       ipcRenderer.invoke(CH.worktreeRemove, sessionId, mode),
+    createPr: (sessionId: string): Promise<WorktreePrResult> => ipcRenderer.invoke(CH.worktreeCreatePr, sessionId),
     onChanged: (cb: () => void): (() => void) => {
       const h = (): void => cb()
       ipcRenderer.on(CH.worktreeChanged, h)

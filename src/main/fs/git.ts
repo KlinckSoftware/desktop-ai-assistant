@@ -5,12 +5,20 @@ import { resolveBin } from '../util/resolveBin'
 
 const pexecFile = promisify(execFile)
 const GIT = resolveBin('git')
+const GH = resolveBin('gh')
 
 // All git helpers are best-effort: outside a repo or on any error they resolve
 // to empty/null rather than throwing. execFile with an arg array avoids any
 // shell quoting/injection on paths and commit messages.
 async function runGit(root: string, args: string[]): Promise<string> {
   const { stdout } = await pexecFile(GIT, args, { cwd: root, maxBuffer: 1 << 24 })
+  return stdout
+}
+
+// gh CLI helper — same execFile/array-args discipline as runGit (never a shell
+// string), so branch names/titles/bodies can never be interpreted as shell syntax.
+async function runGh(cwd: string, args: string[]): Promise<string> {
+  const { stdout } = await pexecFile(GH, args, { cwd, maxBuffer: 1 << 24 })
   return stdout
 }
 
@@ -318,4 +326,64 @@ export async function squashMergeBranch(root: string, branch: string, message: s
     const e = err as { stdout?: string; stderr?: string; message?: string }
     return `[merge failed] ${(e.stdout || e.stderr || e.message || '').trim()}`
   }
+}
+
+// --- PR creation support (opt-in, user-initiated) -----------------------------
+
+/** True if `root` has a configured `origin` remote. */
+export async function hasOriginRemote(root: string): Promise<boolean> {
+  try {
+    const out = (await runGit(root, ['remote', 'get-url', 'origin'])).trim()
+    return out.length > 0
+  } catch {
+    return false
+  }
+}
+
+/** True if the `gh` CLI is installed and runnable. */
+export async function ghAvailable(): Promise<boolean> {
+  try {
+    await pexecFile(GH, ['--version'], { maxBuffer: 1 << 20 })
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** `git push -u origin <branch>` from `worktreePath`. Throws on failure. */
+export async function pushBranch(worktreePath: string, branch: string): Promise<void> {
+  await runGit(worktreePath, ['push', '-u', 'origin', branch])
+}
+
+/**
+ * Create (or reuse) a GitHub PR for `branch` via the `gh` CLI, run from
+ * `worktreePath`. Returns the PR URL. Throws on failure.
+ */
+export async function ghPrCreate(worktreePath: string, branch: string, title: string, body: string): Promise<string> {
+  try {
+    const out = await runGh(worktreePath, ['pr', 'create', '--head', branch, '--title', title, '--body', body])
+    return extractUrl(out)
+  } catch (err) {
+    // A PR may already exist for this branch — fall back to looking it up
+    // instead of treating that as a hard failure.
+    const existing = await ghPrView(worktreePath, branch).catch(() => null)
+    if (existing) return existing
+    const e = err as { stdout?: string; stderr?: string; message?: string }
+    throw new Error((e.stdout || e.stderr || e.message || 'gh pr create failed').trim())
+  }
+}
+
+/** Look up the URL of an existing PR for `branch`. Throws if none exists. */
+export async function ghPrView(worktreePath: string, branch: string): Promise<string> {
+  const out = await runGh(worktreePath, ['pr', 'view', branch, '--json', 'url', '-q', '.url'])
+  const url = out.trim()
+  if (!url) throw new Error('no PR found')
+  return url
+}
+
+// Pull the last https:// URL out of gh's output (it may print progress lines
+// before the URL). Falls back to the trimmed whole output.
+function extractUrl(out: string): string {
+  const matches = out.match(/https?:\/\/\S+/g)
+  return matches && matches.length > 0 ? matches[matches.length - 1] : out.trim()
 }
