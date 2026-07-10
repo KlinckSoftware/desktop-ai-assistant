@@ -2,6 +2,13 @@ import { useEffect, useState } from 'react'
 import type { DebateUpdate, DebateAgent } from '@shared/types'
 import { useAppStore } from '../store/appStore'
 
+const MIN_SEATS = 2
+const MAX_SEATS = 4
+
+// Cycles through the app's themed colors, then falls back to a small Tailwind
+// palette for the 3rd/4th seat (only two debate colors are defined globally).
+const SEAT_COLORS = ['text-claude', 'text-gemini', 'text-purple-400', 'text-orange-400']
+
 // Docked Partner-Debate view. Same logic as the old overlay, without modal
 // chrome — dockview owns show/hide/minimize. State lives in the store, so the
 // run survives the panel being hidden or closed.
@@ -18,22 +25,33 @@ export default function DebatePanel(): JSX.Element {
   const lastPrompt = useAppStore((s) => s.debatePrompt)
   const sideA = useAppStore((s) => s.debateSideA)
   const sideB = useAppStore((s) => s.debateSideB)
-  const setDebateSides = useAppStore((s) => s.setDebateSides)
   const [prompt, setPrompt] = useState(lastPrompt)
-  const [participants, setParticipants] = useState<DebateAgent[]>([])
+  const [agents, setAgents] = useState<DebateAgent[]>([])
+  // Dynamic seat list (2-4 participant ids). Seeded from the two settings
+  // defaults; not persisted — per-run seating lives here like sideA/sideB did.
+  const [seats, setSeats] = useState<string[]>([sideA, sideB])
+  const [synthesizerId, setSynthesizerId] = useState<string>(sideA)
 
   // Load the participants the user can actually use (keyed APIs + available CLIs).
   useEffect(() => {
     window.api.debate.agents().then((list) => {
-      setParticipants(list)
-      // If saved sides aren't usable anymore, fall back to the first two available.
+      setAgents(list)
       const ids = new Set(list.map((p) => p.id))
-      const a = ids.has(sideA) ? sideA : list[0]?.id
-      const b = ids.has(sideB) ? sideB : list.find((p) => p.id !== a)?.id
-      if (a && b && (a !== sideA || b !== sideB)) setDebateSides(a, b)
+      setSeats((prev) => {
+        const kept = prev.filter((id) => ids.has(id))
+        const fallback = list.map((p) => p.id).filter((id) => !kept.includes(id))
+        const next = [...kept]
+        while (next.length < MIN_SEATS && fallback.length) next.push(fallback.shift()!)
+        return next.length ? next : prev
+      })
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Keep the synthesizer valid as seats change (default back to seat 1).
+  useEffect(() => {
+    if (!seats.includes(synthesizerId)) setSynthesizerId(seats[0] ?? '')
+  }, [seats, synthesizerId])
 
   const clear = (): void => {
     clearDebate()
@@ -51,9 +69,9 @@ export default function DebatePanel(): JSX.Element {
 
   const start = (): void => {
     const p = prompt.trim()
-    if (!p || running) return
+    if (!p || running || seats.length < MIN_SEATS) return
     startDebateState(p)
-    window.api.debate.start(p, sideA, sideB).catch((err) => {
+    window.api.debate.start(p, seats, synthesizerId).catch((err) => {
       useAppStore.getState().addDebateUpdate({
         type: 'error',
         text: `Failed to start debate: ${err instanceof Error ? err.message : String(err)}`
@@ -62,49 +80,86 @@ export default function DebatePanel(): JSX.Element {
     })
   }
 
+  const setSeat = (idx: number, id: string): void =>
+    setSeats((prev) => prev.map((s, i) => (i === idx ? id : s)))
+
+  const addSeat = (): void => {
+    const used = new Set(seats)
+    const next = agents.find((a) => !used.has(a.id))
+    setSeats((prev) => [...prev, next?.id ?? agents[0]?.id ?? ''])
+  }
+
+  const removeSeat = (idx: number): void => setSeats((prev) => prev.filter((_, i) => i !== idx))
+
+  const nameFor = (id: string): string => agents.find((a) => a.id === id)?.name ?? id
+
+  const colorFor = (seat?: number): string =>
+    seat == null ? 'text-green-400' : SEAT_COLORS[seat % SEAT_COLORS.length]
+
   const color = (u: DebateUpdate): string =>
-    u.type === 'turn'
-      ? u.side === 'a'
-        ? 'text-claude'
-        : 'text-gemini'
-      : u.type === 'error'
-        ? 'text-red-400'
-        : 'text-green-400'
+    u.type === 'turn' ? colorFor(u.seat) : u.type === 'error' ? 'text-red-400' : 'text-green-400'
 
   // Label shown on each update block: participant name, or the meta-type.
   const label = (u: DebateUpdate): string =>
-    u.type === 'turn' ? (u.name ?? (u.side === 'a' ? 'A' : 'B')) : u.type
+    u.type === 'turn' ? (u.name ?? `Seat ${(u.seat ?? 0) + 1}`) : u.type
 
-  const onlyOneSide = participants.length < 2
+  const notEnoughAgents = agents.length < MIN_SEATS
+  const canStart = seats.length >= MIN_SEATS && seats.length <= MAX_SEATS && seats.every(Boolean)
 
   return (
     <div className="flex h-full flex-col bg-bg">
       <div className="flex flex-col gap-1.5 border-b border-border px-3 py-1.5 text-xs">
+        <div className="flex flex-wrap items-center gap-2">
+          {seats.map((seatId, idx) => (
+            <div key={idx} className="flex items-center gap-1">
+              <select
+                className={`min-w-0 rounded border border-border bg-panel px-1.5 py-1 outline-none focus:border-accent disabled:opacity-50 ${colorFor(idx)}`}
+                value={seatId}
+                disabled={running}
+                onChange={(e) => setSeat(idx, e.target.value)}
+                title={`Participant ${idx + 1}`}
+              >
+                {agents.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+              {seats.length > MIN_SEATS && !running && (
+                <button
+                  className="rounded border border-border px-1 text-gray-400 hover:bg-panel"
+                  onClick={() => removeSeat(idx)}
+                  title="Remove this participant"
+                >
+                  ×
+                </button>
+              )}
+              {idx < seats.length - 1 && <span className="shrink-0 text-gray-500">vs</span>}
+            </div>
+          ))}
+          {seats.length < MAX_SEATS && !running && (
+            <button
+              className="rounded border border-border px-2 py-1 text-gray-300 hover:bg-panel disabled:opacity-40"
+              disabled={agents.length <= seats.length && agents.length === 0}
+              onClick={addSeat}
+              title="Add another participant (up to 4)"
+            >
+              + add participant
+            </button>
+          )}
+        </div>
         <div className="flex items-center gap-2">
+          <label className="shrink-0 text-gray-500">Synthesizer</label>
           <select
-            className="min-w-0 flex-1 rounded border border-border bg-panel px-1.5 py-1 text-claude outline-none focus:border-accent disabled:opacity-50"
-            value={sideA}
+            className="min-w-0 flex-1 rounded border border-border bg-panel px-1.5 py-1 outline-none focus:border-accent disabled:opacity-50"
+            value={synthesizerId}
             disabled={running}
-            onChange={(e) => setDebateSides(e.target.value, sideB)}
-            title="Participant A (proposes, then synthesizes)"
+            onChange={(e) => setSynthesizerId(e.target.value)}
+            title="Runs the final synthesis after approval"
           >
-            {participants.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-          <span className="shrink-0 text-gray-500">vs</span>
-          <select
-            className="min-w-0 flex-1 rounded border border-border bg-panel px-1.5 py-1 text-gemini outline-none focus:border-accent disabled:opacity-50"
-            value={sideB}
-            disabled={running}
-            onChange={(e) => setDebateSides(sideA, e.target.value)}
-            title="Participant B (critiques)"
-          >
-            {participants.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
+            {seats.map((id, idx) => (
+              <option key={`${id}-${idx}`} value={id}>
+                {nameFor(id)} (seat {idx + 1})
               </option>
             ))}
           </select>
@@ -131,9 +186,9 @@ export default function DebatePanel(): JSX.Element {
           ) : (
             <button
               className="rounded bg-accent px-3 py-1 font-medium text-black disabled:opacity-40"
-              disabled={onlyOneSide}
+              disabled={!canStart}
               onClick={start}
-              title={onlyOneSide ? 'Need at least 2 working models/APIs (add a key or install a CLI)' : ''}
+              title={!canStart ? 'Need 2-4 working models/APIs (add a key or install a CLI)' : ''}
             >
               Start
             </button>
@@ -147,7 +202,7 @@ export default function DebatePanel(): JSX.Element {
             Clear
           </button>
         </div>
-        {onlyOneSide && (
+        {notEnoughAgents && (
           <div className="text-[11px] text-yellow-400">
             Need ≥2 usable models. Add an API key or install a CLI agent (e.g. Claude).
           </div>
@@ -175,8 +230,9 @@ export default function DebatePanel(): JSX.Element {
       <div className="flex-1 space-y-3 overflow-y-auto p-3 text-sm">
         {updates.length === 0 && !running && (
           <div className="text-gray-500">
-            Pick two models, enter a task, Start. A proposes, B critiques, repeat, then A
-            synthesizes. Only models/APIs you have working appear in the dropdowns.
+            Pick 2-4 models, choose a synthesizer, enter a task, Start. Round 1 every participant
+            proposes; later rounds each critiques the others in turn; then the synthesizer writes
+            up the final result. Only models/APIs you have working appear in the pickers.
           </div>
         )}
         {updates.map((u, i) => (
