@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { WorktreeInfo, ScheduledJob, JobTrigger } from '@shared/types'
+import { CLAUDE_MODELS as CLAUDE_MODELS_FALLBACK, CLAUDE_EFFORT as CLAUDE_EFFORT_FALLBACK } from '@shared/claudeModels'
 import { useAppStore } from '../store/appStore'
 import { Z } from '../zIndex'
 import AgentsModal from './AgentsModal'
@@ -13,28 +14,6 @@ interface McpStatus {
 }
 
 const GEMINI_FALLBACK = ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash']
-
-// '' = use the claude CLI's own default; tier aliases resolve to the latest model of that family.
-const CLAUDE_MODELS = [
-  { value: '', label: 'CLI default' },
-  { value: 'claude-sonnet-4-5', label: 'Sonnet 4.5' },
-  { value: 'claude-opus-4-5', label: 'Opus 4.5' },
-  { value: 'claude-haiku-4-5', label: 'Haiku 4.5' },
-  { value: 'claude-sonnet-4-0', label: 'Sonnet 4' },
-  { value: 'claude-opus-4-0', label: 'Opus 4' },
-  { value: 'sonnet', label: 'Sonnet (alias → latest)' },
-  { value: 'opus', label: 'Opus (alias → latest)' },
-  { value: 'haiku', label: 'Haiku (alias → latest)' }
-]
-
-const CLAUDE_EFFORT = [
-  { value: '', label: 'default' },
-  { value: 'low', label: 'low' },
-  { value: 'medium', label: 'medium' },
-  { value: 'high', label: 'high' },
-  { value: 'xhigh', label: 'xhigh (extended thinking)' },
-  { value: 'max', label: 'max (maximum thinking)' }
-]
 
 export default function SettingsModal({ onClose }: { onClose: () => void }): JSX.Element {
   const geminiModel = useAppStore((s) => s.geminiModel)
@@ -132,11 +111,20 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
   const [mcpPath, setMcpPath] = useState('')
   const [mcpBusy, setMcpBusy] = useState(false)
   const [geminiModels, setGeminiModels] = useState<string[]>(GEMINI_FALLBACK)
+  const [claudeModels, setClaudeModels] = useState(CLAUDE_MODELS_FALLBACK)
+  const [claudeEfforts, setClaudeEfforts] = useState(CLAUDE_EFFORT_FALLBACK)
 
   useEffect(() => {
     window.api.mcp.status().then(setMcp)
     window.api.mcp.configPath().then(setMcpPath)
     window.api.gemini.listModels().then(setGeminiModels).catch(() => {})
+    window.api.claude
+      .listModels()
+      .then((r) => {
+        setClaudeModels(r.models)
+        setClaudeEfforts(r.effort)
+      })
+      .catch(() => {})
   }, [])
 
   const reconnectMcp = async (): Promise<void> => {
@@ -306,7 +294,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
               value={claudeModel}
               onChange={(e) => onClaudeModel(e.target.value)}
             >
-              {CLAUDE_MODELS.map((m) => (
+              {claudeModels.map((m) => (
                 <option key={m.value} value={m.value}>
                   {m.label}
                 </option>
@@ -323,7 +311,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
               value={claudeEffort}
               onChange={(e) => onClaudeEffort(e.target.value)}
             >
-              {CLAUDE_EFFORT.map((e) => (
+              {claudeEfforts.map((e) => (
                 <option key={e.value} value={e.value}>{e.label}</option>
               ))}
             </select>

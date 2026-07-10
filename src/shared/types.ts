@@ -264,6 +264,8 @@ export const CH = {
   geminiSaveKey: 'gemini:save-key',
   geminiListModels: 'gemini:list-models',
 
+  claudeListModels: 'claude:list-models',
+
   debateStart: 'debate:start',
   debateAgents: 'debate:agents',
   debateUpdate: 'debate:update',

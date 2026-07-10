@@ -15,6 +15,7 @@ import {
 } from './agents/registry'
 import type { AgentDef } from '../shared/types'
 import { GeminiClient } from './gemini/GeminiClient'
+import { listClaudeModels } from './claude/listModels'
 import { FileSystemManager } from './fs/FileSystemManager'
 import { gitStatus, gitHead, gitChanges, gitStage, gitUnstage, gitCommit } from './fs/git'
 import { buildRepoMap } from './fs/repoMap'
@@ -176,6 +177,9 @@ function registerIpc(): void {
   ipcMain.handle(CH.geminiHasKey, () => gemini.hasKey())
   ipcMain.handle(CH.geminiSaveKey, (_e, key: string) => gemini.saveKey(key))
   ipcMain.handle(CH.geminiListModels, () => gemini.listModels())
+
+  // --- Claude (model/effort option lists — see src/main/claude/listModels.ts) ---
+  ipcMain.handle(CH.claudeListModels, () => listClaudeModels())
 
   // --- Debate ---
   ipcMain.handle(CH.debateAgents, () => moderator.listDebateAgents())

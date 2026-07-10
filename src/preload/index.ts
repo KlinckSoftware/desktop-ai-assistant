@@ -64,6 +64,12 @@ const api = {
       return () => ipcRenderer.removeListener(CH.geminiStream, h)
     }
   },
+  claude: {
+    listModels: (): Promise<{
+      models: { value: string; label: string }[]
+      effort: { value: string; label: string }[]
+    }> => ipcRenderer.invoke(CH.claudeListModels)
+  },
   debate: {
     agents: (): Promise<DebateAgent[]> => ipcRenderer.invoke(CH.debateAgents),
     start: (prompt: string, aId?: string, bId?: string): Promise<void> =>

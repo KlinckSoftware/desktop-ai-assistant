@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { DebateAgent, Pipeline, PipelineStep, PipelineUpdate, PipelineRun } from '@shared/types'
+import { CLAUDE_MODELS } from '@shared/claudeModels'
 import { useAppStore } from '../store/appStore'
 
 const newId = (): string =>
@@ -63,6 +64,9 @@ export default function PipelinePanel(): JSX.Element {
   const [allowFull, setAllowFull] = useState(allowFullDefault)
   const [updates, setUpdates] = useState<PipelineUpdate[]>([])
   const [geminiModels, setGeminiModels] = useState<string[]>([])
+  const [claudeModels, setClaudeModels] = useState<string[]>(
+    CLAUDE_MODELS.map((m) => m.value).filter(Boolean)
+  )
   // The run this panel is currently showing (set on Run, or adopted on mount if
   // a background run is in flight). Updates for other runs are ignored here.
   const activeRunId = useRef<string | null>(null)
@@ -70,6 +74,10 @@ export default function PipelinePanel(): JSX.Element {
   useEffect(() => {
     window.api.debate.agents().then(setParticipants)
     window.api.gemini.listModels().then(setGeminiModels).catch(() => {})
+    window.api.claude
+      .listModels()
+      .then((r) => setClaudeModels(r.models.map((m) => m.value).filter(Boolean)))
+      .catch(() => {})
     // Adopt an in-flight run (e.g. started before this panel was opened/reopened).
     window.api.pipeline.runs().then((runs) => {
       const live = runs.find((r) => r.status === 'running' || r.status === 'queued')
@@ -227,7 +235,7 @@ export default function PipelinePanel(): JSX.Element {
           const provider = part?.kind === 'api' ? apiProviders.find((p) => p.id === step.agentId.slice(4)) : undefined
           const isGemini = part?.kind === 'gemini'
           const modelHints = isClaude
-            ? ['claude-sonnet-4-5', 'claude-opus-4-5', 'claude-haiku-4-5', 'claude-sonnet-4-0', 'claude-opus-4-0', 'sonnet', 'opus', 'haiku']
+            ? claudeModels
             : isGemini
             ? geminiModels
             : (provider?.models ?? [])
