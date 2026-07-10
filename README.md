@@ -41,9 +41,10 @@ process orchestrator: no web scraping, no browser automation. There's an in-app
   "Discard all").
 - **Agent hand-off** — park one agent's reply and pick it up in another
   (Gemini / API input, or a CLI prompt).
-- **Debate** — pick any two usable participants (Claude, Gemini, or a keyed API
-  provider); they propose / critique over N rounds, then one synthesizes (gated by
-  explicit approval). Claude is tool-constrained per phase (read-only rounds, edit
+- **Debate** — pick **2–4 usable participants** (Claude, Gemini, or keyed API
+  providers); every seat proposes in round 1, then round-robin critiques over N
+  rounds, and a chosen **synthesizer** merges the result (gated by explicit
+  approval). Claude is tool-constrained per phase (read-only rounds, edit
   synthesis). Cancellable mid-run.
 - **Pipelines** — build a small **graph**, not just a chain: per step a permission
   preset (read-only / edit / full), model + effort, **inputs** (fan-in from earlier

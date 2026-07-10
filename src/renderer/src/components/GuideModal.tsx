@@ -121,23 +121,24 @@ const TOPICS: Topic[] = [
   {
     id: 'debate',
     title: 'Debate',
-    kw: 'debate compare two models 1v1 rounds synthesize critique',
+    kw: 'debate compare models rounds seats synthesizer synthesize critique n-way',
     body: (go) => (
       <div className="space-y-2">
         <P>
-          Debate is a <b>1-v-1</b>: participant <b>A</b> proposes, <b>B</b> critiques over N rounds, then A
-          synthesizes. Rounds are analysis-only; the synthesis step (which may edit files) needs your approval.
+          Debate runs <b>2–4 participants</b>: in round 1 every seat proposes; in later rounds each seat
+          critiques the others&apos; latest turns. A chosen <b>synthesizer</b> (seat 1 by default) then merges the
+          result. Rounds are analysis-only; the synthesis step (which may edit files) needs your approval.
         </P>
         <H>How to run one</H>
         <Steps
           items={[
-            <>Open the <b>Debate</b> panel. Pick A and B (only usable models appear). Set defaults + rounds in Settings → Debate.</>,
-            'Type a task, press Start. Watch the rounds stream in.',
-            'When prompted, Approve to let A implement/write up the result, or Decline to keep just the discussion.',
+            <>Open the <b>Debate</b> panel. The first two seats seed from Settings → Debate; add up to two more (only usable models appear).</>,
+            'Pick the synthesizer, type a task, press Start. Watch the rounds stream in.',
+            'When prompted, Approve to let the synthesizer implement/write up the result, or Decline to keep just the discussion.',
             'Stop cancels mid-run.'
           ]}
         />
-        <P>Want more than two models? Chain them in a {Link(go, 'pipelines', 'Pipeline')} instead.</P>
+        <P>Want sequential hand-offs instead of debate? Chain models in a {Link(go, 'pipelines', 'Pipeline')}.</P>
       </div>
     )
   },
@@ -230,7 +231,7 @@ const TOPICS: Topic[] = [
         <P>Settings is a searchable two-pane panel. Sections:</P>
         <ul className="ml-4 list-disc space-y-1 text-gray-300">
           <li><b>Models</b> — default Gemini/Claude model + Claude effort.</li>
-          <li><b>Debate</b> — default A/B participants + rounds (it’s a 1-v-1).</li>
+          <li><b>Debate</b> — default participants for the first two seats + rounds (panel supports 2–4 seats).</li>
           <li><b>Isolation</b> — toggle per-agent worktrees; review/discard active worktrees.</li>
           <li><b>Schedules</b> — create/enable scheduled pipeline jobs.</li>
           <li><b>Terminal / Editor</b> — shell, font size, scrollback, wrap.</li>
