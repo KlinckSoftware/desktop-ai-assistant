@@ -15,7 +15,8 @@ import {
   hasOriginRemote,
   ghAvailable,
   pushBranch,
-  ghPrCreate
+  ghPrCreate,
+  aheadBehind
 } from '../fs/git'
 
 // Per-session git worktree isolation. Each CLI/API agent session can run in its
@@ -177,6 +178,17 @@ export class WorktreeManager {
       await branchDelete(repoRoot, wt.branch)
     }
     return status
+  }
+
+  /**
+   * Commit-level ahead/behind counts for a session's worktree vs its base,
+   * for the merge-board list cards. Returns null when the session is unknown
+   * or the git call fails (caller shows no stats rather than surfacing an error).
+   */
+  async stats(sessionId: string): Promise<{ ahead: number; behind: number } | null> {
+    const wt = this.bySession.get(sessionId)
+    if (!wt) return null
+    return aheadBehind(wt.path, wt.base)
   }
 
   /**

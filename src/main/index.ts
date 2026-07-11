@@ -212,6 +212,7 @@ function registerIpc(): void {
     return status
   })
   ipcMain.handle(CH.worktreeCreatePr, (_e, sessionId: string) => worktreeManager.createPr(appState.projectRoot, sessionId))
+  ipcMain.handle(CH.worktreeStats, (_e, sessionId: string) => worktreeManager.stats(sessionId))
 
   // --- Gemini ---
   ipcMain.handle(

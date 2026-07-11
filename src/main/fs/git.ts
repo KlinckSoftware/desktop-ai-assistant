@@ -310,6 +310,27 @@ export async function commitAll(worktreePath: string, message: string): Promise<
 }
 
 /**
+ * Commit-level ahead/behind counts for a worktree vs its base branch, via
+ * `git rev-list --left-right --count <base>...HEAD` run INSIDE the worktree.
+ * NOTE: this only counts committed history — any uncommitted working changes
+ * are NOT reflected here (workingDiff/isWorktreeIdle already cover those for
+ * the review UI). Best-effort: resolves null on any error (e.g. base ref not
+ * reachable from this worktree).
+ */
+export async function aheadBehind(worktreePath: string, base: string): Promise<{ ahead: number; behind: number } | null> {
+  try {
+    const out = (await runGit(worktreePath, ['rev-list', '--left-right', '--count', `${base}...HEAD`])).trim()
+    const [behindStr, aheadStr] = out.split(/\s+/)
+    const behind = parseInt(behindStr, 10)
+    const ahead = parseInt(aheadStr, 10)
+    if (!Number.isFinite(ahead) || !Number.isFinite(behind)) return null
+    return { ahead, behind }
+  } catch {
+    return null
+  }
+}
+
+/**
  * Squash-merge `branch` into the current branch of `root` and commit. Returns a
  * status string. On conflict the merge is aborted and the working tree restored,
  * so the caller can fall back to manual review. Used by the review-merge flow.
