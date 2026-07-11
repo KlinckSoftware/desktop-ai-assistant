@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, Menu, shell, clipboard } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, Menu, shell, clipboard, Tray, nativeImage } from 'electron'
 import { join } from 'path'
 import { appState } from './state'
 import { CH, type Message } from '../shared/types'
@@ -55,6 +55,54 @@ let moderator: IPCModerator
 let pipeline: PipelineRunner
 let runManager: RunManager
 let scheduler: Scheduler
+let tray: Tray | null = null
+// Set right before app.quit() so the 'close' interceptor lets the window
+// actually close instead of hiding it to the tray.
+let quitting = false
+
+function trayIconPath(): string {
+  return app.isPackaged
+    ? join(process.resourcesPath, 'icon.ico')
+    : join(app.getAppPath(), 'resources', 'icon.ico')
+}
+
+/** Show the existing window, or recreate it if it was destroyed. */
+function showMainWindow(): void {
+  if (!appState.mainWindow || appState.mainWindow.isDestroyed()) {
+    createWindow()
+    return
+  }
+  appState.mainWindow.show()
+  appState.mainWindow.focus()
+}
+
+/** Create the tray icon + menu (idempotent). Call when closeToTray is enabled. */
+function ensureTray(): void {
+  if (tray) return
+  const icon = nativeImage.createFromPath(trayIconPath())
+  tray = new Tray(icon)
+  tray.setToolTip('Desktop AI Assistant')
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: 'Open', click: () => showMainWindow() },
+      {
+        label: 'Quit',
+        click: () => {
+          quitting = true
+          app.quit()
+        }
+      }
+    ])
+  )
+  tray.on('double-click', () => showMainWindow())
+}
+
+/** Destroy the tray icon (no orphan icon in the system tray). */
+function destroyTray(): void {
+  if (!tray) return
+  tray.destroy()
+  tray = null
+}
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -82,6 +130,14 @@ function createWindow(): void {
   win.on('ready-to-show', () => win.show())
   win.on('closed', () => {
     appState.mainWindow = null
+  })
+  // Close-to-tray: when enabled and not actually quitting, hide instead of
+  // closing so main (and the scheduler) keeps running in the background.
+  win.on('close', (e) => {
+    if (appState.settings.closeToTray && !quitting) {
+      e.preventDefault()
+      win.hide()
+    }
   })
 
   if (process.env['ELECTRON_RENDERER_URL']) {
@@ -250,6 +306,12 @@ function registerIpc(): void {
     const shellChanged = s.terminalShell != null && s.terminalShell !== appState.settings.terminalShell
     appState.settings = { ...appState.settings, ...s }
     if (shellChanged) executor.respawn()
+    // Toggling closeToTray creates/destroys the tray icon immediately so there's
+    // never an orphan icon left behind when the user turns it off.
+    if (s.closeToTray != null) {
+      if (s.closeToTray) ensureTray()
+      else destroyTray()
+    }
   })
 
   // --- MCP ---
@@ -319,7 +381,14 @@ app.whenReady().then(() => {
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    else showMainWindow()
   })
+})
+
+// Any quit path (menu, Alt+F4 via OS, app.quit() elsewhere) should bypass the
+// close-to-tray interceptor rather than get stuck hidden.
+app.on('before-quit', () => {
+  quitting = true
 })
 
 app.on('window-all-closed', () => {
@@ -327,5 +396,6 @@ app.on('window-all-closed', () => {
   fsm?.dispose()
   scheduler?.stop()
   mcpManager.disconnectAll()
+  destroyTray()
   if (process.platform !== 'darwin') app.quit()
 })

@@ -42,7 +42,8 @@ function saveSlice(): PersistedState {
     editorFontSize: s.editorFontSize,
     editorWrap: s.editorWrap,
     costCap: s.costCap,
-    accentColor: s.accentColor
+    accentColor: s.accentColor,
+    closeToTray: s.closeToTray
   }
 }
 
@@ -69,6 +70,7 @@ describe('appStore hydrate', () => {
       pipelineDefaultPermission: 'full',
       costCap: 2.5,
       accentColor: '#ff0000',
+      closeToTray: true,
       apiModels: { panel1: 'gpt-4o' },
       apiChats: { panel1: [{ role: 'user', content: 'hi' }] }
     })
@@ -87,6 +89,7 @@ describe('appStore hydrate', () => {
     expect(s.pipelineDefaultPermission).toBe('full')
     expect(s.costCap).toBe(2.5)
     expect(s.accentColor).toBe('#ff0000')
+    expect(s.closeToTray).toBe(true)
     expect(s.apiModels).toEqual({ panel1: 'gpt-4o' })
     expect(s.apiChats.panel1).toHaveLength(1)
   })
@@ -106,6 +109,7 @@ describe('appStore hydrate', () => {
     expect(s.costCap).toBe(0)
     expect(s.apiChats).toEqual({})
     expect(s.pipelines).toEqual([])
+    expect(s.closeToTray).toBe(false)
   })
 
   it('never restores a running debate from disk', () => {
@@ -142,6 +146,7 @@ describe('appStore hydrate', () => {
     st.setEditorWrap(true)
     st.setCostCap(1.25)
     st.setAccentColor('#00ff00')
+    st.setCloseToTray(true)
     st.setApiModel('panelX', 'gpt-4.1')
     st.savePipeline({ id: 'p1', name: 'lint', steps: [] } as never)
 
