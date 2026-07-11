@@ -118,4 +118,25 @@ describe('PipelineRunner vision pass-through (Gemini steps)', () => {
     const images = completeMock.mock.calls[0][3]
     expect(images).toEqual([])
   })
+
+  it('a traversal ref never escapes the work root — the escaped path is never read', async () => {
+    // Ref tries to climb out of the run root. The generated-images attempt uses
+    // only the basename (fails here), and the workRoot fallback must refuse the
+    // traversal outright instead of reading an arbitrary on-disk image and
+    // shipping it to the provider.
+    readImageMock.mockRejectedValue(new Error('ENOENT'))
+    const runner = makeRunner()
+    const steps: PipelineStep[] = [
+      { id: 's1', agentId: 'gemini', instruction: 'see ../../secrets/private.png for details' }
+    ]
+
+    await runner.run(steps, 'go', false, () => {})
+
+    // Only the confined generated-images attempt may touch the fs; no call may
+    // resolve outside the work root.
+    expect(readImageMock).toHaveBeenCalledTimes(1)
+    expect(readImageMock).toHaveBeenCalledWith(join(GENERATED_DIR, 'private.png'))
+    const images = completeMock.mock.calls[0][3]
+    expect(images).toEqual([])
+  })
 })
