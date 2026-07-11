@@ -26,6 +26,13 @@ export function setBrokers(b: CommandBroker, e: FileEditBroker, f: FileSystemMan
   fsm = f
 }
 
+/** The shared FileSystemManager singleton (set via setBrokers), for callers
+ *  outside the tool-exec switch that still need root-confined reads — e.g. the
+ *  pipeline runner's vision pass-through (ticket #17). Null before setBrokers. */
+export function getFsm(): FileSystemManager | null {
+  return fsm
+}
+
 // Gemini/OpenAI both accept an OpenAPI-subset JSON schema; strip keys they reject.
 const ALLOWED = new Set(['type', 'description', 'properties', 'required', 'items', 'enum', 'nullable'])
 export function sanitizeSchema(schema: unknown): Record<string, unknown> {

@@ -57,7 +57,9 @@ process orchestrator: no web scraping, no browser automation. There's an in-app
   steps), an **only-if-contains** condition, and **map** (run per input line).
   Run in topological order; `${id}`/`${input}` interpolation; **templates**
   (plan→implement→review); **dry-run**; live **cancel**; persisted **run history**.
-  A `full` step runs shell only with an explicit **allow-shell** opt-in.
+  A `full` step runs shell only with an explicit **allow-shell** opt-in. Image paths
+  in step output flow to later steps; a **Gemini** step sees the actual image, and
+  generated images render as thumbnails in **Runs**.
 - **Runs & scheduler** — the **Runs** panel shows every run (manual, background, or
   scheduled) live; runs survive closing their panel and are serialized. **Settings
   → Schedules** runs a saved pipeline on a trigger — every N minutes, daily, or on

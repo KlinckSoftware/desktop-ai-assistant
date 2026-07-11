@@ -50,7 +50,15 @@ describe('completeParticipant dispatch', () => {
     const hist = [{ role: 'user' as const, content: 'h' }]
     const out = await completeParticipant(a, 'p', hist, gemini)
     expect(out).toBe('gemini-out')
-    expect(gemini.complete).toHaveBeenCalledWith('p', hist, undefined)
+    // 4th arg (images) defaults to [] — vision pass-through, ticket #17.
+    expect(gemini.complete).toHaveBeenCalledWith('p', hist, undefined, [])
+  })
+
+  it("forwards images to gemini.complete when given (vision pass-through, ticket #17)", async () => {
+    const a: DebateAgent = { id: 'gemini', name: 'Gemini', kind: 'gemini' }
+    const images = [{ mime: 'image/png', base64: 'abc' }]
+    await completeParticipant(a, 'p', [], gemini, undefined, undefined, images)
+    expect(gemini.complete).toHaveBeenCalledWith('p', [], undefined, images)
   })
 
   it("routes 'api:<id>' to apiComplete with the provider's default model and prompt appended", async () => {

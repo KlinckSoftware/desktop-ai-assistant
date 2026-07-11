@@ -1,3 +1,4 @@
+import { basename, join } from 'path'
 import { appState } from '../state'
 import { CH, type PipelineStep, type PipelineUpdate, type DebateAgent } from '../../shared/types'
 import { completeParticipant } from '../agents/complete'
@@ -16,8 +17,11 @@ import {
   type NormStep
 } from './graph'
 import { CLAUDE_READ_TOOLS, CLAUDE_EDIT_TOOLS } from '../agents/systemPrompt'
-import type { GeminiClient } from '../gemini/GeminiClient'
+import { generatedImagesDir, type GeminiClient, type ImagePart } from '../gemini/GeminiClient'
 import type { IPCModerator } from '../moderator/IPCModerator'
+import { resolveConfinedImagePath } from '../gemini/imageProtocol'
+import { getFsm } from '../tools/toolExec'
+import { extractImageRefs } from '../../shared/imageRefs'
 
 let runSeq = 0
 
@@ -179,6 +183,60 @@ export class PipelineRunner {
         ctx.signal
       )
     }
-    return completeParticipant(agent, prompt, [], this.gemini, ctx.signal)
+    // Vision pass-through (ticket #17): Gemini is the only agent kind that can
+    // actually see image bytes today, so only Gemini steps pay the cost of
+    // scanning the resolved prompt for image refs and loading them. Claude/API
+    // steps get the ref as plain text — Claude reads files itself; API steps
+    // have no vision path here.
+    const images = await this.loadImagesForPrompt(prompt, ctx.workRoot)
+    return completeParticipant(agent, prompt, [], this.gemini, ctx.signal, undefined, images)
+  }
+
+  // Resolve any image-path-looking refs in a Gemini step's input to actual
+  // image bytes. Two confinement paths, tried in order:
+  //  (a) generated-images dir — bare filename or a ref whose basename lives
+  //      there (Imagen output flowing from an earlier step); confined via
+  //      resolveConfinedImagePath (same guard the app-image:// protocol uses).
+  //  (b) FileSystemManager.readImage, confined to the run's worktree/session
+  //      root (appState.rootFor via the shared fsm singleton) — a project file
+  //      the run input/earlier step text pointed at.
+  // Refs that fail to resolve/read under either path are silently skipped —
+  // vision is best-effort, never a reason to fail the step.
+  private async loadImagesForPrompt(prompt: string, workRoot: string): Promise<ImagePart[]> {
+    const refs = extractImageRefs(prompt)
+    if (!refs.length) return []
+    const imagesDir = generatedImagesDir()
+    const fsm = getFsm()
+    const out: ImagePart[] = []
+    for (const ref of refs) {
+      const generated = resolveConfinedImagePath(imagesDir, basename(ref))
+      if (generated) {
+        const loaded = await this.tryReadImage(generated)
+        if (loaded) {
+          out.push(loaded)
+          continue
+        }
+      }
+      if (fsm) {
+        const loaded = await this.tryReadImage(join(workRoot, ref))
+        if (loaded) out.push(loaded)
+      }
+    }
+    return out
+  }
+
+  // Read one image path as an ImagePart, via the shared FileSystemManager
+  // (readImage has no root-confinement of its own — callers pass an already-
+  // confined absolute path). Returns null on any failure (missing file, not
+  // an image, permission error, etc.) rather than throwing.
+  private async tryReadImage(absPath: string): Promise<ImagePart | null> {
+    const fsm = getFsm()
+    if (!fsm) return null
+    try {
+      const { mime, base64 } = await fsm.readImage(absPath)
+      return { mime, base64 }
+    } catch {
+      return null
+    }
   }
 }

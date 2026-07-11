@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { DebateAgent, Pipeline, PipelineStep, PipelineUpdate, PipelineRun } from '@shared/types'
 import { CLAUDE_MODELS } from '@shared/claudeModels'
 import { useAppStore } from '../store/appStore'
+import StepOutput from '../components/StepOutput'
 
 const newId = (): string =>
   (globalThis.crypto?.randomUUID?.() ?? `p_${Date.now()}_${Math.floor(Math.random() * 1e6)}`)
@@ -423,7 +424,7 @@ export default function PipelinePanel(): JSX.Element {
             <div className={`mb-1 text-xs font-semibold uppercase ${u.type === 'error' ? 'text-red-400' : 'text-accent'}`}>
               {u.type === 'error' ? 'error' : `${(u.index ?? 0) + 1}. ${u.name ?? nameFor(u.agentId ?? '')}`}
             </div>
-            <div className="whitespace-pre-wrap text-gray-200">{u.text}</div>
+            <StepOutput text={u.text ?? ''} />
           </div>
         ))}
       </div>
