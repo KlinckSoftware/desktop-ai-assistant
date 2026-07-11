@@ -26,14 +26,17 @@ function Card({ cmd }: { cmd: PendingCommand }): JSX.Element {
   const danger = checkDangerous(cmd.command)
 
   const approve = (): void => {
+    // Every call echoes back the nonce that arrived with this pending command —
+    // that is what proves to main that this specific approval card (shown to a
+    // human) is the one being acted on, not a forged call using a guessed id.
     // Dangerous commands take the explicit main-side confirm path; main refuses
     // to run them via plain approve(). Non-dangerous use the normal path.
-    if (danger.dangerous) window.api.command.confirmDangerous(cmd.id)
-    else window.api.command.approve(cmd.id)
+    if (danger.dangerous) window.api.command.confirmDangerous(cmd.id, cmd.nonce)
+    else window.api.command.approve(cmd.id, cmd.nonce)
     remove(cmd.id)
   }
   const reject = (): void => {
-    window.api.command.reject(cmd.id)
+    window.api.command.reject(cmd.id, cmd.nonce)
     remove(cmd.id)
   }
   const trustAndApprove = (): void => {
@@ -91,7 +94,7 @@ function ToolCard({ tool }: { tool: import('@shared/types').PendingTool }): JSX.
     return () => clearInterval(t)
   }, [timeout])
   const reject = (): void => {
-    window.api.tool.reject(tool.id)
+    window.api.tool.reject(tool.id, tool.nonce)
     remove(tool.id)
   }
   useEffect(() => {
@@ -99,10 +102,11 @@ function ToolCard({ tool }: { tool: import('@shared/types').PendingTool }): JSX.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [left, timeout])
   const approve = (): void => {
-    // Dangerous calls go through the explicit confirm channel — the plain
-    // approve path is blocked for them in main.
-    if (tool.dangerous) window.api.tool.confirmDangerous(tool.id)
-    else window.api.tool.approve(tool.id)
+    // Echo back the nonce delivered with this pending tool call (see command
+    // card above for why). Dangerous calls go through the explicit confirm
+    // channel — the plain approve path is blocked for them in main.
+    if (tool.dangerous) window.api.tool.confirmDangerous(tool.id, tool.nonce)
+    else window.api.tool.approve(tool.id, tool.nonce)
     remove(tool.id)
   }
   const trustAndApprove = (): void => {

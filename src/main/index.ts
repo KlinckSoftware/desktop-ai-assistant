@@ -271,20 +271,23 @@ function registerIpc(): void {
   ipcMain.on(CH.terminalResize, (_e, cols: number, rows: number) => executor.resize(cols, rows))
 
   // --- Command approval ---
-  ipcMain.handle(CH.cmdApprove, (_e, id: string) => broker.approve(id))
-  ipcMain.handle(CH.cmdConfirmDangerous, (_e, id: string) => broker.confirmDangerous(id))
-  ipcMain.handle(CH.cmdReject, (_e, id: string) => broker.reject(id))
+  // Every handler requires the nonce that was minted for this pending item and
+  // sent to the renderer in the PendingCommand payload. The broker verifies it
+  // matches before executing anything — see CommandBroker.verifyNonce.
+  ipcMain.handle(CH.cmdApprove, (_e, id: string, nonce: string) => broker.approve(id, nonce))
+  ipcMain.handle(CH.cmdConfirmDangerous, (_e, id: string, nonce: string) => broker.confirmDangerous(id, nonce))
+  ipcMain.handle(CH.cmdReject, (_e, id: string, nonce: string) => broker.reject(id, nonce))
 
   // --- File-edit approval + checkpoints ---
-  ipcMain.handle(CH.editApprove, (_e, id: string) => editBroker.approve(id))
-  ipcMain.handle(CH.editReject, (_e, id: string) => editBroker.reject(id))
+  ipcMain.handle(CH.editApprove, (_e, id: string, nonce: string) => editBroker.approve(id, nonce))
+  ipcMain.handle(CH.editReject, (_e, id: string, nonce: string) => editBroker.reject(id, nonce))
   ipcMain.handle(CH.checkpointList, () => editBroker.list())
   ipcMain.handle(CH.checkpointUndo, (_e, id: string) => editBroker.undo(id))
 
   // --- MCP tool approval ---
-  ipcMain.handle(CH.toolApprove, (_e, id: string) => toolBroker.approve(id))
-  ipcMain.handle(CH.toolConfirmDangerous, (_e, id: string) => toolBroker.confirmDangerous(id))
-  ipcMain.handle(CH.toolReject, (_e, id: string) => toolBroker.reject(id))
+  ipcMain.handle(CH.toolApprove, (_e, id: string, nonce: string) => toolBroker.approve(id, nonce))
+  ipcMain.handle(CH.toolConfirmDangerous, (_e, id: string, nonce: string) => toolBroker.confirmDangerous(id, nonce))
+  ipcMain.handle(CH.toolReject, (_e, id: string, nonce: string) => toolBroker.reject(id, nonce))
 
   // --- Filesystem ---
   ipcMain.handle(CH.fsReadTree, (_e, root?: string) => fsm.readTree(root || appState.projectRoot))

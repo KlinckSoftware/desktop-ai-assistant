@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { resolve, relative, sep } from 'path'
 import { appState } from '../state'
 import { CH, type AgentId, type PendingEdit, type Checkpoint } from '../../shared/types'
@@ -8,6 +9,13 @@ import type { FileSystemManager } from '../fs/FileSystemManager'
 // Default-deny gate for agent-proposed file writes (```file <path>``` blocks).
 // Every edit is previewed (old vs new) and must be approved. Before applying,
 // the pre-edit content is snapshotted as a checkpoint so the write can be undone.
+//
+// Nonce proof-of-human-approval (mirrors CommandBroker/ToolBroker): each pending
+// edit is minted with a cryptographically random, single-use nonce (node:crypto
+// randomUUID) sent to the renderer alongside the id, as part of the PendingEdit
+// itself. approve()/reject() must echo that exact nonce back; main refuses to
+// act on a mismatched or missing nonce, since the sequential id alone is
+// guessable by a compromised renderer.
 
 interface Pending {
   edit: PendingEdit
@@ -55,7 +63,7 @@ export class FileEditBroker {
     } catch {
       isNew = true // new file (or unreadable/binary — treated as create)
     }
-    return { id: `edit_${++this.seq}`, path: abs, rel, oldContent, newContent, isNew, origin }
+    return { id: `edit_${++this.seq}`, path: abs, rel, oldContent, newContent, isNew, origin, nonce: randomUUID() }
   }
 
   /** Propose a file write. Resolves with an outcome string fed back to the agent. */
@@ -93,8 +101,25 @@ export class FileEditBroker {
     }
   }
 
-  async approve(id: string): Promise<void> {
+  // Verify the caller's nonce matches the one minted for this pending id. On a
+  // mismatch (or an id that already resolved) this blocks the action, removes
+  // the pending entry so the nonce cannot be reused, logs a warning, and
+  // resolves the original promise so the model is not left waiting forever.
+  private verifyNonce(id: string, nonce: string, action: string): Pending | undefined {
     const p = this.pending.get(id)
+    if (!p) return undefined
+    if (p.edit.nonce !== nonce) {
+      this.pending.delete(id)
+      console.warn(`[security] ${action}() nonce mismatch for edit ${id} (${p.edit.rel}) — refusing to apply`)
+      appState.send(CH.editResult, { id, rel: p.edit.rel, outcome: 'blocked: approval nonce mismatch' })
+      p.resolve('[blocked: approval nonce mismatch]')
+      return undefined
+    }
+    return p
+  }
+
+  async approve(id: string, nonce: string): Promise<void> {
+    const p = this.verifyNonce(id, nonce, 'approve')
     if (!p) return
     this.pending.delete(id)
     p.resolve(await this.apply(p.edit))
@@ -127,8 +152,8 @@ export class FileEditBroker {
     }
   }
 
-  reject(id: string): void {
-    const p = this.pending.get(id)
+  reject(id: string, nonce: string): void {
+    const p = this.verifyNonce(id, nonce, 'reject')
     if (!p) return
     this.pending.delete(id)
     appState.send(CH.editResult, { id, rel: p.edit.rel, outcome: 'rejected' })

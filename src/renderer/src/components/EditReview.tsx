@@ -20,11 +20,13 @@ function EditCard({ edit }: { edit: PendingEdit }): JSX.Element {
   }, [edit])
 
   const approve = (): void => {
-    window.api.edit.approve(edit.id)
+    // Echo back the nonce delivered with this pending edit — proves this
+    // approval genuinely came from the card shown for this specific edit.
+    window.api.edit.approve(edit.id, edit.nonce)
     remove(edit.id)
   }
   const reject = (): void => {
-    window.api.edit.reject(edit.id)
+    window.api.edit.reject(edit.id, edit.nonce)
     remove(edit.id)
   }
 

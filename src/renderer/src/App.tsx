@@ -247,8 +247,12 @@ export default function App(): JSX.Element {
     const off = window.api.command.onPending((c) => {
       const st = useAppStore.getState()
       // "Always require approval" (restrict) disables trusted auto-approve entirely.
+      // Even this auto-approve path must echo back the nonce that arrived with
+      // this specific pending command (c.nonce) — main verifies it regardless of
+      // which path called approve(), so this is not a renderer-side bypass of
+      // the nonce check, just the same proof-of-receipt every caller provides.
       if (!st.alwaysConfirm && st.isTrusted(c.sessionId) && !checkDangerous(c.command).dangerous) {
-        window.api.command.approve(c.id)
+        window.api.command.approve(c.id, c.nonce)
       } else {
         addPending(c)
       }
@@ -272,7 +276,8 @@ export default function App(): JSX.Element {
   useEffect(() => {
     return window.api.tool.onPending((t) => {
       const st = useAppStore.getState()
-      if (!t.dangerous && !st.alwaysConfirm && st.isToolTrusted(t.tool)) window.api.tool.approve(t.id)
+      // Same nonce echo-back as the command auto-approve path above.
+      if (!t.dangerous && !st.alwaysConfirm && st.isToolTrusted(t.tool)) window.api.tool.approve(t.id, t.nonce)
       else addPendingTool(t)
     })
   }, [addPendingTool])
