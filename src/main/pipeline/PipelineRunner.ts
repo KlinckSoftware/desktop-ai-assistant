@@ -218,8 +218,15 @@ export class PipelineRunner {
         }
       }
       if (fsm) {
-        const loaded = await this.tryReadImage(join(workRoot, ref))
-        if (loaded) out.push(loaded)
+        // Confine to the run's work root: plain join() would normalize a
+        // "../../../x.png" ref right out of the root, and readImage itself has
+        // no confinement — a hostile ref in model output could otherwise read
+        // any image on disk and ship it to the provider.
+        const confined = resolveConfinedImagePath(workRoot, ref)
+        if (confined) {
+          const loaded = await this.tryReadImage(confined)
+          if (loaded) out.push(loaded)
+        }
       }
     }
     return out
