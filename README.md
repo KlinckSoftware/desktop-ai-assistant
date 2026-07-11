@@ -55,7 +55,8 @@ process orchestrator: no web scraping, no browser automation. There's an in-app
 - **Runs & scheduler** — the **Runs** panel shows every run (manual, background, or
   scheduled) live; runs survive closing their panel and are serialized. **Settings
   → Schedules** runs a saved pipeline on a trigger — every N minutes, daily, or on
-  a git/file change (unattended/autonomous; in-app, i.e. while the app is open).
+  a git/file change (unattended/autonomous; in-app, i.e. while the app is open or
+  minimized to tray — see **Settings → Close to tray**).
 - **Cockpit** — live fleet of open agents with model, status, provider-reported
   token usage and an estimated-cost meter (live LiteLLM price table, cached), plus
   a session total and an optional **cost cap** (enforced in main, so it also bounds
@@ -153,7 +154,9 @@ Native modules (`node-pty`, `keytar`) are rebuilt against the Electron ABI by th
   `full` step's shell is off unless the run opts in. Writes to `.git/` and
   `node_modules/` are blocked, and secret files (`.env`, keys) aren't read by tools
   — both overridable in Settings → Security.
-- Scheduled jobs run only while the app is open (no headless/background daemon).
+- Scheduled jobs run while the app is open, or in the background if minimized to
+  the system tray (**Settings → Close to tray**, default off — closing the window
+  quits the app unless enabled). No headless/background daemon otherwise.
 - See **[SECURITY.md](SECURITY.md)** for the full trust model and every gate.
 - ToS: this drives real authenticated processes. Review Anthropic/Google/OpenAI
   (etc.) terms for your use case.

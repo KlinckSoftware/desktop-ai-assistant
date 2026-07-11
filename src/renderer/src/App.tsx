@@ -95,7 +95,8 @@ export default function App(): JSX.Element {
         allowSecretReads: s0.allowSecretReads,
         allowProtectedWrites: s0.allowProtectedWrites,
         pipelineAllowFullDefault: s0.pipelineAllowFullDefault,
-        autonomousAllow: s0.autonomousAllow
+        autonomousAllow: s0.autonomousAllow,
+        closeToTray: s0.closeToTray
       })
       setAgents(await window.api.agent.list())
       setApiProviders(await window.api.api.providers())

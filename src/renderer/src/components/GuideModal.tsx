@@ -217,7 +217,8 @@ const TOPICS: Topic[] = [
           ]}
         />
         <P>
-          Jobs fire only while the app is open (no background daemon). Output → Runs; changes → {Link(go, 'isolation', 'Review')}.
+          Jobs fire while the app is open or minimized to tray (Settings → enable Close to tray). Output → Runs;
+          changes → {Link(go, 'isolation', 'Review')}.
         </P>
       </div>
     )
@@ -281,7 +282,7 @@ const TOPICS: Topic[] = [
           <li><b>No models in a dropdown?</b> Add an API key (Settings → Keys) or install a CLI agent; only usable ones show.</li>
           <li><b>“Agent not found”?</b> Its command isn’t on PATH — install it or fix PATH, then reopen.</li>
           <li><b>No isolation / worktree warning?</b> The folder isn’t a git repo (or has no commit) — runs use the shared folder. <K>git init</K> + commit to enable.</li>
-          <li><b>Scheduled job didn’t fire?</b> Jobs run only while the app is open; check it’s enabled and the trigger/time.</li>
+          <li><b>Scheduled job didn’t fire?</b> Jobs run while the app is open or minimized to tray (Settings → Close to tray); check it’s enabled and the trigger/time.</li>
           <li><b>Agent shows “own login” / $0?</b> CLI &amp; Claude bill to their own login and aren’t metered here — see {Link(go, 'agents', 'Agents & APIs')}.</li>
           <li><b>Empty review diff?</b> The run made no committed/working changes on its branch.</li>
         </ul>

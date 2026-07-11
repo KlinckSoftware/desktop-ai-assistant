@@ -73,6 +73,7 @@ export interface PersistedState {
   editorWrap: boolean
   costCap: number
   accentColor: string
+  closeToTray: boolean
 }
 
 interface AppState {
@@ -103,6 +104,8 @@ interface AppState {
   alwaysConfirm: boolean // never auto-approve a trusted session — always show a card (restrict)
   autonomousAllow: string // allowlist of command heads for autonomous run_command ('' = off)
   seenGuide: boolean // the in-app Guide has been shown once (first-run)
+  closeToTray: boolean // hide to the system tray on close instead of quitting (scheduler keeps running)
+  setCloseToTray: (v: boolean) => void
   setAllowProtectedWrites: (v: boolean) => void
   setPipelineAllowFullDefault: (v: boolean) => void
   setAlwaysConfirm: (v: boolean) => void
@@ -282,6 +285,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   alwaysConfirm: false,
   autonomousAllow: '',
   seenGuide: false,
+  closeToTray: false,
+  setCloseToTray: (v) => set({ closeToTray: v }),
   setAllowProtectedWrites: (v) => set({ allowProtectedWrites: v }),
   setPipelineAllowFullDefault: (v) => set({ pipelineAllowFullDefault: v }),
   setAlwaysConfirm: (v) => set({ alwaysConfirm: v }),
@@ -524,6 +529,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       editorWrap: d.editorWrap ?? false,
       costCap: d.costCap ?? 0,
       accentColor: d.accentColor ?? '#58a6ff',
+      closeToTray: d.closeToTray ?? false,
       dockLayout: d.dockLayout ?? null,
       apiChats: d.apiChats ?? {},
       apiModels: d.apiModels ?? {},

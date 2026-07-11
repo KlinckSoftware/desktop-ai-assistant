@@ -210,6 +210,7 @@ const api = {
       allowProtectedWrites?: boolean
       pipelineAllowFullDefault?: boolean
       autonomousAllow?: string
+      closeToTray?: boolean
     }): Promise<void> => ipcRenderer.invoke(CH.settingsSet, s)
   },
   jobs: {

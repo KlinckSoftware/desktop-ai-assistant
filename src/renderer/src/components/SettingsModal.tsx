@@ -162,6 +162,12 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
     setAllowSecretReads(v)
     window.api.settings.set({ allowSecretReads: v })
   }
+  const closeToTray = useAppStore((s) => s.closeToTray)
+  const setCloseToTray = useAppStore((s) => s.setCloseToTray)
+  const onCloseToTray = (v: boolean): void => {
+    setCloseToTray(v)
+    window.api.settings.set({ closeToTray: v })
+  }
   const clearAllHistory = async (): Promise<void> => {
     if (!window.confirm('Clear all chat, debate, and run history? This cannot be undone.')) return
     clearHistory()
@@ -556,9 +562,24 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
                 )}
                 <p className="text-[10px] text-gray-500">
                   Jobs run unattended through the pipeline&apos;s per-step permissions (autonomous) and only while
-                  this app is open. Output appears in the Review panel and run history.
+                  this app is open or minimized to tray. Output appears in the Review panel and run history.
                 </p>
               </div>
+            </div>
+          )
+        },
+        {
+          label: 'Close to tray',
+          kw: 'tray close minimize background quit scheduler close-to-tray minimized',
+          node: (
+            <div className="space-y-2">
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={closeToTray} onChange={(e) => onCloseToTray(e.target.checked)} />
+                <span className="text-gray-300">
+                  Keep running in the background when the window is closed — scheduled jobs continue. Quit from
+                  the tray icon.
+                </span>
+              </label>
             </div>
           )
         }

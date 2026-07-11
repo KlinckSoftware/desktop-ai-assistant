@@ -25,6 +25,7 @@ export interface Settings {
   allowProtectedWrites: boolean // permit writes to .git/ & node_modules/ — default off (LOOSEN)
   pipelineAllowFullDefault: boolean // default the per-run "allow shell (full)" opt-in — default off
   autonomousAllow: string // optional allowlist of command heads for autonomous run_command ('' = no extra restriction)
+  closeToTray: boolean // hide to the system tray on close instead of quitting, so the scheduler keeps running — default off
 }
 
 // Mutable app-wide state shared across main-process modules.
@@ -42,7 +43,8 @@ class AppState {
     allowSecretReads: false,
     allowProtectedWrites: false,
     pipelineAllowFullDefault: false,
-    autonomousAllow: ''
+    autonomousAllow: '',
+    closeToTray: false
   }
 
   // sessionId -> the isolated worktree root that session operates in. Sessions
