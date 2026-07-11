@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain, dialog, Menu, shell, clipboard, Tray, nativeImage } from 'electron'
-import { join } from 'path'
+import { join, basename } from 'path'
+import { rm as fsRm } from 'fs/promises'
 import { appState } from './state'
 import { CH, type Message } from '../shared/types'
 import { CommandExecutor } from './executor/CommandExecutor'
@@ -14,7 +15,8 @@ import {
   ensureConfig as ensureAgentConfig
 } from './agents/registry'
 import type { AgentDef } from '../shared/types'
-import { GeminiClient } from './gemini/GeminiClient'
+import { GeminiClient, generatedImagesDir } from './gemini/GeminiClient'
+import { registerImageSchemeAsPrivileged, registerImageProtocol } from './gemini/imageProtocol'
 import { listClaudeModels } from './claude/listModels'
 import { FileSystemManager } from './fs/FileSystemManager'
 import { gitStatus, gitHead, gitChanges, gitStage, gitUnstage, gitCommit } from './fs/git'
@@ -44,6 +46,10 @@ import type { ScheduledJob } from '../shared/types'
 import type { PipelineStep, WorktreeInfo } from '../shared/types'
 import { worktreeManager } from './worktree/WorktreeManager'
 import { workingDiff } from './fs/git'
+
+// Must run before app.whenReady() — Electron ignores privileged-scheme
+// registration once the app is ready.
+registerImageSchemeAsPrivileged()
 
 let executor: CommandExecutor
 let broker: CommandBroker
@@ -238,6 +244,16 @@ function registerIpc(): void {
   ipcMain.handle(CH.geminiHasKey, () => gemini.hasKey())
   ipcMain.handle(CH.geminiSaveKey, (_e, key: string) => gemini.saveKey(key))
   ipcMain.handle(CH.geminiListModels, () => gemini.listModels())
+  ipcMain.handle(CH.geminiGenerateImage, async (_e, prompt: string) => {
+    const result = await gemini.generateImage(prompt)
+    // Renderer only ever needs the bare filename (served via app-image://);
+    // never leak the absolute on-disk path across the IPC boundary.
+    if (result.path) return { file: basename(result.path) }
+    return { error: result.error }
+  })
+  ipcMain.handle(CH.geminiClearGeneratedImages, async () => {
+    await fsRm(generatedImagesDir(), { recursive: true, force: true }).catch(() => {})
+  })
 
   // --- Claude (model/effort option lists — see src/main/claude/listModels.ts) ---
   ipcMain.handle(CH.claudeListModels, () => listClaudeModels())
@@ -361,6 +377,9 @@ app.whenReady().then(() => {
   Menu.setApplicationMenu(null)
   initServices()
   registerIpc()
+  // Register the app-image:// handler (serves Imagen output) before any window
+  // is created, so the renderer can rely on it being live from first paint.
+  registerImageProtocol(generatedImagesDir())
   createWindow()
   // Clean up worktree admin state orphaned by a previous crash, then notify the
   // renderer if any *adopted* (unmerged) worktrees are old enough to review.

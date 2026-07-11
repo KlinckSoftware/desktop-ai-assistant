@@ -172,6 +172,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
     if (!window.confirm('Clear all chat, debate, and run history? This cannot be undone.')) return
     clearHistory()
     await window.api.pipeline.clearRuns()
+    await window.api.gemini.clearGeneratedImages()
     setSavedMsg('History cleared.')
     setTimeout(() => setSavedMsg(''), 2000)
   }
@@ -790,6 +791,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
               <p className="text-[10px] text-gray-500">
                 History (chats, debate, run outputs) and jobs are stored unencrypted on this machine. Files you read or
                 @-mention are sent to the selected provider; multi-provider pipelines spread that content across vendors.
+                Images generated in the Gemini panel are saved under your user data folder and deleted by this action too.
               </p>
             </div>
           )
