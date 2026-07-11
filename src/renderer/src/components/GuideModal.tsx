@@ -187,9 +187,12 @@ const TOPICS: Topic[] = [
         <H>Reviewing</H>
         <Steps
           items={[
-            <>Open the <b>Review</b> panel. Each branch lists its diff vs the fork point (new files included).</>,
+            <>Open the <b>Review</b> panel. Each branch card shows its age, <b>↑ahead ↓behind</b> its base, and its diff vs the fork point (new files included).</>,
             <><b>Merge</b> squash-merges the branch into its base; <b>Discard</b> deletes the branch + worktree.</>,
-            <><b>Discard all</b> clears everything; idle worktrees (no changes) auto-prune on launch.</>
+            <>Check several branches and <b>Merge selected</b> to squash them in list order — the queue stops at the first conflict.</>,
+            <><b>Select hunks</b> switches to a per-hunk picker: apply only the chosen hunks to the base, then discard the rest.</>,
+            <><b>PR</b> (opt-in) pushes the branch to origin and opens a GitHub PR via the <code>gh</code> CLI.</>,
+            <><b>Discard all</b> clears everything; idle worktrees (no changes) auto-prune on launch, and old unmerged ones raise a boot notice.</>
           ]}
         />
         <P>Scheduled/background runs also land here — see {Link(go, 'runs', 'Runs & Schedules')}.</P>

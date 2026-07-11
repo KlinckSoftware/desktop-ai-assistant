@@ -36,9 +36,12 @@ process orchestrator: no web scraping, no browser automation. There's an in-app
   its **own git worktree on its own branch** (needs a git repo with a commit; else
   it falls back to the shared folder). Parallel agents can't stomp each other, and
   an agent is confined to a branch. Idle worktrees auto-prune on launch.
-- **Review & merge** — the **Review** panel lists each branch, shows its diff vs
-  the fork point, and offers **Merge** (squash into base) or **Discard** (+ a
-  "Discard all").
+- **Review & merge** — the **Review** panel lists each branch with its age and
+  **↑ahead ↓behind** counts, shows its diff vs the fork point, and offers
+  **Merge** (squash into base), **Discard** (+ "Discard all"), an ordered
+  **queue-merge** of checked branches (stops at the first conflict), **per-hunk
+  apply** (cherry-pick selected hunks onto the base), and an opt-in **PR**
+  button (push the branch + open a GitHub PR via `gh`).
 - **Agent hand-off** — park one agent's reply and pick it up in another
   (Gemini / API input, or a CLI prompt).
 - **Debate** — pick **2–4 usable participants** (Claude, Gemini, or keyed API
