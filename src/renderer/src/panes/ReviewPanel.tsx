@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { html } from 'diff2html'
 import { ColorSchemeType } from 'diff2html/lib/types'
 import 'diff2html/bundles/css/diff2html.min.css'
-import type { WorktreeInfo } from '@shared/types'
+import type { WorktreeInfo, WorktreeStats } from '@shared/types'
 
 // Compact age label from an mtime (epoch ms): "3d", "5h", "just now".
 function ageLabel(mtime: number): string {
@@ -25,12 +25,39 @@ export default function ReviewPanel(): JSX.Element {
   const [msg, setMsg] = useState('')
   const [prUrl, setPrUrl] = useState('')
   const [prError, setPrError] = useState('')
+  const [stats, setStats] = useState<Record<string, WorktreeStats>>({})
+  const [queued, setQueued] = useState<Record<string, boolean>>({})
 
   const refresh = useCallback(() => {
     window.api.worktree.list().then((list) => {
       setWorktrees(list)
       // Keep a valid selection; default to the first when none/stale.
       setSelected((cur) => (list.some((w) => w.sessionId === cur) ? cur : list[0]?.sessionId ?? ''))
+      // Drop queue-selection for worktrees that no longer exist.
+      setQueued((cur) => {
+        const next: Record<string, boolean> = {}
+        for (const w of list) if (cur[w.sessionId]) next[w.sessionId] = true
+        return next
+      })
+      // Fetch ahead/behind lazily per worktree; tolerate failures silently —
+      // a worktree just shows no stats rather than an error.
+      Promise.all(
+        list.map((w) =>
+          window.api.worktree
+            .stats(w.sessionId)
+            .then((s) => [w.sessionId, s] as const)
+            .catch(() => [w.sessionId, null] as const)
+        )
+      ).then((results) => {
+        setStats((cur) => {
+          const next = { ...cur }
+          for (const [sessionId, s] of results) {
+            if (s) next[sessionId] = s
+            else delete next[sessionId]
+          }
+          return next
+        })
+      })
     })
   }, [])
 
@@ -92,6 +119,37 @@ export default function ReviewPanel(): JSX.Element {
     refresh()
   }
 
+  const toggleQueued = (sessionId: string): void => {
+    setQueued((cur) => ({ ...cur, [sessionId]: !cur[sessionId] }))
+  }
+
+  const queuedList = worktrees.filter((w) => queued[w.sessionId])
+
+  // Sequentially squash-merge the checked worktrees in LIST order. Stops at the
+  // first failure (a status starting with '[merge failed]') and surfaces which
+  // branch failed + that the rest were skipped, reusing the msg surface.
+  const mergeSelected = async (): Promise<void> => {
+    if (!queuedList.length) return
+    if (
+      !window.confirm(`Squash-merge ${queuedList.length} branches into their bases, in list order?`)
+    )
+      return
+    setBusy(true)
+    setMsg('')
+    for (let i = 0; i < queuedList.length; i++) {
+      const w = queuedList[i]
+      const status = await window.api.worktree.remove(w.sessionId, 'merge')
+      if (status.startsWith('[merge failed]')) {
+        const skipped = queuedList.length - i - 1
+        setMsg(`${w.label || w.branch}: ${status}${skipped > 0 ? ` — ${skipped} remaining branch(es) skipped` : ''}`)
+        break
+      }
+    }
+    setQueued({})
+    setBusy(false)
+    refresh()
+  }
+
   const cur = worktrees.find((w) => w.sessionId === selected)
 
   return (
@@ -100,11 +158,23 @@ export default function ReviewPanel(): JSX.Element {
       <div className="flex w-56 shrink-0 flex-col border-r border-border">
         <div className="flex items-center gap-2 border-b border-border px-3 py-1.5">
           <span className="font-semibold text-accent">Review ({worktrees.length})</span>
+          {queuedList.length > 0 && (
+            <button
+              disabled={busy}
+              onClick={mergeSelected}
+              className="ml-auto rounded border border-green-700/60 px-1.5 py-0.5 text-[10px] text-green-300 hover:bg-green-900/30 disabled:opacity-50"
+              title="Squash-merge the checked branches into their bases, in list order"
+            >
+              Merge selected ({queuedList.length})
+            </button>
+          )}
           {worktrees.length > 0 && (
             <button
               disabled={busy}
               onClick={discardAll}
-              className="ml-auto rounded border border-red-700/60 px-1.5 py-0.5 text-[10px] text-red-300 hover:bg-red-900/30 disabled:opacity-50"
+              className={`rounded border border-red-700/60 px-1.5 py-0.5 text-[10px] text-red-300 hover:bg-red-900/30 disabled:opacity-50 ${
+                queuedList.length > 0 ? '' : 'ml-auto'
+              }`}
               title="Discard every branch + worktree"
             >
               Discard all
@@ -117,24 +187,42 @@ export default function ReviewPanel(): JSX.Element {
               No isolated work yet. Start a CLI agent or run a pipeline (with isolation on) to create a branch.
             </div>
           )}
-          {worktrees.map((w) => (
-            <button
-              key={w.sessionId}
-              onClick={() => setSelected(w.sessionId)}
-              className={`block w-full border-b border-border/50 px-2 py-1.5 text-left hover:bg-panel ${
-                w.sessionId === selected ? 'bg-panel' : ''
-              }`}
-            >
-              <div className="flex items-center justify-between gap-1">
-                <span className="truncate text-gray-200">
-                  <span className="mr-1 text-gray-500">{w.kind === 'pipeline' ? '⛓' : '◆'}</span>
-                  {w.label || w.kind}
-                </span>
-                {w.mtime !== undefined && <span className="shrink-0 text-[10px] text-gray-600">{ageLabel(w.mtime)}</span>}
+          {worktrees.map((w) => {
+            const s = stats[w.sessionId]
+            return (
+              <div
+                key={w.sessionId}
+                className={`flex items-start gap-1.5 border-b border-border/50 px-2 py-1.5 hover:bg-panel ${
+                  w.sessionId === selected ? 'bg-panel' : ''
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  className="mt-0.5 shrink-0"
+                  checked={!!queued[w.sessionId]}
+                  onChange={() => toggleQueued(w.sessionId)}
+                  title="Queue this branch for Merge selected"
+                />
+                <button onClick={() => setSelected(w.sessionId)} className="min-w-0 flex-1 text-left">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="truncate text-gray-200">
+                      <span className="mr-1 text-gray-500">{w.kind === 'pipeline' ? '⛓' : '◆'}</span>
+                      {w.label || w.kind}
+                    </span>
+                    {w.mtime !== undefined && <span className="shrink-0 text-[10px] text-gray-600">{ageLabel(w.mtime)}</span>}
+                  </div>
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="truncate font-mono text-[10px] text-gray-500">{w.branch}</span>
+                    {s && (
+                      <span className="shrink-0 font-mono text-[10px] text-gray-500">
+                        <span className="text-green-400">↑{s.ahead}</span> <span className="text-red-400">↓{s.behind}</span>
+                      </span>
+                    )}
+                  </div>
+                </button>
               </div>
-              <div className="truncate font-mono text-[10px] text-gray-500">{w.branch}</div>
-            </button>
-          ))}
+            )
+          })}
         </div>
       </div>
 

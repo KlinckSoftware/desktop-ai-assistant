@@ -244,6 +244,14 @@ export interface WorktreePrResult {
   error?: string
 }
 
+// Commit-level ahead/behind counts for a worktree vs its base branch (merge
+// board). Uncommitted working changes aren't counted — see aheadBehind() in
+// src/main/fs/git.ts.
+export interface WorktreeStats {
+  ahead: number
+  behind: number
+}
+
 // Channel name constants — single source of truth for IPC strings.
 export const CH = {
   // Generic CLI-agent sessions (Claude, Gemini CLI, Aider, Codex, …).
@@ -363,5 +371,6 @@ export const CH = {
   worktreeRemove: 'worktree:remove', // (sessionId, 'merge' | 'discard') -> status
   worktreeChanged: 'worktree:changed', // event: the set/state of worktrees changed
   worktreeStale: 'worktree:stale', // (WorktreeStaleNotice) boot notice for old unmerged worktrees
-  worktreeCreatePr: 'worktree:create-pr' // (sessionId) -> { url?, error? } opt-in GitHub PR creation
+  worktreeCreatePr: 'worktree:create-pr', // (sessionId) -> { url?, error? } opt-in GitHub PR creation
+  worktreeStats: 'worktree:stats' // (sessionId) -> { ahead, behind } | null — merge board stats
 } as const
