@@ -197,14 +197,19 @@ export class GeminiClient {
     return full
   }
 
-  /** One-shot text completion — no tools, no chat streaming. For the debate moderator. */
-  async complete(prompt: string, history: Message[], signal?: AbortSignal): Promise<string> {
+  /** One-shot text completion — no tools, no chat streaming. For the debate moderator
+   *  and pipeline Gemini steps. `images` (optional) attaches inline vision parts, e.g.
+   *  images resolved from ${id}-carried refs in a pipeline step's input (ticket #17). */
+  async complete(prompt: string, history: Message[], signal?: AbortSignal, images: ImagePart[] = []): Promise<string> {
     const apiKey = await KeychainManager.getKey()
     if (!apiKey) return '[Gemini: no API key set]'
     const contents: GeminiContent[] = history
       .filter((m) => m.content)
       .map((m) => ({ role: m.role === 'assistant' ? 'model' : m.role, parts: [{ text: m.content }] }))
-    contents.push({ role: 'user', parts: [{ text: prompt }] })
+    contents.push({
+      role: 'user',
+      parts: [{ text: prompt }, ...images.map((im) => ({ inlineData: { mimeType: im.mime, data: im.base64 } }))]
+    })
     return (await this.streamOnce(apiKey, contents, { emit: false, signal })).text
   }
 

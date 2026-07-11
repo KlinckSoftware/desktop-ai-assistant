@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { RunInfo } from '@shared/types'
+import StepOutput from '../components/StepOutput'
 
 // Live view of every pipeline run — manual, background, or scheduled. Reads the
 // main-owned run list (RunManager), so a job that fired while no panel was open
@@ -99,7 +100,7 @@ export default function RunsPanel(): JSX.Element {
               >
                 {u.type === 'error' ? 'error' : `${(u.index ?? 0) + 1}. ${u.name ?? u.agentId ?? 'step'}`}
               </div>
-              <div className="whitespace-pre-wrap text-gray-200">{u.text}</div>
+              <StepOutput text={u.text ?? ''} />
             </div>
           ))}
         </div>

@@ -3,12 +3,12 @@ import type { DebateAgent, Message } from '../../shared/types'
 import { claudeOneShot } from '../claude/ClaudeHeadless'
 import { listProviders } from '../api/providers'
 import { apiComplete } from '../api/OpenAIClient'
-import type { GeminiClient } from '../gemini/GeminiClient'
+import type { GeminiClient, ImagePart } from '../gemini/GeminiClient'
 
 // One-shot completion from any debate/pipeline participant. Shared by the
 // debate moderator and the pipeline runner so both dispatch identically:
 //   'claude'      -> headless `claude -p`
-//   'gemini'      -> native Gemini one-shot
+//   'gemini'      -> native Gemini one-shot (optionally vision, see `images`)
 //   'api:<id>'    -> OpenAI-compatible provider one-shot
 export async function completeParticipant(
   agent: DebateAgent,
@@ -16,7 +16,8 @@ export async function completeParticipant(
   history: Message[],
   gemini: GeminiClient,
   signal?: AbortSignal,
-  claudeTools?: string[]
+  claudeTools?: string[],
+  images: ImagePart[] = []
 ): Promise<string> {
   if (agent.kind === 'claude') {
     // Constrain Claude's tool set for debate (read-only during rounds, edit for
@@ -32,7 +33,7 @@ export async function completeParticipant(
     )
   }
   if (agent.kind === 'gemini') {
-    return gemini.complete(prompt, history, signal)
+    return gemini.complete(prompt, history, signal, images)
   }
   const providerId = agent.id.slice('api:'.length)
   const provider = (await listProviders()).find((p) => p.id === providerId)

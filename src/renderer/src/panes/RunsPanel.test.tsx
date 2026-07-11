@@ -42,4 +42,44 @@ describe('RunsPanel', () => {
     // first run auto-selected → its step output rendered
     expect(await screen.findByText('did the thing')).toBeTruthy()
   })
+
+  // Ticket #17: step output containing a generated-image filename renders an
+  // app-image:// thumbnail beneath the text (RunsPanel -> StepOutput).
+  it('renders an app-image thumbnail when step output contains a generated-image filename', async () => {
+    runs = [
+      {
+        id: 'r1',
+        ts: Date.now(),
+        input: 'go',
+        dryRun: false,
+        label: 'vision run',
+        status: 'done',
+        steps: [],
+        updates: [
+          { type: 'step', index: 0, name: 'Gemini', text: 'here is img_123_abc.png for review', runId: 'r1' }
+        ]
+      }
+    ]
+    render(<RunsPanel />)
+    expect(await screen.findByText(/img_123_abc\.png/)).toBeTruthy()
+    expect(document.querySelector('img[src="app-image://img_123_abc.png"]')).toBeTruthy()
+  })
+
+  it('renders no thumbnail when step output has no image ref', async () => {
+    runs = [
+      {
+        id: 'r1',
+        ts: Date.now(),
+        input: 'go',
+        dryRun: false,
+        label: 'plain run',
+        status: 'done',
+        steps: [],
+        updates: [{ type: 'step', index: 0, name: 'Gemini', text: 'just plain text, no images', runId: 'r1' }]
+      }
+    ]
+    render(<RunsPanel />)
+    expect(await screen.findByText(/just plain text/)).toBeTruthy()
+    expect(document.querySelector('img[src^="app-image://"]')).toBeNull()
+  })
 })

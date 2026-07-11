@@ -176,6 +176,10 @@ const TOPICS: Topic[] = [
           Watch progress in {Link(go, 'runs', 'Runs')}; the run’s file changes land on a branch you review in{' '}
           {Link(go, 'isolation', 'Review')}.
         </P>
+        <P>
+          Image paths in step output flow to later steps; a Gemini step sees the actual image, and generated images
+          render as thumbnails in {Link(go, 'runs', 'Runs')}.
+        </P>
       </div>
     )
   },
