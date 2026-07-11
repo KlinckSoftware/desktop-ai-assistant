@@ -94,6 +94,12 @@ const TOPICS: Topic[] = [
           API + Gemini chats share the same built-in tools and the same system prompt, so they behave alike. Manage
           providers/agents under Settings → Manage.
         </P>
+        <H>Image generation (Gemini panel)</H>
+        <P>
+          The <K>🖼</K> button next to Send generates an image (via Imagen) from whatever's in the input box — it's a
+          UI-only action, not a tool any agent can call on its own. Generated images live under your user data folder
+          and are deleted by {Link(go, 'safety', 'Clear chat & run history')} in Settings → Security.
+        </P>
       </div>
     )
   },

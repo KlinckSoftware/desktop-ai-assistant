@@ -1,3 +1,6 @@
+import { app } from 'electron'
+import { join } from 'path'
+import { promises as fs } from 'fs'
 import { appState } from '../state'
 import { CH, type Message } from '../../shared/types'
 import { KeychainManager } from '../keychain/KeychainManager'
@@ -6,6 +9,12 @@ import { addUsageCost, capReached } from '../budget'
 import { AGENT_SYSTEM, MAX_TOOL_TURNS } from '../agents/systemPrompt'
 
 const BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
+const IMAGEN_MODEL = 'imagen-3.0-generate-002'
+
+/** Directory generated images are written to (also the app-image:// protocol root). */
+export function generatedImagesDir(): string {
+  return join(app.getPath('userData'), 'generated-images')
+}
 
 const SYSTEM = AGENT_SYSTEM
 
@@ -40,6 +49,58 @@ export class GeminiClient {
   }
   async saveKey(key: string): Promise<void> {
     await KeychainManager.setKey(key.trim())
+  }
+
+  // UI-explicit image generation via Imagen. No agentic tool wraps this — it is
+  // only reachable from the Gemini panel's image button (see ticket #16).
+  // Never throws: failures come back as { error } for the renderer to surface.
+  async generateImage(prompt: string): Promise<{ path?: string; error?: string }> {
+    const apiKey = await KeychainManager.getKey()
+    if (!apiKey) return { error: 'no API key set' }
+
+    let res: Response
+    try {
+      res = await fetch(`${BASE}/${IMAGEN_MODEL}:predict?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          instances: [{ prompt }],
+          parameters: { sampleCount: 1, aspectRatio: '1:1' }
+        })
+      })
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : String(err) }
+    }
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => res.statusText)
+      return { error: `Imagen error ${res.status}: ${errText.slice(0, 500)}` }
+    }
+
+    let json: { predictions?: { bytesBase64Encoded?: string }[] }
+    try {
+      json = (await res.json()) as { predictions?: { bytesBase64Encoded?: string }[] }
+    } catch {
+      return { error: 'Imagen error: could not parse response' }
+    }
+
+    const b64 = json.predictions?.[0]?.bytesBase64Encoded
+    if (!b64) return { error: 'Imagen error: no image returned' }
+
+    const dir = generatedImagesDir()
+    await fs.mkdir(dir, { recursive: true })
+    const filename = `img_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.png`
+    const filePath = join(dir, filename)
+    try {
+      await fs.writeFile(filePath, Buffer.from(b64, 'base64'))
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : String(err) }
+    }
+
+    // Imagen is priced per-image, not per-token — addUsageCost() only understands
+    // token-based pricing (costFor(model, promptTokens, completionTokens)), so
+    // there's no sensible hook to record this spend yet. Skipped intentionally.
+    return { path: filePath }
   }
 
   // Returns available generative text models from the Gemini API, sorted with

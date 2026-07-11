@@ -20,6 +20,8 @@ export default function GeminiChat(): JSX.Element {
   const clearAttachments = useAppStore((s) => s.clearAttachments)
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
+  const [imageBusy, setImageBusy] = useState(false)
+  const [expandedImage, setExpandedImage] = useState<number | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -106,34 +108,69 @@ export default function GeminiChat(): JSX.Element {
     await window.api.gemini.send(augmented, history, images)
   }
 
+  const generateImg = async (): Promise<void> => {
+    const text = input.trim()
+    if (!text || imageBusy || busy) return
+    setInput('')
+    addMessage({ role: 'user', content: text })
+    setImageBusy(true)
+    useAppStore.getState().updateFleet('gemini', { status: 'busy' })
+    try {
+      const result = await window.api.gemini.generateImage(text)
+      if (result.file) {
+        addMessage({ role: 'model', content: '', kind: 'image', file: result.file })
+      } else {
+        addMessage({ role: 'model', content: `[Imagen error: ${result.error ?? 'unknown error'}]` })
+      }
+    } finally {
+      setImageBusy(false)
+      useAppStore.getState().updateFleet('gemini', { status: 'idle' })
+    }
+  }
+
   return (
     <div className="flex h-full flex-col bg-bg">
       <div className="border-b border-border px-3 py-1.5 text-xs font-semibold text-gemini">
         ✦ Gemini {!hasKey && <span className="text-red-400">(no API key)</span>}
       </div>
       <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-3 text-sm">
-        {messages.map((m, i) => (
-          <div key={i} className={m.role === 'user' ? 'text-right' : ''}>
-            <div
-              className={`inline-block max-w-[90%] whitespace-pre-wrap rounded-lg px-3 py-2 text-left ${
-                m.role === 'user' ? 'bg-gemini/20' : 'bg-panel'
-              }`}
-            >
-              {m.content || (busy && i === messages.length - 1 ? '…' : '')}
+        {messages.map((m, i) =>
+          m.kind === 'image' && m.file ? (
+            <div key={i} className={m.role === 'user' ? 'text-right' : ''}>
+              <img
+                src={`app-image://${m.file}`}
+                alt="Generated"
+                className={`inline-block cursor-pointer rounded-lg border border-border object-cover ${
+                  expandedImage === i ? 'max-h-80' : 'max-h-16'
+                }`}
+                onClick={() => setExpandedImage((v) => (v === i ? null : i))}
+                title="Click to toggle full size"
+              />
             </div>
-            {m.role === 'model' && m.content && !busy && (
-              <div className="mt-0.5">
-                <button
-                  className="text-[10px] text-gray-500 hover:text-accent"
-                  onClick={() => useAppStore.getState().setHandoff(m.content, 'Gemini')}
-                  title="Park this reply for another agent to pick up"
-                >
-                  → handoff
-                </button>
+          ) : (
+            <div key={i} className={m.role === 'user' ? 'text-right' : ''}>
+              <div
+                className={`inline-block max-w-[90%] whitespace-pre-wrap rounded-lg px-3 py-2 text-left ${
+                  m.role === 'user' ? 'bg-gemini/20' : 'bg-panel'
+                }`}
+              >
+                {m.content || (busy && i === messages.length - 1 ? '…' : '')}
               </div>
-            )}
-          </div>
-        ))}
+              {m.role === 'model' && m.content && !busy && (
+                <div className="mt-0.5">
+                  <button
+                    className="text-[10px] text-gray-500 hover:text-accent"
+                    onClick={() => useAppStore.getState().setHandoff(m.content, 'Gemini')}
+                    title="Park this reply for another agent to pick up"
+                  >
+                    → handoff
+                  </button>
+                </div>
+              )}
+            </div>
+          )
+        )}
+        {imageBusy && <div className="text-xs text-gray-500">Generating image…</div>}
       </div>
       {(poolSize > 0 || repoMap) && (
         <div className="flex items-center justify-between border-t border-border bg-gemini/10 px-3 py-1 text-[11px] text-gemini">
@@ -179,6 +216,14 @@ export default function GeminiChat(): JSX.Element {
           disabled={!hasKey}
           placeholder={hasKey ? 'Ask Gemini…  (@path to attach a file)' : 'Set an API key first'}
         />
+        <button
+          className="rounded border border-gemini/50 px-2 text-sm text-gemini disabled:opacity-40"
+          disabled={!hasKey || busy || imageBusy || !input.trim()}
+          onClick={generateImg}
+          title="Generate an image from the input text (Imagen)"
+        >
+          🖼
+        </button>
         <button
           className="rounded bg-gemini px-3 text-sm font-medium text-white disabled:opacity-40"
           disabled={!hasKey || busy}
