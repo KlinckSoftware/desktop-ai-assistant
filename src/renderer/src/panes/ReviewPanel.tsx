@@ -3,6 +3,7 @@ import { html } from 'diff2html'
 import { ColorSchemeType } from 'diff2html/lib/types'
 import 'diff2html/bundles/css/diff2html.min.css'
 import type { WorktreeInfo, WorktreeStats } from '@shared/types'
+import { parseHunks, buildPatch } from '@shared/diffHunks'
 
 // Compact age label from an mtime (epoch ms): "3d", "5h", "just now".
 function ageLabel(mtime: number): string {
@@ -27,6 +28,13 @@ export default function ReviewPanel(): JSX.Element {
   const [prError, setPrError] = useState('')
   const [stats, setStats] = useState<Record<string, WorktreeStats>>({})
   const [queued, setQueued] = useState<Record<string, boolean>>({})
+  // Per-hunk cherry-pick mode: when on, the right pane shows a checkbox picker
+  // instead of the rendered diff. selectedHunks is keyed "file#hunkIndex";
+  // absence means selected (default all-checked), presence with false means
+  // unchecked — this way toggling the diff for a new worktree doesn't require
+  // pre-populating an entry for every hunk.
+  const [pickMode, setPickMode] = useState(false)
+  const [hunkOff, setHunkOff] = useState<Record<string, boolean>>({})
 
   const refresh = useCallback(() => {
     window.api.worktree.list().then((list) => {
@@ -78,12 +86,48 @@ export default function ReviewPanel(): JSX.Element {
     loadDiff(selected)
     setPrUrl('')
     setPrError('')
+    setHunkOff({}) // fresh selection (all-checked) whenever the diff target changes
   }, [selected, loadDiff, worktrees])
 
   const diffHtml = useMemo(() => {
     if (!diff.trim()) return ''
     return html(diff, { outputFormat: 'side-by-side', drawFileList: true, colorScheme: ColorSchemeType.DARK })
   }, [diff])
+
+  const hunkFiles = useMemo(() => parseHunks(diff), [diff])
+  const totalHunks = useMemo(() => hunkFiles.reduce((n, f) => n + f.hunks.length, 0), [hunkFiles])
+
+  const hunkKey = (file: string, idx: number): string => `${file}#${idx}`
+  const isHunkSelected = (file: string, idx: number): boolean => !hunkOff[hunkKey(file, idx)]
+  const toggleHunk = (file: string, idx: number): void => {
+    const key = hunkKey(file, idx)
+    setHunkOff((cur) => ({ ...cur, [key]: !cur[key] }))
+  }
+  const selectedHunkCount = useMemo(
+    () => hunkFiles.reduce((n, f) => n + f.hunks.filter((_, idx) => isHunkSelected(f.file, idx)).length, 0),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [hunkFiles, hunkOff]
+  )
+
+  const applySelectedHunks = async (): Promise<void> => {
+    if (!selected || selectedHunkCount === 0) return
+    const patch = buildPatch(hunkFiles, (file, idx) => isHunkSelected(file, idx))
+    if (!patch) return
+    setBusy(true)
+    setMsg('')
+    const status = await window.api.worktree.applyHunks(selected, patch)
+    setBusy(false)
+    setMsg(
+      status
+        ? status
+        : `Applied ${selectedHunkCount} hunk(s) to base. The worktree still has the full change — Discard it if you no longer need the rest.`
+    )
+    setTimeout(() => setMsg(''), 10000)
+    // Refresh the diff so applied hunks disappear from the picker (base now
+    // has them; the worktree's diff vs base — computed from the fork point —
+    // may still show them until the worktree is discarded, which is expected).
+    loadDiff(selected)
+  }
 
   const act = async (mode: 'merge' | 'discard'): Promise<void> => {
     if (!selected) return
@@ -251,6 +295,18 @@ export default function ReviewPanel(): JSX.Element {
               )}
               {prError && <span className="truncate text-red-400">{prError}</span>}
               <button
+                disabled={busy || !diff.trim()}
+                onClick={() => setPickMode((v) => !v)}
+                className={`shrink-0 rounded border px-2 py-0.5 disabled:opacity-50 ${
+                  pickMode
+                    ? 'border-accent bg-accent/20 text-accent'
+                    : 'border-border text-gray-300 hover:bg-panel'
+                }`}
+                title="Cherry-pick individual hunks instead of the whole diff"
+              >
+                Select hunks
+              </button>
+              <button
                 disabled={busy}
                 onClick={createPr}
                 className="ml-auto shrink-0 rounded border border-blue-700/60 px-2 py-0.5 text-blue-300 hover:bg-blue-900/30 disabled:opacity-50"
@@ -279,9 +335,52 @@ export default function ReviewPanel(): JSX.Element {
             <span className="text-gray-500">Select a branch to review its changes.</span>
           )}
         </div>
+        {cur && pickMode && diff.trim() && (
+          <div className="flex items-center gap-2 border-b border-border bg-panel px-3 py-1.5">
+            <span className="text-gray-400">
+              {selectedHunkCount} / {totalHunks} hunk(s) selected
+            </span>
+            <button
+              disabled={busy || selectedHunkCount === 0}
+              onClick={applySelectedHunks}
+              className="ml-auto shrink-0 rounded border border-green-700/60 px-2 py-0.5 text-green-300 hover:bg-green-900/30 disabled:opacity-50"
+              title="Apply the checked hunks to the base repo; the worktree is left untouched"
+            >
+              Apply {selectedHunkCount} selected hunk{selectedHunkCount === 1 ? '' : 's'} to base
+            </button>
+          </div>
+        )}
         <div className="min-h-0 flex-1 overflow-auto bg-bg p-2">
           {cur && !diff.trim() && <div className="p-3 text-gray-500">No changes on this branch vs its base.</div>}
-          {diffHtml && <div className="diff2html-wrapper" dangerouslySetInnerHTML={{ __html: diffHtml }} />}
+          {cur && pickMode && diff.trim() && (
+            <div className="flex flex-col gap-3">
+              {hunkFiles.map((f) => (
+                <div key={f.file} className="rounded border border-border">
+                  <div className="border-b border-border bg-panel px-2 py-1 font-mono text-gray-300">{f.file}</div>
+                  {f.hunks.map((h, idx) => (
+                    <label
+                      key={hunkKey(f.file, idx)}
+                      className="flex cursor-pointer items-start gap-2 border-b border-border/50 px-2 py-1.5 last:border-b-0 hover:bg-panel"
+                    >
+                      <input
+                        type="checkbox"
+                        className="mt-0.5 shrink-0"
+                        checked={isHunkSelected(f.file, idx)}
+                        onChange={() => toggleHunk(f.file, idx)}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="font-mono text-[10px] text-gray-500">{h.header}</div>
+                        <pre className="mt-0.5 max-h-40 overflow-auto whitespace-pre-wrap break-all font-mono text-[10px] leading-tight text-gray-300">
+                          {h.lines.join('\n')}
+                        </pre>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+          {!pickMode && diffHtml && <div className="diff2html-wrapper" dangerouslySetInnerHTML={{ __html: diffHtml }} />}
         </div>
       </div>
     </div>

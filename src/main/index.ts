@@ -213,6 +213,9 @@ function registerIpc(): void {
   })
   ipcMain.handle(CH.worktreeCreatePr, (_e, sessionId: string) => worktreeManager.createPr(appState.projectRoot, sessionId))
   ipcMain.handle(CH.worktreeStats, (_e, sessionId: string) => worktreeManager.stats(sessionId))
+  ipcMain.handle(CH.worktreeApplyHunks, (_e, sessionId: string, patch: string) =>
+    worktreeManager.applyHunks(appState.projectRoot, sessionId, patch)
+  )
 
   // --- Gemini ---
   ipcMain.handle(

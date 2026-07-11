@@ -16,7 +16,8 @@ import {
   ghAvailable,
   pushBranch,
   ghPrCreate,
-  aheadBehind
+  aheadBehind,
+  applyPatch
 } from '../fs/git'
 
 // Per-session git worktree isolation. Each CLI/API agent session can run in its
@@ -189,6 +190,21 @@ export class WorktreeManager {
     const wt = this.bySession.get(sessionId)
     if (!wt) return null
     return aheadBehind(wt.path, wt.base)
+  }
+
+  /**
+   * Apply a hand-picked subset of a session's diff (a patch built client-side
+   * from workingDiff via shared/diffHunks) to the BASE repo root — NOT the
+   * worktree. workingDiff is computed vs the merge-base, so the patch's paths
+   * and line numbers are valid against the base tree as-is. The worktree itself
+   * is left untouched (the caller may Discard it afterward, or keep it running).
+   * Returns '' on unknown session, else the applyPatch status string ('' on
+   * success, '[apply failed] …' on failure).
+   */
+  async applyHunks(repoRoot: string, sessionId: string, patch: string): Promise<string> {
+    const wt = this.bySession.get(sessionId)
+    if (!wt) return ''
+    return applyPatch(repoRoot, patch)
   }
 
   /**

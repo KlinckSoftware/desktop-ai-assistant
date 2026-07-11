@@ -6,6 +6,7 @@ const remove = vi.fn(async () => '')
 const diff = vi.fn(async () => 'diff --git a/x b/x\n+hello')
 const createPr = vi.fn(async (): Promise<WorktreePrResult> => ({ url: 'https://github.com/o/r/pull/1' }))
 const stats = vi.fn(async (): Promise<WorktreeStats | null> => null)
+const applyHunks = vi.fn(async (_sessionId: string, _patch: string) => '')
 const openExternal = vi.fn()
 let list: unknown[] = []
 let confirmSpy: ReturnType<typeof vi.fn>
@@ -14,6 +15,7 @@ beforeEach(() => {
   diff.mockClear()
   createPr.mockClear()
   stats.mockReset().mockResolvedValue(null)
+  applyHunks.mockClear().mockResolvedValue('')
   openExternal.mockClear()
   confirmSpy = vi.fn(() => true)
   window.confirm = confirmSpy as unknown as typeof window.confirm
@@ -24,6 +26,7 @@ beforeEach(() => {
       remove,
       createPr,
       stats,
+      applyHunks,
       onChanged: vi.fn(() => () => {})
     },
     openExternal
@@ -123,5 +126,71 @@ describe('ReviewPanel', () => {
     expect(remove).not.toHaveBeenCalledWith('s3', 'merge')
 
     expect(await screen.findByText(/Second.*\[merge failed\] conflict.*skipped/)).toBeTruthy()
+  })
+
+  it('Select hunks toggles to a per-hunk checkbox picker and Apply calls the bridge', async () => {
+    diff.mockResolvedValue(
+      [
+        'diff --git a/f.txt b/f.txt',
+        'index 1111111..2222222 100644',
+        '--- a/f.txt',
+        '+++ b/f.txt',
+        '@@ -1,3 +1,4 @@',
+        ' line1',
+        '+added-top',
+        ' line2',
+        ' line3',
+        '@@ -20,3 +21,4 @@',
+        ' line20',
+        '+added-bottom',
+        ' line21',
+        ' line22',
+        ''
+      ].join('\n')
+    )
+    list = [{ sessionId: 's1', path: '/wt/s1', branch: 'agent/s1', base: 'main', kind: 'agent', label: 'Claude 1' }]
+    render(<ReviewPanel />)
+    await screen.findByText('Claude 1')
+    await waitFor(() => expect(diff).toHaveBeenCalledWith('s1'))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select hunks' }))
+
+    // Both hunk headers show, all checked by default.
+    expect(await screen.findByText('@@ -1,3 +1,4 @@')).toBeTruthy()
+    expect(await screen.findByText('@@ -20,3 +21,4 @@')).toBeTruthy()
+    expect(await screen.findByText(/2 \/ 2 hunk\(s\) selected/)).toBeTruthy()
+
+    // Uncheck the second hunk (identified by its own @@ header, not by index —
+    // the left pane's queue-merge checkbox is a separate, unrelated control).
+    fireEvent.click(screen.getByText('@@ -20,3 +21,4 @@').closest('label')!.querySelector('input')!)
+    expect(await screen.findByText(/1 \/ 2 hunk\(s\) selected/)).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: /Apply 1 selected hunk/ }))
+    await waitFor(() => expect(applyHunks).toHaveBeenCalledTimes(1))
+    const [calledSession, calledPatch] = applyHunks.mock.calls[0]
+    expect(calledSession).toBe('s1')
+    expect(calledPatch).toContain('+added-top')
+    expect(calledPatch).not.toContain('+added-bottom')
+
+    expect(await screen.findByText(/Applied 1 hunk\(s\) to base/)).toBeTruthy()
+  })
+
+  it('Apply button is disabled when no hunks are selected', async () => {
+    diff.mockResolvedValue(
+      ['diff --git a/f.txt b/f.txt', '--- a/f.txt', '+++ b/f.txt', '@@ -1,2 +1,3 @@', ' a', '+b', ' c', ''].join('\n')
+    )
+    list = [{ sessionId: 's1', path: '/wt/s1', branch: 'agent/s1', base: 'main', kind: 'agent', label: 'Claude 1' }]
+    render(<ReviewPanel />)
+    await screen.findByText('Claude 1')
+    fireEvent.click(screen.getByRole('button', { name: 'Select hunks' }))
+    await screen.findByText(/1 \/ 1 hunk\(s\) selected/)
+
+    // The only checkbox inside the hunk header text's row (the left pane's
+    // queue-merge checkbox is a separate, unrelated control).
+    fireEvent.click(screen.getByText('@@ -1,2 +1,3 @@').closest('label')!.querySelector('input')!)
+    await screen.findByText(/0 \/ 1 hunk\(s\) selected/)
+    const applyBtn = screen.getByRole('button', { name: /Apply 0 selected hunk/ }) as HTMLButtonElement
+    expect(applyBtn.disabled).toBe(true)
+    expect(applyHunks).not.toHaveBeenCalled()
   })
 })
