@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { appState } from '../state'
 import { CH, type AgentId, type PendingCommand, type CommandResult } from '../../shared/types'
 import { decide, type ApprovalPolicy } from '../policy/ApprovalPolicy'
@@ -8,11 +9,25 @@ import type { CommandExecutor } from './CommandExecutor'
 // Every parsed command becomes a PendingCommand the renderer must approve.
 // The renderer may auto-approve (per-session "trust") but the decision still
 // flows through here, so main never runs anything unapproved.
+//
+// Nonce proof-of-human-approval: each pending command is minted with a
+// cryptographically random, single-use nonce (node:crypto randomUUID) that is
+// sent to the renderer alongside the id. The renderer must echo that exact
+// nonce back on approve/reject/confirmDangerous. Because the sequential id is
+// guessable, a compromised renderer could otherwise call approve('cmd_7') for
+// a command it never actually displayed to the human; requiring the nonce
+// means the renderer has to have genuinely received that specific pending
+// message before it can act on it. A mismatched or missing nonce is treated
+// as a security event: nothing executes, the pending entry is removed (the
+// nonce is consumed by construction, so it cannot be replayed), a warning is
+// logged, and the caller (the model waiting on the proposal) is unblocked
+// with a "blocked" result rather than left hanging forever.
 
 interface Pending {
   command: string
   origin: AgentId
   sessionId: string
+  nonce: string
   resolve: (output: string) => void
 }
 
@@ -25,15 +40,38 @@ export class CommandBroker {
   /** Propose a command for approval. Resolves with its output (or a rejection note). */
   propose(command: string, origin: AgentId, sessionId: string): Promise<string> {
     const id = `cmd_${++this.seq}`
-    const msg: PendingCommand = { id, command, origin, sessionId }
+    const nonce = randomUUID()
+    const msg: PendingCommand = { id, command, origin, sessionId, nonce }
     appState.send(CH.cmdPending, msg)
     return new Promise((resolve) => {
-      this.pending.set(id, { command, origin, sessionId, resolve })
+      this.pending.set(id, { command, origin, sessionId, nonce, resolve })
     })
   }
 
-  async approve(id: string): Promise<void> {
+  // Verify the caller's nonce matches the one minted for this pending id. On a
+  // mismatch (or an id that already resolved) this blocks the action, removes
+  // the pending entry so the nonce cannot be reused, logs a warning, and
+  // resolves the original promise so the model is not left waiting forever.
+  private verifyNonce(id: string, nonce: string, action: string): Pending | undefined {
     const p = this.pending.get(id)
+    if (!p) return undefined
+    if (p.nonce !== nonce) {
+      this.pending.delete(id)
+      console.warn(`[security] ${action}() nonce mismatch for command ${id} — refusing to execute`)
+      appState.send(CH.cmdResult, {
+        id,
+        command: p.command,
+        output: '[blocked: approval nonce mismatch]',
+        exitInferred: false
+      } satisfies CommandResult)
+      p.resolve('[blocked: approval nonce mismatch]')
+      return undefined
+    }
+    return p
+  }
+
+  async approve(id: string, nonce: string): Promise<void> {
+    const p = this.verifyNonce(id, nonce, 'approve')
     if (!p) return
     this.pending.delete(id)
     // Defense in depth: enforce the dangerous denylist HERE, in main. The plain
@@ -58,8 +96,8 @@ export class CommandBroker {
 
   /** Explicit run of a (typically dangerous) command — only the human approval
    *  card calls this, after showing the danger warning. */
-  async confirmDangerous(id: string): Promise<void> {
-    const p = this.pending.get(id)
+  async confirmDangerous(id: string, nonce: string): Promise<void> {
+    const p = this.verifyNonce(id, nonce, 'confirmDangerous')
     if (!p) return
     this.pending.delete(id)
     p.resolve(await this.exec(id, p.command, p.origin, p.sessionId))
@@ -102,8 +140,8 @@ export class CommandBroker {
     return output
   }
 
-  reject(id: string): void {
-    const p = this.pending.get(id)
+  reject(id: string, nonce: string): void {
+    const p = this.verifyNonce(id, nonce, 'reject')
     if (!p) return
     this.pending.delete(id)
     appState.send(CH.cmdResult, {

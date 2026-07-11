@@ -8,14 +8,25 @@ vi.mock('../state', () => ({
   appState: { send: vi.fn(), projectRoot: '/root', rootFor: (s?: string) => state.rootFor(s) }
 }))
 
+import { appState } from '../state'
 import { CommandBroker } from './CommandBroker'
 import type { CommandExecutor } from './CommandExecutor'
+import type { PendingCommand } from '../../shared/types'
 
 function makeBroker() {
   const run = vi.fn(async (cmd: string) => `ran: ${cmd}`)
   const execOnce = vi.fn(async (cmd: string, cwd: string) => `ranIn(${cwd}): ${cmd}`)
   const broker = new CommandBroker({ run, execOnce } as unknown as CommandExecutor)
   return { broker, run, execOnce }
+}
+
+// Pull the nonce main minted for the most recently proposed command out of the
+// mocked appState.send('cmd:pending', ...) call, the way the renderer would
+// read it off the PendingCommand payload it received.
+function lastNonce(): string {
+  const calls = (appState.send as ReturnType<typeof vi.fn>).mock.calls
+  const pendingCall = [...calls].reverse().find((c) => c[0] === 'cmd:pending')
+  return (pendingCall?.[1] as PendingCommand).nonce
 }
 
 describe('CommandBroker.runWithPolicy', () => {
@@ -85,23 +96,58 @@ describe('CommandBroker interactive approve (main-side danger gate)', () => {
     ;({ broker, run } = makeBroker())
   })
 
-  it('plain approve() runs a safe command', async () => {
+  it('plain approve() runs a safe command when the nonce matches', async () => {
     const p = broker.propose('ls -la', 'claude', 's')
-    await broker.approve('cmd_1')
+    await broker.approve('cmd_1', lastNonce())
     expect(await p).toBe('ran: ls -la')
   })
 
   it('plain approve() BLOCKS a dangerous command in main (renderer cannot bypass)', async () => {
     const p = broker.propose('git push origin main', 'claude', 's')
-    await broker.approve('cmd_1')
+    await broker.approve('cmd_1', lastNonce())
     expect(await p).toMatch(/blocked: dangerous/i)
     expect(run).not.toHaveBeenCalled()
   })
 
   it('confirmDangerous() runs the dangerous command (explicit human path)', async () => {
     const p = broker.propose('git push origin main', 'claude', 's')
-    await broker.confirmDangerous('cmd_1')
+    await broker.confirmDangerous('cmd_1', lastNonce())
     expect(await p).toBe('ran: git push origin main')
     expect(run).toHaveBeenCalledOnce()
+  })
+})
+
+describe('CommandBroker nonce gate (proves approvals are human-initiated)', () => {
+  let broker: CommandBroker
+  let run: ReturnType<typeof vi.fn>
+  beforeEach(() => {
+    ;({ broker, run } = makeBroker())
+  })
+
+  it('approve() with the WRONG nonce is blocked — nothing executes, the promise resolves with a blocked message', async () => {
+    const p = broker.propose('ls -la', 'claude', 's')
+    await broker.approve('cmd_1', 'a-completely-wrong-guessed-nonce')
+    expect(await p).toMatch(/blocked: approval nonce mismatch/i)
+    expect(run).not.toHaveBeenCalled()
+  })
+
+  it('approve() with the CORRECT nonce executes normally', async () => {
+    const p = broker.propose('ls -la', 'claude', 's')
+    await broker.approve('cmd_1', lastNonce())
+    expect(await p).toBe('ran: ls -la')
+    expect(run).toHaveBeenCalledOnce()
+  })
+
+  it('reject() with the wrong nonce is blocked (does not resolve as a normal rejection twice / leaves nothing hanging)', async () => {
+    const p = broker.propose('ls -la', 'claude', 's')
+    broker.reject('cmd_1', 'wrong-nonce')
+    expect(await p).toMatch(/blocked: approval nonce mismatch/i)
+  })
+
+  it('confirmDangerous() with the wrong nonce is blocked — the dangerous command never runs', async () => {
+    const p = broker.propose('git push origin main', 'claude', 's')
+    await broker.confirmDangerous('cmd_1', 'wrong-nonce')
+    expect(await p).toMatch(/blocked: approval nonce mismatch/i)
+    expect(run).not.toHaveBeenCalled()
   })
 })

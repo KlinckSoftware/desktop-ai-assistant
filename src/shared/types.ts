@@ -182,6 +182,13 @@ export interface PendingCommand {
   command: string
   origin: AgentId
   sessionId: string
+  // Cryptographically random, single-use token minted by CommandBroker for this
+  // pending item. The renderer must echo it back on approve/reject/confirmDangerous;
+  // main refuses to act on a mismatched or missing nonce. This proves the approval
+  // decision genuinely round-tripped through the approval card that was shown to a
+  // human, rather than being forged by a compromised renderer that only knows (or
+  // guesses) the sequential id.
+  nonce: string
 }
 
 // A file write proposed by an agent (```file <path>``` block), awaiting approval.
@@ -193,6 +200,8 @@ export interface PendingEdit {
   newContent: string
   isNew: boolean
   origin: AgentId
+  // See PendingCommand.nonce — same single-use, echoed-back proof-of-human-approval token.
+  nonce: string
 }
 
 // An MCP tool call proposed by the model, awaiting approval.
@@ -202,6 +211,8 @@ export interface PendingTool {
   argsPreview: string // pretty JSON of arguments
   dangerous?: boolean // serialized args matched the dangerous denylist
   dangerReason?: string
+  // See PendingCommand.nonce — same single-use, echoed-back proof-of-human-approval token.
+  nonce: string
 }
 
 export interface Checkpoint {

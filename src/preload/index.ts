@@ -117,9 +117,12 @@ const api = {
     }
   },
   command: {
-    approve: (id: string): Promise<void> => ipcRenderer.invoke(CH.cmdApprove, id),
-    confirmDangerous: (id: string): Promise<void> => ipcRenderer.invoke(CH.cmdConfirmDangerous, id),
-    reject: (id: string): Promise<void> => ipcRenderer.invoke(CH.cmdReject, id),
+    // Every call must echo the nonce that arrived on the PendingCommand payload
+    // (onPending) — main verifies it before acting. See SECURITY.md / CommandBroker.
+    approve: (id: string, nonce: string): Promise<void> => ipcRenderer.invoke(CH.cmdApprove, id, nonce),
+    confirmDangerous: (id: string, nonce: string): Promise<void> =>
+      ipcRenderer.invoke(CH.cmdConfirmDangerous, id, nonce),
+    reject: (id: string, nonce: string): Promise<void> => ipcRenderer.invoke(CH.cmdReject, id, nonce),
     onPending: (cb: (c: PendingCommand) => void): (() => void) => {
       const h = (_e: unknown, c: PendingCommand): void => cb(c)
       ipcRenderer.on(CH.cmdPending, h)
@@ -153,8 +156,9 @@ const api = {
     }
   },
   edit: {
-    approve: (id: string): Promise<void> => ipcRenderer.invoke(CH.editApprove, id),
-    reject: (id: string): Promise<void> => ipcRenderer.invoke(CH.editReject, id),
+    // Nonce echoed from the PendingEdit payload (onPending) — see command.* above.
+    approve: (id: string, nonce: string): Promise<void> => ipcRenderer.invoke(CH.editApprove, id, nonce),
+    reject: (id: string, nonce: string): Promise<void> => ipcRenderer.invoke(CH.editReject, id, nonce),
     onPending: (cb: (e: PendingEdit) => void): (() => void) => {
       const h = (_e: unknown, e: PendingEdit): void => cb(e)
       ipcRenderer.on(CH.editPending, h)
@@ -167,9 +171,11 @@ const api = {
     }
   },
   tool: {
-    approve: (id: string): Promise<void> => ipcRenderer.invoke(CH.toolApprove, id),
-    confirmDangerous: (id: string): Promise<void> => ipcRenderer.invoke(CH.toolConfirmDangerous, id),
-    reject: (id: string): Promise<void> => ipcRenderer.invoke(CH.toolReject, id),
+    // Nonce echoed from the PendingTool payload (onPending) — see command.* above.
+    approve: (id: string, nonce: string): Promise<void> => ipcRenderer.invoke(CH.toolApprove, id, nonce),
+    confirmDangerous: (id: string, nonce: string): Promise<void> =>
+      ipcRenderer.invoke(CH.toolConfirmDangerous, id, nonce),
+    reject: (id: string, nonce: string): Promise<void> => ipcRenderer.invoke(CH.toolReject, id, nonce),
     onPending: (cb: (t: PendingTool) => void): (() => void) => {
       const h = (_e: unknown, t: PendingTool): void => cb(t)
       ipcRenderer.on(CH.toolPending, h)

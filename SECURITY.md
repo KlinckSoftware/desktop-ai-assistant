@@ -124,21 +124,36 @@ to checkpoints, so autonomous edits remain undoable.
 
 ## Known limitations / residual risk
 
-1. **Interactive approvals trust the renderer (narrowed).** The renderer decides
-   whether to auto-approve (trusted session) or show a card. Main now enforces the
-   dangerous denylist in `CommandBroker.approve()` itself: a dangerous command can
-   only run via the explicit `confirmDangerous()` path that the human-facing card
-   invokes — so a renderer bug or trusted-session auto-approve can **not** silently
-   run a dangerous command. Residual: a *fully compromised* renderer could call
-   `confirmDangerous()` (or `ToolBroker`/`FileEditBroker.approve()`, which are not
-   yet denylist-gated) directly. The renderer can also create autonomous scheduled
-   jobs (`jobSave`) and remove/merge worktrees (`worktreeRemove`); these stay
-   within the "renderer is semi-trusted" model — they're human-initiated UI
-   actions — but a *fully compromised* renderer could abuse them (e.g. schedule a
-   `full` job, or discard a worktree's uncommitted work). The **autonomous**
-   execution path itself is fully main-authoritative. A complete fix
-   (a nonce/handshake proving an action was genuinely initiated by a human) is
-   future work.
+1. **Interactive approvals are nonce-gated (narrowed further).** Every pending
+   command, MCP tool call, and file edit is minted with a cryptographically
+   random, single-use nonce (`node:crypto` `randomUUID`) when the approval card
+   is created (`CommandBroker`, `ToolBroker`, `FileEditBroker`). The nonce travels
+   to the renderer as part of the pending payload (`PendingCommand.nonce`,
+   `PendingTool.nonce`, `PendingEdit.nonce`) and every approve/reject/
+   confirmDangerous call — including the trusted-session and trusted-tool
+   auto-approve paths in `App.tsx` — must echo that exact nonce back over IPC.
+   Main verifies the echoed nonce against the one it minted before doing
+   anything: a mismatched or missing nonce blocks the action outright (nothing
+   executes), consumes and removes the pending entry so it cannot be replayed,
+   logs a `console.warn('[security] ... nonce mismatch ...')`, and resolves the
+   waiting model/UI with a `[blocked: approval nonce mismatch]` result so
+   nothing is left hanging. Because the previously-guessable sequential id
+   (`cmd_7`, `tool_3`, `edit_12`) is no longer sufficient on its own, a
+   compromised renderer can no longer forge an approval, rejection, or dangerous
+   confirmation for an operation it was never actually shown — it would have to
+   have genuinely received that specific pending message first, and the nonce
+   is consumed the moment it is used. Main's dangerous-denylist gate in
+   `CommandBroker.approve()`/`ToolBroker.approve()` still applies underneath the
+   nonce check, so `confirmDangerous()` remains the only path that can run a
+   flagged dangerous command or MCP call, and it is now nonce-gated too.
+   Residual: the renderer can still create autonomous scheduled jobs (`jobSave`)
+   and remove/merge worktrees (`worktreeRemove`) without a pending-card/nonce
+   handshake; these stay within the "renderer is semi-trusted" model — they're
+   human-initiated UI actions with no proposal to forge — but a *fully
+   compromised* renderer could still abuse them directly (e.g. schedule a `full`
+   job, or discard a worktree's uncommitted work). The **autonomous** execution
+   path itself remains fully main-authoritative and is unaffected by this change
+   (it never goes through the approval-card/nonce flow at all).
 2. **Interactive CLI agents are not sandboxed by the app.** A `node-pty` CLI
    agent (e.g. Claude Code in a panel) has full shell access governed only by that
    tool's own permissions — it bypasses the app's brokers entirely. (They are now
