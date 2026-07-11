@@ -1,4 +1,4 @@
-import { execFile } from 'child_process'
+import { execFile, spawn } from 'child_process'
 import { promisify } from 'util'
 import { join, relative, sep } from 'path'
 import { resolveBin } from '../util/resolveBin'
@@ -407,4 +407,37 @@ export async function ghPrView(worktreePath: string, branch: string): Promise<st
 function extractUrl(out: string): string {
   const matches = out.match(/https?:\/\/\S+/g)
   return matches && matches.length > 0 ? matches[matches.length - 1] : out.trim()
+}
+
+// --- Per-hunk patch application (Review panel "Select hunks" mode) -----------
+
+/**
+ * Apply a unified diff patch (as built by shared/diffHunks buildPatch) to the
+ * repo at `repoRoot` via `git apply --whitespace=nowarn -`, piping the patch
+ * on stdin (never a shell string — args are a fixed array, the patch is data).
+ * Returns '' on success, or `[apply failed] <stderr>` on failure.
+ */
+export async function applyPatch(repoRoot: string, patch: string): Promise<string> {
+  if (!patch.trim()) return ''
+  return new Promise((resolve) => {
+    const proc = spawn(GIT, ['apply', '--whitespace=nowarn', '-'], {
+      cwd: repoRoot,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      shell: false
+    })
+    let stderr = ''
+    let stdout = ''
+    proc.stdout.on('data', (d: Buffer) => (stdout += d.toString()))
+    proc.stderr.on('data', (d: Buffer) => (stderr += d.toString()))
+    proc.on('error', (err) => resolve(`[apply failed] ${err.message}`))
+    proc.on('close', (code) => {
+      if (code === 0) resolve('')
+      else resolve(`[apply failed] ${(stderr || stdout || `exit ${code}`).trim()}`)
+    })
+    proc.stdin.on('error', () => {
+      /* EPIPE if git exits before stdin is fully written — 'close' still fires */
+    })
+    proc.stdin.write(patch)
+    proc.stdin.end()
+  })
 }

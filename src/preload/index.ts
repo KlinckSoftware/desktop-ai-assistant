@@ -238,6 +238,8 @@ const api = {
       ipcRenderer.invoke(CH.worktreeRemove, sessionId, mode),
     createPr: (sessionId: string): Promise<WorktreePrResult> => ipcRenderer.invoke(CH.worktreeCreatePr, sessionId),
     stats: (sessionId: string): Promise<WorktreeStats | null> => ipcRenderer.invoke(CH.worktreeStats, sessionId),
+    applyHunks: (sessionId: string, patch: string): Promise<string> =>
+      ipcRenderer.invoke(CH.worktreeApplyHunks, sessionId, patch),
     onChanged: (cb: () => void): (() => void) => {
       const h = (): void => cb()
       ipcRenderer.on(CH.worktreeChanged, h)

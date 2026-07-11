@@ -383,5 +383,6 @@ export const CH = {
   worktreeChanged: 'worktree:changed', // event: the set/state of worktrees changed
   worktreeStale: 'worktree:stale', // (WorktreeStaleNotice) boot notice for old unmerged worktrees
   worktreeCreatePr: 'worktree:create-pr', // (sessionId) -> { url?, error? } opt-in GitHub PR creation
-  worktreeStats: 'worktree:stats' // (sessionId) -> { ahead, behind } | null — merge board stats
+  worktreeStats: 'worktree:stats', // (sessionId) -> { ahead, behind } | null — merge board stats
+  worktreeApplyHunks: 'worktree:apply-hunks' // (sessionId, patch) -> status string — apply selected hunks to base
 } as const
