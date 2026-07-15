@@ -97,8 +97,10 @@ const TOPICS: Topic[] = [
         <H>Image generation (Gemini panel)</H>
         <P>
           The <K>🖼</K> button next to Send generates an image from whatever's in the input box — backend picked in
-          Settings → Models (Pollinations: free/keyless, the default; or Google Imagen: paid, needs the key). It's a
-          UI-only action, not a tool any agent can call on its own. Generated images live under your user data folder
+          Settings → Models (Pollinations: free/keyless, the default; or Google Imagen: paid, needs the key). Agents
+          and pipeline steps can also call a <K>generate_image</K> tool (edit/full steps; Imagen additionally needs a
+          full step with allow-shell — paid generation never runs unattended without that opt-in). Generated images
+          live under your user data folder
           and are deleted by {Link(go, 'safety', 'Clear chat & run history')} in Settings → Security.
         </P>
       </div>
