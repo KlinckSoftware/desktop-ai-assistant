@@ -7,6 +7,9 @@ dist/
 .DS_Store
 .env
 .env.local
+.env.*
+.dai-trees/
+assets/
 
 # Local developer context — never commit
 CLAUDE.md

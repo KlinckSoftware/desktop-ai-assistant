@@ -175,5 +175,9 @@ to checkpoints, so autonomous edits remain undoable.
 
 ## Reporting
 
-This is a personal project. If you find a security issue, open an issue (omit any
-exploit details that would put other users at risk) or contact the maintainer.
+This project is maintained by Klinck Software LLC. If you find a security issue,
+please **do not** open a public issue with exploit details. Instead, report it
+privately to **[SECURITY_EMAIL]** with a description of the issue, steps to
+reproduce, and potential impact. We'll acknowledge receipt and follow up with a
+timeline once triaged. Non-sensitive hardening suggestions are welcome as normal
+GitHub issues.
