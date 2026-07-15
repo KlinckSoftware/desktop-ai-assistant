@@ -51,10 +51,44 @@ export class GeminiClient {
     await KeychainManager.setKey(key.trim())
   }
 
-  // UI-explicit image generation via Imagen. No agentic tool wraps this — it is
-  // only reachable from the Gemini panel's image button (see ticket #16).
-  // Never throws: failures come back as { error } for the renderer to surface.
+  // UI-explicit image generation. No agentic tool wraps this — it is only
+  // reachable from the Gemini panel's image button (see ticket #16). Backend
+  // comes from Settings: 'pollinations' (free, keyless — testing) or 'imagen'
+  // (Google, paid, needs the Gemini key). Everything downstream (app-image://,
+  // thumbnails, pipeline pass-through, clear-history) is provider-agnostic —
+  // it all operates on the saved file. Never throws: failures come back as
+  // { error } for the renderer to surface.
   async generateImage(prompt: string): Promise<{ path?: string; error?: string }> {
+    return appState.settings.imageProvider === 'imagen'
+      ? this.generateViaImagen(prompt)
+      : this.generateViaPollinations(prompt)
+  }
+
+  // Free/keyless test backend: GET returns the image bytes directly.
+  // Anonymous use is rate-limited (~1 req/15s) — fine for manual testing.
+  private async generateViaPollinations(prompt: string): Promise<{ path?: string; error?: string }> {
+    const url =
+      `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}` +
+      `?width=1024&height=1024&nologo=true`
+    let res: Response
+    try {
+      res = await fetch(url)
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : String(err) }
+    }
+    if (!res.ok) {
+      const errText = await res.text().catch(() => res.statusText)
+      return { error: `Pollinations error ${res.status}: ${errText.slice(0, 500)}` }
+    }
+    const buf = Buffer.from(await res.arrayBuffer())
+    if (!buf.length) return { error: 'Pollinations error: empty image response' }
+    // Content-type is typically image/jpeg; keep the extension honest for the
+    // renderer's mime mapping.
+    const ext = (res.headers.get('content-type') ?? '').includes('png') ? 'png' : 'jpg'
+    return this.saveGenerated(buf, ext)
+  }
+
+  private async generateViaImagen(prompt: string): Promise<{ path?: string; error?: string }> {
     const apiKey = await KeychainManager.getKey()
     if (!apiKey) return { error: 'no API key set' }
 
@@ -87,19 +121,21 @@ export class GeminiClient {
     const b64 = json.predictions?.[0]?.bytesBase64Encoded
     if (!b64) return { error: 'Imagen error: no image returned' }
 
-    const dir = generatedImagesDir()
-    await fs.mkdir(dir, { recursive: true })
-    const filename = `img_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.png`
-    const filePath = join(dir, filename)
-    try {
-      await fs.writeFile(filePath, Buffer.from(b64, 'base64'))
-    } catch (err) {
-      return { error: err instanceof Error ? err.message : String(err) }
-    }
-
     // Imagen is priced per-image, not per-token — addUsageCost() only understands
     // token-based pricing (costFor(model, promptTokens, completionTokens)), so
     // there's no sensible hook to record this spend yet. Skipped intentionally.
+    return this.saveGenerated(Buffer.from(b64, 'base64'), 'png')
+  }
+
+  private async saveGenerated(buf: Buffer, ext: 'png' | 'jpg'): Promise<{ path?: string; error?: string }> {
+    const dir = generatedImagesDir()
+    await fs.mkdir(dir, { recursive: true })
+    const filePath = join(dir, `img_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`)
+    try {
+      await fs.writeFile(filePath, buf)
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : String(err) }
+    }
     return { path: filePath }
   }
 

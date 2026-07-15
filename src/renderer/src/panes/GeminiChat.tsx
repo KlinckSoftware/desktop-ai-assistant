@@ -12,6 +12,10 @@ export default function GeminiChat(): JSX.Element {
   const addMessage = useAppStore((s) => s.addGeminiMessage)
   const append = useAppStore((s) => s.appendToLastGemini)
   const hasKey = useAppStore((s) => s.hasGeminiKey)
+  const imageProvider = useAppStore((s) => s.imageProvider)
+  // Pollinations is keyless, so image generation (and typing a prompt for it)
+  // must work without a Gemini key; chat send still requires the key.
+  const canImage = hasKey || imageProvider === 'pollinations'
   const poolSize = useAppStore((s) => s.contextFiles.size)
   const repoMap = useAppStore((s) => s.repoMapInContext)
   const geminiModel = useAppStore((s) => s.geminiModel)
@@ -120,7 +124,7 @@ export default function GeminiChat(): JSX.Element {
       if (result.file) {
         addMessage({ role: 'model', content: '', kind: 'image', file: result.file })
       } else {
-        addMessage({ role: 'model', content: `[Imagen error: ${result.error ?? 'unknown error'}]` })
+        addMessage({ role: 'model', content: `[image error: ${result.error ?? 'unknown error'}]` })
       }
     } finally {
       setImageBusy(false)
@@ -213,14 +217,20 @@ export default function GeminiChat(): JSX.Element {
           value={input}
           onChange={setInput}
           onSubmit={sendMsg}
-          disabled={!hasKey}
-          placeholder={hasKey ? 'Ask Gemini…  (@path to attach a file)' : 'Set an API key first'}
+          disabled={!hasKey && !canImage}
+          placeholder={
+            hasKey
+              ? 'Ask Gemini…  (@path to attach a file)'
+              : canImage
+              ? 'No API key — chat disabled, but 🖼 image generation works (free provider)'
+              : 'Set an API key first'
+          }
         />
         <button
           className="rounded border border-gemini/50 px-2 text-sm text-gemini disabled:opacity-40"
-          disabled={!hasKey || busy || imageBusy || !input.trim()}
+          disabled={!canImage || busy || imageBusy || !input.trim()}
           onClick={generateImg}
-          title="Generate an image from the input text (Imagen)"
+          title={`Generate an image from the input text (${imageProvider === 'imagen' ? 'Imagen — paid' : 'Pollinations — free'})`}
         >
           🖼
         </button>

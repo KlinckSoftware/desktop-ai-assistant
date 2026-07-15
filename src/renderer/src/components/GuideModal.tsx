@@ -96,7 +96,8 @@ const TOPICS: Topic[] = [
         </P>
         <H>Image generation (Gemini panel)</H>
         <P>
-          The <K>🖼</K> button next to Send generates an image (via Imagen) from whatever's in the input box — it's a
+          The <K>🖼</K> button next to Send generates an image from whatever's in the input box — backend picked in
+          Settings → Models (Pollinations: free/keyless, the default; or Google Imagen: paid, needs the key). It's a
           UI-only action, not a tool any agent can call on its own. Generated images live under your user data folder
           and are deleted by {Link(go, 'safety', 'Clear chat & run history')} in Settings → Security.
         </P>

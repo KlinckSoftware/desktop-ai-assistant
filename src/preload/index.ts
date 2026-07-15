@@ -221,6 +221,7 @@ const api = {
       pipelineAllowFullDefault?: boolean
       autonomousAllow?: string
       closeToTray?: boolean
+      imageProvider?: 'pollinations' | 'imagen'
     }): Promise<void> => ipcRenderer.invoke(CH.settingsSet, s)
   },
   jobs: {

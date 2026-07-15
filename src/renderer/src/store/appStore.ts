@@ -74,6 +74,7 @@ export interface PersistedState {
   costCap: number
   accentColor: string
   closeToTray: boolean
+  imageProvider: 'pollinations' | 'imagen'
 }
 
 interface AppState {
@@ -106,6 +107,8 @@ interface AppState {
   seenGuide: boolean // the in-app Guide has been shown once (first-run)
   closeToTray: boolean // hide to the system tray on close instead of quitting (scheduler keeps running)
   setCloseToTray: (v: boolean) => void
+  imageProvider: 'pollinations' | 'imagen' // image backend: pollinations = free/keyless (testing), imagen = paid Google
+  setImageProvider: (v: 'pollinations' | 'imagen') => void
   setAllowProtectedWrites: (v: boolean) => void
   setPipelineAllowFullDefault: (v: boolean) => void
   setAlwaysConfirm: (v: boolean) => void
@@ -287,6 +290,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   seenGuide: false,
   closeToTray: false,
   setCloseToTray: (v) => set({ closeToTray: v }),
+  imageProvider: 'pollinations',
+  setImageProvider: (v) => set({ imageProvider: v }),
   setAllowProtectedWrites: (v) => set({ allowProtectedWrites: v }),
   setPipelineAllowFullDefault: (v) => set({ pipelineAllowFullDefault: v }),
   setAlwaysConfirm: (v) => set({ alwaysConfirm: v }),
@@ -530,6 +535,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       costCap: d.costCap ?? 0,
       accentColor: d.accentColor ?? '#58a6ff',
       closeToTray: d.closeToTray ?? false,
+      imageProvider: d.imageProvider ?? 'pollinations',
       dockLayout: d.dockLayout ?? null,
       apiChats: d.apiChats ?? {},
       apiModels: d.apiModels ?? {},
