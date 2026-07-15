@@ -35,7 +35,7 @@ import {
 import { apiSend } from './api/OpenAIClient'
 import { fetchLivePricing } from './api/livePricing'
 import { setPriceOverrides } from '../shared/pricing'
-import { setBrokers } from './tools/toolExec'
+import { setBrokers, setImageGenerator } from './tools/toolExec'
 import type { ApiProvider } from '../shared/types'
 import { IPCModerator } from './moderator/IPCModerator'
 import { PipelineRunner } from './pipeline/PipelineRunner'
@@ -161,6 +161,7 @@ function initServices(): void {
   agents = new AgentProcessManager()
   gemini = new GeminiClient()
   setBrokers(broker, editBroker, fsm) // shared tool exec for the API chats
+  setImageGenerator((p) => gemini.generateImage(p)) // generate_image tool backend
   moderator = new IPCModerator(gemini, broker)
   pipeline = new PipelineRunner(gemini, moderator)
   runManager = new RunManager(pipeline)
