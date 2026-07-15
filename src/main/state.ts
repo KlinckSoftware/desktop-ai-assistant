@@ -26,6 +26,7 @@ export interface Settings {
   pipelineAllowFullDefault: boolean // default the per-run "allow shell (full)" opt-in — default off
   autonomousAllow: string // optional allowlist of command heads for autonomous run_command ('' = no extra restriction)
   closeToTray: boolean // hide to the system tray on close instead of quitting, so the scheduler keeps running — default off
+  imageProvider: 'pollinations' | 'imagen' // image backend: pollinations = free/keyless (testing), imagen = Google (paid, needs Gemini key)
 }
 
 // Mutable app-wide state shared across main-process modules.
@@ -44,7 +45,8 @@ class AppState {
     allowProtectedWrites: false,
     pipelineAllowFullDefault: false,
     autonomousAllow: '',
-    closeToTray: false
+    closeToTray: false,
+    imageProvider: 'pollinations'
   }
 
   // sessionId -> the isolated worktree root that session operates in. Sessions

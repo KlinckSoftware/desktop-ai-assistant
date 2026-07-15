@@ -7,8 +7,12 @@ import { promises as fs } from 'fs'
 const TMP = vi.hoisted(() => require('path').join(require('os').tmpdir(), `gemini-img-test-${process.pid}`))
 
 vi.mock('electron', () => ({ app: { getPath: () => TMP } }))
+const mockSettings = vi.hoisted(() => ({
+  geminiModel: 'gemini-2.5-flash',
+  imageProvider: 'imagen' as 'imagen' | 'pollinations'
+}))
 vi.mock('../state', () => ({
-  appState: { send: vi.fn(), settings: { geminiModel: 'gemini-2.5-flash' } }
+  appState: { send: vi.fn(), settings: mockSettings }
 }))
 vi.mock('../keychain/KeychainManager', () => ({
   KeychainManager: { getKey: vi.fn(), setKey: vi.fn(), hasKey: vi.fn() }
@@ -31,6 +35,7 @@ describe('GeminiClient.generateImage', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    mockSettings.imageProvider = 'imagen'
     client = new GeminiClient()
     fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
@@ -112,5 +117,49 @@ describe('GeminiClient.generateImage', () => {
 
   it('generatedImagesDir() is userData/generated-images', () => {
     expect(generatedImagesDir()).toBe(join(TMP, 'generated-images'))
+  })
+
+  describe('pollinations provider (free/keyless testing backend)', () => {
+    beforeEach(() => {
+      mockSettings.imageProvider = 'pollinations'
+    })
+
+    it('GETs the encoded prompt with no key and saves the returned bytes as jpg', async () => {
+      const bytes = new Uint8Array([1, 2, 3, 4]).buffer
+      fetchMock.mockResolvedValue({
+        ok: true,
+        headers: { get: () => 'image/jpeg' },
+        arrayBuffer: async () => bytes
+      })
+      const result = await client.generateImage('a red cube & more')
+      expect(result.error).toBeUndefined()
+      expect(result.path).toMatch(/img_\d+_[a-z0-9]+\.jpg$/)
+      expect(result.path).toContain('generated-images')
+      const written = await fs.readFile(result.path!)
+      expect([...written]).toEqual([1, 2, 3, 4])
+      // Keyless: keychain never consulted, URL carries the encoded prompt, GET (no options body).
+      expect(KeychainManager.getKey).not.toHaveBeenCalled()
+      const url = fetchMock.mock.calls[0][0] as string
+      expect(url).toContain('image.pollinations.ai/prompt/')
+      expect(url).toContain(encodeURIComponent('a red cube & more'))
+      expect(url).not.toContain('key=')
+    })
+
+    it('maps an HTTP error to an error result without throwing', async () => {
+      fetchMock.mockResolvedValue({ ok: false, status: 429, statusText: 'rate limited', text: async () => 'slow down' })
+      const result = await client.generateImage('a cat')
+      expect(result.error).toContain('Pollinations error 429')
+      expect(result.path).toBeUndefined()
+    })
+
+    it('an empty body is an error, not a zero-byte file', async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        headers: { get: () => 'image/jpeg' },
+        arrayBuffer: async () => new ArrayBuffer(0)
+      })
+      const result = await client.generateImage('a cat')
+      expect(result.error).toContain('empty image response')
+    })
   })
 })

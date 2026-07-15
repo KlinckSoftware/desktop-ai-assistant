@@ -18,9 +18,11 @@ process orchestrator: no web scraping, no browser automation. There's an in-app
   OpenAI-compatible endpoint, Groq, Mistral, OpenRouter, Ollama). Streaming chat
   with built-in tools + MCP, per-panel model picker, keys in the OS keychain.
   Extendable via `api_providers.json`.
-- **Image generation (Gemini panel)** — a UI-only 🖼 button next to Send calls
-  Imagen to generate an image from the input text; no agentic tool exposes this
-  to models or pipelines.
+- **Image generation (Gemini panel)** — a UI-only 🖼 button next to Send
+  generates an image from the input text via a switchable backend (Settings →
+  Models): Pollinations (free, keyless — default, for testing) or Google Imagen
+  (paid, uses the Gemini key); no agentic tool exposes this to models or
+  pipelines.
 - **MCP** — Model Context Protocol servers (stdio) are connected on startup and
   their tools exposed to the agentic loops.
 

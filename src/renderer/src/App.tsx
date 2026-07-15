@@ -96,7 +96,8 @@ export default function App(): JSX.Element {
         allowProtectedWrites: s0.allowProtectedWrites,
         pipelineAllowFullDefault: s0.pipelineAllowFullDefault,
         autonomousAllow: s0.autonomousAllow,
-        closeToTray: s0.closeToTray
+        closeToTray: s0.closeToTray,
+        imageProvider: s0.imageProvider
       })
       setAgents(await window.api.agent.list())
       setApiProviders(await window.api.api.providers())
@@ -222,7 +223,9 @@ export default function App(): JSX.Element {
           editorFontSize: s.editorFontSize,
           editorWrap: s.editorWrap,
           costCap: s.costCap,
-          accentColor: s.accentColor
+          accentColor: s.accentColor,
+          closeToTray: s.closeToTray,
+          imageProvider: s.imageProvider
         })
       }, 600)
     })
