@@ -154,8 +154,8 @@ upgrade; **gate steps (d)** next.
   **must use ApprovalPolicy autonomous** (no human card) — already built. Time-based first;
   git-hook / file-watch later (chokidar already in deps).
 - **Tier 3 — Remote (cloud VM). SKIP / out of scope.** Needs backend + sandbox infra + billing; not
-  the local-first edge. Poor-man's option later: SSH-runner to a box the user owns (the Pi at
-  192.168.40.196) — spawn the CLI agent over SSH, stream back. Optional novelty, not core.
+  the local-first edge. Poor-man's option later: SSH-runner to a box the user owns (e.g. a home
+  server on the LAN) — spawn the CLI agent over SSH, stream back. Optional novelty, not core.
 
 Plan: **Tier 1** now, **Tier 2** next (leverages the autonomous policy already shipped), skip Tier 3.
 

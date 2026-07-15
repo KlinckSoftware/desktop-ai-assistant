@@ -1,11 +1,18 @@
 # Desktop AI Assistant
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+> Maintained by **Klinck Software LLC**.
+
 An Electron desktop **cockpit for orchestrating multiple AI coding agents** — CLI
 agents and API providers, side by side, with a shared context pool, agent
 hand-off, debate, saved pipelines, **per-agent git-worktree isolation**, a
 **review/merge** flow, and a **scheduler** for unattended runs. The app is a
 process orchestrator: no web scraping, no browser automation. There's an in-app
 **Guide** (top-bar `? Guide`, auto-opens on first run) that walks through all of it.
+
+> **Screenshots:** coming soon — the app's own in-app Guide is the best current
+> walkthrough until screenshots/GIFs are added here.
 
 ## What it runs
 
@@ -76,13 +83,12 @@ process orchestrator: no web scraping, no browser automation. There's an in-app
 
 ### From the installer (Windows)
 1. Get `Desktop AI Assistant-<version>-setup.exe` (and `SHA256SUMS.txt`) from the
-   private release.
+   [Releases](../../releases) page, if one is published.
 2. **Verify it first** (the build is unsigned):
    ```powershell
    Get-FileHash "Desktop AI Assistant-<version>-setup.exe" -Algorithm SHA256
    ```
-   The hash must match the line in `SHA256SUMS.txt` (which you got over a separate
-   channel). If it doesn't match, don't run it.
+   The hash must match the line in `SHA256SUMS.txt`. If it doesn't match, don't run it.
 3. Run the installer. Windows SmartScreen may warn (unsigned): **More info →
    Run anyway**. It installs per-user; choose the install dir if prompted.
 4. Launch **Desktop AI Assistant**. On first run the **Guide** opens — start there.
@@ -92,15 +98,27 @@ process orchestrator: no web scraping, no browser automation. There's an in-app
 
 ### From source (any platform with Node 20+)
 ```
-git clone <repo-url> && cd desktopAI
+git clone https://github.com/<org>/desktopAI.git && cd desktopAI
 npm install          # postinstall rebuilds native modules for Electron
 npm run dev          # run with HMR
 # or build an installer:
 npm run dist:win     # NSIS installer + SHA256SUMS.txt in release/
 ```
 
-See **[docs/DISTRIBUTING.md](docs/DISTRIBUTING.md)** for sharing/verification, and
-**[SECURITY.md](SECURITY.md)** for the trust model.
+See **[docs/DISTRIBUTING.md](docs/DISTRIBUTING.md)** for build/sharing/verification
+notes, and **[SECURITY.md](SECURITY.md)** for the full trust model.
+
+## Security model (summary)
+
+Agents are treated as **untrusted** — their proposed commands, file writes, and
+MCP tool calls are gated by default-deny brokers (`CommandBroker`,
+`FileEditBroker`, `ToolBroker`) in the trusted main process; the renderer is
+sandboxed (context isolation on, no node integration, CSP locked to `'self'`).
+Unattended pipeline/scheduled runs go through a separate `autonomous` policy
+(allowlist + dangerous-command denylist, no human in the loop) with a session
+cost cap enforced in main. Full details, every gate, and known residual risks
+are documented in **[SECURITY.md](SECURITY.md)** — read it before pointing this
+at a repo or credentials you care about.
 
 ## Architecture
 
@@ -163,3 +181,14 @@ Native modules (`node-pty`, `keytar`) are rebuilt against the Electron ABI by th
 - See **[SECURITY.md](SECURITY.md)** for the full trust model and every gate.
 - ToS: this drives real authenticated processes. Review Anthropic/Google/OpenAI
   (etc.) terms for your use case.
+
+## Contributing
+
+Contributions are welcome — see **[CONTRIBUTING.md](CONTRIBUTING.md)** for dev
+setup, branch/PR conventions, and test expectations. For security issues, please
+follow the private disclosure process in **[SECURITY.md](SECURITY.md)** instead
+of opening a public issue.
+
+## License
+
+[MIT](LICENSE) © 2026 Klinck Software LLC

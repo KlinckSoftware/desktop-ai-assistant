@@ -3,7 +3,7 @@
   "version": "0.48.0",
   "description": "Desktop AI coding assistant — Claude Code CLI + Gemini API, Electron shell",
   "main": "./out/main/index.js",
-  "author": "wbucci14",
+  "author": "Klinck Software LLC",
   "license": "MIT",
   "type": "module",
   "scripts": {
