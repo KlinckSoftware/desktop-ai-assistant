@@ -64,7 +64,7 @@ npm run dist:win     # NSIS installer (close the dev app first — native file l
 ## Sign-off (DCO)
 
 By submitting a contribution, you certify that you wrote it (or have the right
-to submit it) under the project's [MIT license](LICENSE), per the
+to submit it) under the project's [Apache License 2.0](LICENSE), per the
 [Developer Certificate of Origin](https://developercertificate.org/). Please
 add a `Signed-off-by` trailer to your commits:
 
