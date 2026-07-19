@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain, dialog, Menu, shell, clipboard, Tray, nativeImage } from 'electron'
 import { join, basename } from 'path'
 import { rm as fsRm } from 'fs/promises'
-import { appState } from './state'
+import { appState, validRootOr } from './state'
 import { CH, type Message } from '../shared/types'
 import { CommandExecutor } from './executor/CommandExecutor'
 import { CommandBroker } from './executor/CommandBroker'
@@ -320,9 +320,16 @@ function registerIpc(): void {
   ipcMain.handle(CH.clipboardRead, () => clipboard.readText())
   ipcMain.handle(CH.clipboardWrite, (_e, text: string) => clipboard.writeText(text))
   ipcMain.handle(CH.appSetRoot, (_e, root: string) => {
-    appState.projectRoot = root
-    fsm.watch(root)
-    return root
+    // Renderer restores the persisted root on boot — if that folder was moved
+    // or deleted since, silently accepting it breaks every later spawn/watch
+    // with cryptic errors (e.g. pty CreateProcess 267). Fall back and say so.
+    const valid = validRootOr(root)
+    if (valid !== root) {
+      appState.send(CH.appError, `Project folder no longer exists: ${root} — using ${valid}. Pick a folder via File.`)
+    }
+    appState.projectRoot = valid
+    fsm.watch(valid)
+    return valid
   })
   ipcMain.handle(CH.stateLoad, () => loadState())
   ipcMain.handle(CH.stateSave, (_e, data: unknown) => saveState(data))
