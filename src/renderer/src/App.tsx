@@ -78,7 +78,10 @@ export default function App(): JSX.Element {
         | null
       if (persisted) {
         hydrate(persisted)
-        if (persisted.projectRoot) await window.api.state.setRoot(persisted.projectRoot)
+        // setRoot validates: if the persisted folder was moved/deleted, main
+        // falls back to the default — adopt whatever it settled on so the
+        // stale path self-heals out of state.json on the next save.
+        if (persisted.projectRoot) setProjectRoot(await window.api.state.setRoot(persisted.projectRoot))
         else setProjectRoot(await window.api.fs.projectRoot())
       } else {
         setProjectRoot(await window.api.fs.projectRoot())
