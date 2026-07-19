@@ -159,7 +159,10 @@ export default function GeminiChat(): JSX.Element {
           m.kind === 'image' && m.file ? (
             <div key={i} className={m.role === 'user' ? 'text-right' : ''}>
               <div className="inline-block max-w-[90%] rounded-lg bg-panel p-2 text-left">
-                <GeneratedImage file={m.file} />
+                <GeneratedImage
+                  file={m.file}
+                  onLoad={() => scrollRef.current?.scrollTo(0, scrollRef.current.scrollHeight)}
+                />
                 {m.prompt && (
                   <div className="mt-1 max-w-[280px] truncate text-[10px] text-gray-500" title={m.prompt}>
                     {m.prompt}

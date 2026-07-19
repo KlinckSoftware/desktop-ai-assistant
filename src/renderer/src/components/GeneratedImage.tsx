@@ -9,11 +9,15 @@ import { Z } from '../zIndex'
 // Click opens a full-screen lightbox; Esc or a click anywhere closes it.
 export default function GeneratedImage({
   file,
-  size = 'chat'
+  size = 'chat',
+  onLoad
 }: {
   file: string
   // 'chat' = conversation bubble footprint, 'thumb' = step-output row thumbnail.
   size?: 'chat' | 'thumb'
+  // Images load after their message mounts and grow the list — chat uses this
+  // to re-scroll to the bottom once the real height is known.
+  onLoad?: () => void
 }): JSX.Element | null {
   const [open, setOpen] = useState(false)
   const [failed, setFailed] = useState(false)
@@ -46,6 +50,7 @@ export default function GeneratedImage({
           size === 'chat' ? 'max-h-48' : 'max-h-16'
         }`}
         onClick={() => setOpen(true)}
+        onLoad={onLoad}
         onError={() => setFailed(true)}
         title="Click to view full size"
       />
