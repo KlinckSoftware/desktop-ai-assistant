@@ -1,5 +1,6 @@
 import * as pty from 'node-pty'
 import type { IPty } from 'node-pty'
+import { existsSync } from 'fs'
 import { appState } from '../state'
 import { CH, type AgentDef } from '../../shared/types'
 import { resolveBin, cleanClaudeEnv } from '../util/resolveBin'
@@ -17,6 +18,12 @@ export class AgentProcessManager {
 
   spawn(sessionId: string, def: AgentDef, cwd: string): void {
     if (this.sessions.has(sessionId)) return
+
+    // Fail with a readable message instead of winpty's "Cannot create process,
+    // error code: 267" when the working folder was moved/deleted.
+    if (!existsSync(cwd)) {
+      throw new Error(`working folder does not exist: ${cwd} — pick a project folder via File`)
+    }
 
     const bin = resolveBin(def.command)
     const proc = pty.spawn(bin, def.args, {

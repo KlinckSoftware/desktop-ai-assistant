@@ -1,4 +1,5 @@
 import { BrowserWindow, app } from 'electron'
+import { existsSync } from 'fs'
 
 // Sensible default working folder — the same dir Claude's pty and the file tree
 // open in. In dev that's the launch cwd (the repo); packaged, the install dir is
@@ -11,6 +12,16 @@ function defaultRoot(): string {
     /* getPath unavailable pre-ready on some platforms */
   }
   return process.cwd()
+}
+
+/**
+ * A persisted project root can point at a folder that has since been moved or
+ * deleted (the classic symptom: every boot, agent spawn dies with Windows
+ * error 267 "directory name is invalid"). Returns the root if it still exists,
+ * else the default.
+ */
+export function validRootOr(root: string): string {
+  return root && existsSync(root) ? root : defaultRoot()
 }
 
 export interface Settings {
