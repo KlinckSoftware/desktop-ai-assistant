@@ -96,7 +96,8 @@ const TOPICS: Topic[] = [
         </P>
         <H>Image generation (Gemini panel)</H>
         <P>
-          The <K>🖼</K> button next to Send generates an image from whatever's in the input box — backend picked in
+          The <K>🖼</K> toggle next to Send switches the composer into image mode — Send becomes Generate and creates
+          an image from your text (click 🖼 again for chat). Backend picked in
           Settings → Models (Pollinations: free/keyless, the default; or Google Imagen: paid, needs the key). Agents
           and pipeline steps can also call a <K>generate_image</K> tool (edit/full steps; Imagen additionally needs a
           full step with allow-shell — paid generation never runs unattended without that opt-in). Generated images

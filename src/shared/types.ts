@@ -45,8 +45,11 @@ export interface Message {
   // under the generated-images dir, served via the app-image:// protocol. Image
   // messages carry no `content` and are filtered out of what's sent back to
   // providers (see GeminiClient.send's history mapping) — display-only.
+  // `prompt` is the text the image was generated from: shown as the bubble
+  // caption and reused by the regenerate action; never sent to providers.
   kind?: 'image'
   file?: string
+  prompt?: string
 }
 
 // Provider-reported token usage for one request (summed across agentic turns).
