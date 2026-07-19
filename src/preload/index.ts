@@ -60,6 +60,9 @@ const api = {
     hasKey: (): Promise<boolean> => ipcRenderer.invoke(CH.geminiHasKey),
     saveKey: (key: string): Promise<void> => ipcRenderer.invoke(CH.geminiSaveKey, key),
     listModels: (): Promise<string[]> => ipcRenderer.invoke(CH.geminiListModels),
+    generateImage: (prompt: string): Promise<{ file?: string; error?: string }> =>
+      ipcRenderer.invoke(CH.geminiGenerateImage, prompt),
+    clearGeneratedImages: (): Promise<void> => ipcRenderer.invoke(CH.geminiClearGeneratedImages),
     onStream: (cb: (chunk: string) => void): (() => void) => {
       const h = (_e: unknown, chunk: string): void => cb(chunk)
       ipcRenderer.on(CH.geminiStream, h)
@@ -218,6 +221,7 @@ const api = {
       pipelineAllowFullDefault?: boolean
       autonomousAllow?: string
       closeToTray?: boolean
+      imageProvider?: 'pollinations' | 'imagen'
     }): Promise<void> => ipcRenderer.invoke(CH.settingsSet, s)
   },
   jobs: {

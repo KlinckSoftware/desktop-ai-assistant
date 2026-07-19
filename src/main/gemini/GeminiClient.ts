@@ -1,3 +1,6 @@
+import { app } from 'electron'
+import { join } from 'path'
+import { promises as fs } from 'fs'
 import { appState } from '../state'
 import { CH, type Message } from '../../shared/types'
 import { KeychainManager } from '../keychain/KeychainManager'
@@ -6,6 +9,12 @@ import { addUsageCost, capReached } from '../budget'
 import { AGENT_SYSTEM, MAX_TOOL_TURNS } from '../agents/systemPrompt'
 
 const BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
+const IMAGEN_MODEL = 'imagen-3.0-generate-002'
+
+/** Directory generated images are written to (also the app-image:// protocol root). */
+export function generatedImagesDir(): string {
+  return join(app.getPath('userData'), 'generated-images')
+}
 
 const SYSTEM = AGENT_SYSTEM
 
@@ -40,6 +49,94 @@ export class GeminiClient {
   }
   async saveKey(key: string): Promise<void> {
     await KeychainManager.setKey(key.trim())
+  }
+
+  // UI-explicit image generation. No agentic tool wraps this — it is only
+  // reachable from the Gemini panel's image button (see ticket #16). Backend
+  // comes from Settings: 'pollinations' (free, keyless — testing) or 'imagen'
+  // (Google, paid, needs the Gemini key). Everything downstream (app-image://,
+  // thumbnails, pipeline pass-through, clear-history) is provider-agnostic —
+  // it all operates on the saved file. Never throws: failures come back as
+  // { error } for the renderer to surface.
+  async generateImage(prompt: string): Promise<{ path?: string; error?: string }> {
+    return appState.settings.imageProvider === 'imagen'
+      ? this.generateViaImagen(prompt)
+      : this.generateViaPollinations(prompt)
+  }
+
+  // Free/keyless test backend: GET returns the image bytes directly.
+  // Anonymous use is rate-limited (~1 req/15s) — fine for manual testing.
+  private async generateViaPollinations(prompt: string): Promise<{ path?: string; error?: string }> {
+    const url =
+      `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}` +
+      `?width=1024&height=1024&nologo=true`
+    let res: Response
+    try {
+      res = await fetch(url)
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : String(err) }
+    }
+    if (!res.ok) {
+      const errText = await res.text().catch(() => res.statusText)
+      return { error: `Pollinations error ${res.status}: ${errText.slice(0, 500)}` }
+    }
+    const buf = Buffer.from(await res.arrayBuffer())
+    if (!buf.length) return { error: 'Pollinations error: empty image response' }
+    // Content-type is typically image/jpeg; keep the extension honest for the
+    // renderer's mime mapping.
+    const ext = (res.headers.get('content-type') ?? '').includes('png') ? 'png' : 'jpg'
+    return this.saveGenerated(buf, ext)
+  }
+
+  private async generateViaImagen(prompt: string): Promise<{ path?: string; error?: string }> {
+    const apiKey = await KeychainManager.getKey()
+    if (!apiKey) return { error: 'no API key set' }
+
+    let res: Response
+    try {
+      res = await fetch(`${BASE}/${IMAGEN_MODEL}:predict?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          instances: [{ prompt }],
+          parameters: { sampleCount: 1, aspectRatio: '1:1' }
+        })
+      })
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : String(err) }
+    }
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => res.statusText)
+      return { error: `Imagen error ${res.status}: ${errText.slice(0, 500)}` }
+    }
+
+    let json: { predictions?: { bytesBase64Encoded?: string }[] }
+    try {
+      json = (await res.json()) as { predictions?: { bytesBase64Encoded?: string }[] }
+    } catch {
+      return { error: 'Imagen error: could not parse response' }
+    }
+
+    const b64 = json.predictions?.[0]?.bytesBase64Encoded
+    if (!b64) return { error: 'Imagen error: no image returned' }
+
+    // Imagen is priced per-image, not per-token — addUsageCost() only understands
+    // token-based pricing (costFor(model, promptTokens, completionTokens)), so
+    // there's no sensible hook to record this spend yet. Skipped intentionally.
+    return this.saveGenerated(Buffer.from(b64, 'base64'), 'png')
+  }
+
+  private async saveGenerated(buf: Buffer, ext: 'png' | 'jpg'): Promise<{ path?: string; error?: string }> {
+    const dir = generatedImagesDir()
+    await fs.mkdir(dir, { recursive: true })
+    const filePath = join(dir, `img_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`)
+    try {
+      await fs.writeFile(filePath, buf)
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : String(err) }
+    }
+    return { path: filePath }
   }
 
   // Returns available generative text models from the Gemini API, sorted with
@@ -136,14 +233,19 @@ export class GeminiClient {
     return full
   }
 
-  /** One-shot text completion — no tools, no chat streaming. For the debate moderator. */
-  async complete(prompt: string, history: Message[], signal?: AbortSignal): Promise<string> {
+  /** One-shot text completion — no tools, no chat streaming. For the debate moderator
+   *  and pipeline Gemini steps. `images` (optional) attaches inline vision parts, e.g.
+   *  images resolved from ${id}-carried refs in a pipeline step's input (ticket #17). */
+  async complete(prompt: string, history: Message[], signal?: AbortSignal, images: ImagePart[] = []): Promise<string> {
     const apiKey = await KeychainManager.getKey()
     if (!apiKey) return '[Gemini: no API key set]'
     const contents: GeminiContent[] = history
       .filter((m) => m.content)
       .map((m) => ({ role: m.role === 'assistant' ? 'model' : m.role, parts: [{ text: m.content }] }))
-    contents.push({ role: 'user', parts: [{ text: prompt }] })
+    contents.push({
+      role: 'user',
+      parts: [{ text: prompt }, ...images.map((im) => ({ inlineData: { mimeType: im.mime, data: im.base64 } }))]
+    })
     return (await this.streamOnce(apiKey, contents, { emit: false, signal })).text
   }
 

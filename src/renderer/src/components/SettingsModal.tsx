@@ -164,6 +164,12 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
   }
   const closeToTray = useAppStore((s) => s.closeToTray)
   const setCloseToTray = useAppStore((s) => s.setCloseToTray)
+  const imageProvider = useAppStore((s) => s.imageProvider)
+  const setImageProvider = useAppStore((s) => s.setImageProvider)
+  const onImageProvider = (v: 'pollinations' | 'imagen'): void => {
+    setImageProvider(v)
+    window.api.settings.set({ imageProvider: v })
+  }
   const onCloseToTray = (v: boolean): void => {
     setCloseToTray(v)
     window.api.settings.set({ closeToTray: v })
@@ -172,6 +178,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
     if (!window.confirm('Clear all chat, debate, and run history? This cannot be undone.')) return
     clearHistory()
     await window.api.pipeline.clearRuns()
+    await window.api.gemini.clearGeneratedImages()
     setSavedMsg('History cleared.')
     setTimeout(() => setSavedMsg(''), 2000)
   }
@@ -321,6 +328,26 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
                 <option key={e.value} value={e.value}>{e.label}</option>
               ))}
             </select>
+          )
+        },
+        {
+          label: 'Image generation provider',
+          kw: 'image generation imagen pollinations free provider picture',
+          node: (
+            <div>
+              <select
+                className="w-full rounded border border-border bg-bg px-2 py-1.5 outline-none focus:border-accent"
+                value={imageProvider}
+                onChange={(e) => onImageProvider(e.target.value as 'pollinations' | 'imagen')}
+              >
+                <option value="pollinations">Pollinations — free, no key (testing)</option>
+                <option value="imagen">Google Imagen — paid, uses Gemini key</option>
+              </select>
+              <div className="mt-1 text-[11px] text-gray-500">
+                Backend for the 🖼 button in the Gemini panel. Pollinations is keyless and
+                rate-limited (fine for testing); Imagen bills your Google account per image.
+              </div>
+            </div>
           )
         }
       ]
@@ -790,6 +817,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }): JSX
               <p className="text-[10px] text-gray-500">
                 History (chats, debate, run outputs) and jobs are stored unencrypted on this machine. Files you read or
                 @-mention are sent to the selected provider; multi-provider pipelines spread that content across vendors.
+                Images generated in the Gemini panel are saved under your user data folder and deleted by this action too.
               </p>
             </div>
           )

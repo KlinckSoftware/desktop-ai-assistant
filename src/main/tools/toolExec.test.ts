@@ -1,7 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 const st = vi.hoisted(() => ({
-  appState: { projectRoot: '/root', settings: { allowSecretReads: false }, rootFor: (_id?: string) => '/root' }
+  appState: {
+    projectRoot: '/root',
+    settings: { allowSecretReads: false, imageProvider: 'pollinations' as 'pollinations' | 'imagen' },
+    rootFor: (_id?: string) => '/root'
+  }
 }))
 vi.mock('../state', () => ({ appState: st.appState }))
 const toolBroker = vi.hoisted(() => ({ propose: vi.fn(async () => 'mcp-proposed'), runWithPolicy: vi.fn(async () => 'mcp-auto') }))
@@ -10,7 +14,7 @@ vi.mock('../mcp/MCPClientManager', () => ({ mcpManager: { tools: () => [], call:
 vi.mock('../fs/git', () => ({ gitDiff: vi.fn(async () => 'diff') }))
 vi.mock('../fs/repoMap', () => ({ buildRepoMap: vi.fn(() => 'map') }))
 
-import { execTool, setBrokers } from './toolExec'
+import { execTool, setBrokers, setImageGenerator } from './toolExec'
 
 const fsm = {
   readFile: vi.fn(async (_path: string) => 'hello world'),
@@ -21,10 +25,14 @@ const editBroker = { propose: vi.fn(async () => 'edit-proposed'), runWithPolicy:
 const broker = { propose: vi.fn(async () => 'cmd-proposed'), runWithPolicy: vi.fn(async () => 'cmd-auto') }
 const POLICY = { mode: 'autonomous' as const, allow: ['*'] }
 
+const genImage = vi.fn(async (_p: string) => ({ path: '/data/generated-images/img_1_ab.jpg' }))
+
 beforeEach(() => {
   vi.clearAllMocks()
   st.appState.settings.allowSecretReads = false
+  st.appState.settings.imageProvider = 'pollinations'
   setBrokers(broker as never, editBroker as never, fsm as never)
+  setImageGenerator(genImage)
 })
 afterEach(() => vi.clearAllMocks())
 
@@ -78,5 +86,65 @@ describe('execTool gates', () => {
     await execTool('write_file', { path: 'b.ts', content: 'X' })
     expect(editBroker.propose).toHaveBeenCalled()
     expect(editBroker.runWithPolicy).not.toHaveBeenCalled()
+  })
+})
+
+describe('generate_image tool', () => {
+  const EDIT_POLICY = { mode: 'autonomous' as const, allow: ['read_file', 'apply_edit', 'write_file', 'generate_image'] }
+  const RO_POLICY = { mode: 'autonomous' as const, allow: ['read_file'] }
+
+  it('runs on an edit-permission step and returns the bare filename', async () => {
+    const out = await execTool('generate_image', { prompt: 'a fox' }, 'api', 'run-1', EDIT_POLICY)
+    expect(out).toBe('[generated image: img_1_ab.jpg]')
+    expect(genImage).toHaveBeenCalledWith('a fox')
+  })
+
+  it('is blocked on a read-only step', async () => {
+    const out = await execTool('generate_image', { prompt: 'a fox' }, 'api', 'run-1', RO_POLICY)
+    expect(out).toMatch(/blocked by policy/i)
+    expect(genImage).not.toHaveBeenCalled()
+  })
+
+  it('dry-run reports intent without generating', async () => {
+    const out = await execTool('generate_image', { prompt: 'a fox' }, 'api', 'run-1', { mode: 'dryrun' })
+    expect(out).toMatch(/dry-run/i)
+    expect(genImage).not.toHaveBeenCalled()
+  })
+
+  it('interactive chat generates freely with the free provider', async () => {
+    const out = await execTool('generate_image', { prompt: 'a fox' })
+    expect(out).toBe('[generated image: img_1_ab.jpg]')
+  })
+
+  it('imagen (paid): interactive chat is blocked toward the button', async () => {
+    st.appState.settings.imageProvider = 'imagen'
+    const out = await execTool('generate_image', { prompt: 'a fox' })
+    expect(out).toMatch(/blocked: Imagen/i)
+    expect(genImage).not.toHaveBeenCalled()
+  })
+
+  it('imagen (paid): autonomous edit step is blocked without the full/allow-shell opt-in', async () => {
+    st.appState.settings.imageProvider = 'imagen'
+    const out = await execTool('generate_image', { prompt: 'a fox' }, 'api', 'run-1', EDIT_POLICY)
+    expect(out).toMatch(/blocked: Imagen.*full-permission/i)
+    expect(genImage).not.toHaveBeenCalled()
+  })
+
+  it('imagen (paid): a full step with allow-shell (wildcard) may generate', async () => {
+    st.appState.settings.imageProvider = 'imagen'
+    const out = await execTool('generate_image', { prompt: 'a fox' }, 'api', 'run-1', { mode: 'autonomous', allow: ['*'] })
+    expect(out).toBe('[generated image: img_1_ab.jpg]')
+  })
+
+  it('generation failure surfaces the error text', async () => {
+    genImage.mockResolvedValueOnce({ error: 'rate limited' } as never)
+    const out = await execTool('generate_image', { prompt: 'a fox' })
+    expect(out).toBe('[generate_image failed: rate limited]')
+  })
+
+  it('empty prompt is rejected before any call', async () => {
+    const out = await execTool('generate_image', { prompt: '   ' })
+    expect(out).toMatch(/empty prompt/i)
+    expect(genImage).not.toHaveBeenCalled()
   })
 })

@@ -1,11 +1,11 @@
 import { toolBroker } from '../mcp/ToolBroker'
 import { mcpManager } from '../mcp/MCPClientManager'
 import { appState } from '../state'
-import { resolve } from 'path'
+import { basename, resolve } from 'path'
 import { gitDiff } from '../fs/git'
 import { buildRepoMap } from '../fs/repoMap'
 import { isSecretPath } from '../../shared/protectedPath'
-import type { ApprovalPolicy } from '../policy/ApprovalPolicy'
+import { decide, type ApprovalPolicy } from '../policy/ApprovalPolicy'
 import type { CommandBroker } from '../executor/CommandBroker'
 import type { FileEditBroker } from '../editor/FileEditBroker'
 import type { FileSystemManager } from '../fs/FileSystemManager'
@@ -24,6 +24,22 @@ export function setBrokers(b: CommandBroker, e: FileEditBroker, f: FileSystemMan
   broker = b
   editBroker = e
   fsm = f
+}
+
+/** The shared FileSystemManager singleton (set via setBrokers), for callers
+ *  outside the tool-exec switch that still need root-confined reads — e.g. the
+ *  pipeline runner's vision pass-through (ticket #17). Null before setBrokers. */
+export function getFsm(): FileSystemManager | null {
+  return fsm
+}
+
+// Injected from initServices (avoids a circular import on GeminiClient). Calls
+// GeminiClient.generateImage — which respects the imageProvider setting and
+// only ever writes into the confined generated-images dir.
+type ImageGenerator = (prompt: string) => Promise<{ path?: string; error?: string }>
+let imageGenerator: ImageGenerator | null = null
+export function setImageGenerator(g: ImageGenerator): void {
+  imageGenerator = g
 }
 
 // Gemini/OpenAI both accept an OpenAPI-subset JSON schema; strip keys they reject.
@@ -125,6 +141,16 @@ export function toolSpecs(): ToolSpec[] {
         },
         required: ['path', 'content']
       }
+    },
+    {
+      name: 'generate_image',
+      description:
+        'Generate an image from a text prompt using the configured image provider. Returns the generated filename — mention that filename in your reply (or pass it to a later step) so it renders as a thumbnail / can be described by a vision step.',
+      parameters: {
+        type: 'object',
+        properties: { prompt: str('What the image should depict — subject and style.') },
+        required: ['prompt']
+      }
     }
   ]
   for (const t of mcpManager.tools()) {
@@ -215,6 +241,32 @@ export async function execTool(
         return policy
           ? editBroker.runWithPolicy(path, content, origin, 'write_file', policy, root)
           : editBroker.propose(path, content, origin, root)
+      }
+      case 'generate_image': {
+        if (!imageGenerator) return '[image generator not available]'
+        const prompt = String(args.prompt ?? '').trim()
+        if (!prompt) return '[generate_image: empty prompt]'
+        if (policy) {
+          const d = decide(policy, 'generate_image')
+          if (d.action === 'dryrun') return '[dry-run] would generate an image'
+          if (d.action === 'block') return `[blocked by policy: ${d.reason}]`
+        }
+        // Paid-provider guard: Imagen bills per image, so unattended generation
+        // needs the same explicit opt-in as autonomous shell (a 'full' step with
+        // allow-shell on → allow includes '*'). Interactive chats keep Imagen
+        // behind the human 🖼 button. Pollinations is free — no restriction.
+        if (appState.settings.imageProvider === 'imagen') {
+          if (!policy) {
+            return '[blocked: Imagen (paid) generation is only available via the 🖼 button — switch Settings → Models → Image provider to Pollinations (free) to let agents generate]'
+          }
+          if (!(policy.allow ?? []).includes('*')) {
+            return '[blocked: Imagen (paid) autonomous generation requires a full-permission step with allow-shell opted in]'
+          }
+        }
+        const r = await imageGenerator(prompt)
+        // Return the bare filename: the pipeline vision pass-through and the
+        // StepOutput thumbnail renderer both key off image-ext tokens in text.
+        return r.path ? `[generated image: ${basename(r.path)}]` : `[generate_image failed: ${r.error ?? 'unknown error'}]`
       }
       default:
         return policy ? toolBroker.runWithPolicy(name, args, policy) : toolBroker.propose(name, args)

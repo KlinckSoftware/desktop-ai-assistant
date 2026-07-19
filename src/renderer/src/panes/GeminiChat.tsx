@@ -4,6 +4,7 @@ import { expandMentions } from '../utils/mentions'
 import { buildContextBlock } from '../utils/context'
 import MentionInput from '../components/MentionInput'
 import HandoffChip from '../components/HandoffChip'
+import GeneratedImage from '../components/GeneratedImage'
 
 const DONE = '[[gemini:done]]'
 
@@ -12,6 +13,10 @@ export default function GeminiChat(): JSX.Element {
   const addMessage = useAppStore((s) => s.addGeminiMessage)
   const append = useAppStore((s) => s.appendToLastGemini)
   const hasKey = useAppStore((s) => s.hasGeminiKey)
+  const imageProvider = useAppStore((s) => s.imageProvider)
+  // Pollinations is keyless, so image generation (and typing a prompt for it)
+  // must work without a Gemini key; chat send still requires the key.
+  const canImage = hasKey || imageProvider === 'pollinations'
   const poolSize = useAppStore((s) => s.contextFiles.size)
   const repoMap = useAppStore((s) => s.repoMapInContext)
   const geminiModel = useAppStore((s) => s.geminiModel)
@@ -20,6 +25,10 @@ export default function GeminiChat(): JSX.Element {
   const clearAttachments = useAppStore((s) => s.clearAttachments)
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
+  const [imageBusy, setImageBusy] = useState(false)
+  // Composer mode: the 🖼 toggle flips the single Send action between chat and
+  // image generation — one primary action either way, no second submit button.
+  const [imageMode, setImageMode] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -64,6 +73,12 @@ export default function GeminiChat(): JSX.Element {
     scrollRef.current?.scrollTo(0, scrollRef.current.scrollHeight)
   }, [messages])
 
+  // If image generation becomes unavailable (e.g. provider switched to Imagen
+  // with no key), drop out of image mode so Send falls back to chat.
+  useEffect(() => {
+    if (!canImage && imageMode) setImageMode(false)
+  }, [canImage, imageMode])
+
   const sendMsg = async (): Promise<void> => {
     const text = input.trim()
     const atts = useAppStore.getState().attachments
@@ -106,34 +121,96 @@ export default function GeminiChat(): JSX.Element {
     await window.api.gemini.send(augmented, history, images)
   }
 
+  // Shared by the composer (echoes the prompt as a user message) and the
+  // per-image regenerate action (which reuses the stored prompt without
+  // re-echoing it).
+  const runImageGen = async (text: string, echoUser: boolean): Promise<void> => {
+    if (!text || imageBusy || busy) return
+    if (echoUser) addMessage({ role: 'user', content: text })
+    setImageBusy(true)
+    useAppStore.getState().updateFleet('gemini', { status: 'busy' })
+    try {
+      const result = await window.api.gemini.generateImage(text)
+      if (result.file) {
+        addMessage({ role: 'model', content: '', kind: 'image', file: result.file, prompt: text })
+      } else {
+        addMessage({ role: 'model', content: `[image error: ${result.error ?? 'unknown error'}]` })
+      }
+    } finally {
+      setImageBusy(false)
+      useAppStore.getState().updateFleet('gemini', { status: 'idle' })
+    }
+  }
+
+  const generateImg = (): void => {
+    const text = input.trim()
+    if (!text) return
+    setInput('')
+    void runImageGen(text, true)
+  }
+
   return (
     <div className="flex h-full flex-col bg-bg">
       <div className="border-b border-border px-3 py-1.5 text-xs font-semibold text-gemini">
         ✦ Gemini {!hasKey && <span className="text-red-400">(no API key)</span>}
       </div>
       <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-3 text-sm">
-        {messages.map((m, i) => (
-          <div key={i} className={m.role === 'user' ? 'text-right' : ''}>
-            <div
-              className={`inline-block max-w-[90%] whitespace-pre-wrap rounded-lg px-3 py-2 text-left ${
-                m.role === 'user' ? 'bg-gemini/20' : 'bg-panel'
-              }`}
-            >
-              {m.content || (busy && i === messages.length - 1 ? '…' : '')}
-            </div>
-            {m.role === 'model' && m.content && !busy && (
-              <div className="mt-0.5">
-                <button
-                  className="text-[10px] text-gray-500 hover:text-accent"
-                  onClick={() => useAppStore.getState().setHandoff(m.content, 'Gemini')}
-                  title="Park this reply for another agent to pick up"
-                >
-                  → handoff
-                </button>
+        {messages.map((m, i) =>
+          m.kind === 'image' && m.file ? (
+            <div key={i} className={m.role === 'user' ? 'text-right' : ''}>
+              <div className="inline-block max-w-[90%] rounded-lg bg-panel p-2 text-left">
+                <GeneratedImage
+                  file={m.file}
+                  onLoad={() => scrollRef.current?.scrollTo(0, scrollRef.current.scrollHeight)}
+                />
+                {m.prompt && (
+                  <div className="mt-1 max-w-[280px] truncate text-[10px] text-gray-500" title={m.prompt}>
+                    {m.prompt}
+                  </div>
+                )}
               </div>
-            )}
+              {m.prompt && !busy && !imageBusy && (
+                <div className="mt-0.5">
+                  <button
+                    className="text-[10px] text-gray-500 hover:text-accent"
+                    onClick={() => void runImageGen(m.prompt as string, false)}
+                    title="Generate another image from the same prompt"
+                  >
+                    ↻ regenerate
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div key={i} className={m.role === 'user' ? 'text-right' : ''}>
+              <div
+                className={`inline-block max-w-[90%] whitespace-pre-wrap rounded-lg px-3 py-2 text-left ${
+                  m.role === 'user' ? 'bg-gemini/20' : 'bg-panel'
+                }`}
+              >
+                {m.content || (busy && i === messages.length - 1 ? '…' : '')}
+              </div>
+              {m.role === 'model' && m.content && !busy && (
+                <div className="mt-0.5">
+                  <button
+                    className="text-[10px] text-gray-500 hover:text-accent"
+                    onClick={() => useAppStore.getState().setHandoff(m.content, 'Gemini')}
+                    title="Park this reply for another agent to pick up"
+                  >
+                    → handoff
+                  </button>
+                </div>
+              )}
+            </div>
+          )
+        )}
+        {imageBusy && (
+          <div>
+            <div className="inline-block animate-pulse rounded-lg bg-panel px-3 py-2 text-gray-400">
+              🖼 Generating image…
+            </div>
           </div>
-        ))}
+        )}
       </div>
       {(poolSize > 0 || repoMap) && (
         <div className="flex items-center justify-between border-t border-border bg-gemini/10 px-3 py-1 text-[11px] text-gemini">
@@ -175,16 +252,42 @@ export default function GeminiChat(): JSX.Element {
         <MentionInput
           value={input}
           onChange={setInput}
-          onSubmit={sendMsg}
-          disabled={!hasKey}
-          placeholder={hasKey ? 'Ask Gemini…  (@path to attach a file)' : 'Set an API key first'}
+          onSubmit={imageMode ? generateImg : sendMsg}
+          disabled={!hasKey && !canImage}
+          placeholder={
+            imageMode
+              ? 'Describe an image…'
+              : hasKey
+              ? 'Ask Gemini…  (@path to attach a file)'
+              : canImage
+              ? 'Chat needs an API key — click 🖼 for image mode'
+              : 'Set an API key first'
+          }
         />
         <button
-          className="rounded bg-gemini px-3 text-sm font-medium text-white disabled:opacity-40"
-          disabled={!hasKey || busy}
-          onClick={sendMsg}
+          className={`rounded border px-2 text-sm disabled:opacity-40 ${
+            imageMode
+              ? 'border-gemini bg-gemini/20 text-gemini'
+              : 'border-border text-gray-400 hover:border-gemini/50 hover:text-gemini'
+          }`}
+          disabled={!canImage}
+          onClick={() => setImageMode((v) => !v)}
+          title={
+            imageMode
+              ? 'Image mode on — Send generates an image. Click to switch back to chat.'
+              : `Switch to image mode (${imageProvider === 'imagen' ? 'Imagen — paid' : 'Pollinations — free'})`
+          }
         >
-          Send
+          🖼
+        </button>
+        <button
+          className={`rounded px-3 text-sm font-medium disabled:opacity-40 ${
+            imageMode ? 'border border-gemini text-gemini' : 'bg-gemini text-white'
+          }`}
+          disabled={imageMode ? !canImage || busy || imageBusy || !input.trim() : !hasKey || busy || imageBusy}
+          onClick={imageMode ? generateImg : sendMsg}
+        >
+          {imageMode ? 'Generate' : 'Send'}
         </button>
       </div>
     </div>

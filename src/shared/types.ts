@@ -41,6 +41,15 @@ export interface ApiProvider {
 export interface Message {
   role: 'user' | 'model' | 'assistant'
   content: string
+  // Optional: a UI-only image message (Imagen output). `file` is a bare filename
+  // under the generated-images dir, served via the app-image:// protocol. Image
+  // messages carry no `content` and are filtered out of what's sent back to
+  // providers (see GeminiClient.send's history mapping) — display-only.
+  // `prompt` is the text the image was generated from: shown as the bubble
+  // caption and reused by the regenerate action; never sent to providers.
+  kind?: 'image'
+  file?: string
+  prompt?: string
 }
 
 // Provider-reported token usage for one request (summed across agentic turns).
@@ -293,6 +302,8 @@ export const CH = {
   geminiHasKey: 'gemini:has-key',
   geminiSaveKey: 'gemini:save-key',
   geminiListModels: 'gemini:list-models',
+  geminiGenerateImage: 'gemini:generate-image',
+  geminiClearGeneratedImages: 'gemini:clear-generated-images',
 
   claudeListModels: 'claude:list-models',
 

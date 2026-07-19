@@ -56,7 +56,7 @@ export function decide(policy: ApprovalPolicy, kind: string, command?: string): 
 export type PermissionMode = 'read-only' | 'edit' | 'full'
 
 const READ_ONLY = ['read_file', 'list_dir', 'repo_map', 'search_code', 'git_diff']
-const EDIT = [...READ_ONLY, 'apply_edit', 'write_file']
+const EDIT = [...READ_ONLY, 'apply_edit', 'write_file', 'generate_image']
 const ALLOW: Record<PermissionMode, string[]> = {
   'read-only': READ_ONLY,
   edit: EDIT,

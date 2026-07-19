@@ -25,6 +25,12 @@ process orchestrator: no web scraping, no browser automation. There's an in-app
   OpenAI-compatible endpoint, Groq, Mistral, OpenRouter, Ollama). Streaming chat
   with built-in tools + MCP, per-panel model picker, keys in the OS keychain.
   Extendable via `api_providers.json`.
+- **Image generation** — a 🖼 button in the Gemini panel, plus a gated
+  `generate_image` tool for agents/pipelines, via a switchable backend
+  (Settings → Models): Pollinations (free, keyless — default) or Google Imagen
+  (paid, uses the Gemini key). The tool needs an edit/full step; **Imagen**
+  additionally requires a full step with the allow-shell opt-in (paid spend
+  never happens unattended without it) and stays button-only in chats.
 - **MCP** — Model Context Protocol servers (stdio) are connected on startup and
   their tools exposed to the agentic loops.
 
@@ -61,7 +67,9 @@ process orchestrator: no web scraping, no browser automation. There's an in-app
   steps), an **only-if-contains** condition, and **map** (run per input line).
   Run in topological order; `${id}`/`${input}` interpolation; **templates**
   (plan→implement→review); **dry-run**; live **cancel**; persisted **run history**.
-  A `full` step runs shell only with an explicit **allow-shell** opt-in.
+  A `full` step runs shell only with an explicit **allow-shell** opt-in. Image paths
+  in step output flow to later steps; a **Gemini** step sees the actual image, and
+  generated images render as thumbnails in **Runs**.
 - **Runs & scheduler** — the **Runs** panel shows every run (manual, background, or
   scheduled) live; runs survive closing their panel and are serialized. **Settings
   → Schedules** runs a saved pipeline on a trigger — every N minutes, daily, or on

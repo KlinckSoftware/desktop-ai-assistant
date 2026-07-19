@@ -43,7 +43,8 @@ function saveSlice(): PersistedState {
     editorWrap: s.editorWrap,
     costCap: s.costCap,
     accentColor: s.accentColor,
-    closeToTray: s.closeToTray
+    closeToTray: s.closeToTray,
+    imageProvider: s.imageProvider
   }
 }
 
@@ -71,6 +72,7 @@ describe('appStore hydrate', () => {
       costCap: 2.5,
       accentColor: '#ff0000',
       closeToTray: true,
+      imageProvider: 'imagen' as const,
       apiModels: { panel1: 'gpt-4o' },
       apiChats: { panel1: [{ role: 'user', content: 'hi' }] }
     })
@@ -90,6 +92,7 @@ describe('appStore hydrate', () => {
     expect(s.costCap).toBe(2.5)
     expect(s.accentColor).toBe('#ff0000')
     expect(s.closeToTray).toBe(true)
+    expect(s.imageProvider).toBe('imagen')
     expect(s.apiModels).toEqual({ panel1: 'gpt-4o' })
     expect(s.apiChats.panel1).toHaveLength(1)
   })
